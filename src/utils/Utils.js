@@ -12,6 +12,7 @@ import { presimplify, simplify } from "topojson-simplify";
 import { cnSeisIntLoc, cnSeisIntLocBush } from "./CnSeisIntLoc";
 import { around } from "geokdbush";
 import { jmaSeisIntLoc } from "./JmaSeisIntLoc";
+import { krSeisIntLoc, krSeisIntLocBush } from "./KrSeisIntLoc";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
@@ -359,6 +360,22 @@ export const pointDistToCnArea = (pointLngLat, feature) => {
     return minDist;
   }
 };
+export const pointDistToKrArea = (pointLngLat, feature) => {
+  const turfPoint = point(pointLngLat);
+  if (booleanPointInPolygon(turfPoint, feature)) {
+    return 0;
+  } else {
+    const name = feature.properties.name;
+    const kdbush = krSeisIntLocBush[name];
+    const nearestPoint = around(kdbush, pointLngLat[0], pointLngLat[1], 1).map(
+      index => krSeisIntLoc[name][index]
+    )[0];
+    const minDist = distance(turfPoint, point(nearestPoint), {
+      units: "kilometers",
+    });
+    return minDist;
+  }
+};
 const r = 6371;
 const calcLineDis = (dep, dis) => {
   const theta = dis / r;
@@ -379,7 +396,7 @@ export const calcCsis = (m, dep = 10, dis = 0) => {
   dep = isNaN(dep) || dep === null || dep < 10 ? 10 : dep;
   const lineDis = calcLineDis(dep, dis);
   const long = 10 ** ((m - 3.821) / 1.86);
-   const hypoDis = Math.max(
+  const hypoDis = Math.max(
     lineDis - 10 - long,
     dis - long,
     0.2 * (lineDis - 10),

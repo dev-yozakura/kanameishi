@@ -354,7 +354,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { useTimeStore } from '@/stores/time';
 import EqlistComponent from './EqlistComponent.vue';
 import SettingsComponent from './SettingsComponent.vue';
-import { verifyUpToDate, setClassName, getClassLevel, classNameArray, pointDistToCnArea, csisArray, shindoArray, calcCsisLevel, calcJmaShindoLevel, formatTimeZone, simplifyTopoJson, formatCsis, csisRomanArray, formatShindo, stampToTime, getShindoFromInstShindo, getLevelFromInstShindo, playSound, sendMyNotification, focusWindow } from '@/utils/Utils';
+import { verifyUpToDate, setClassName, getClassLevel, classNameArray, pointDistToCnArea, pointDistToKrArea, csisArray, shindoArray, calcCsisLevel, calcJmaShindoLevel, formatTimeZone, simplifyTopoJson, formatCsis, csisRomanArray, formatShindo, getLevelFromInstShindo, getShindoFromInstShindo, stampToTime, playSound, sendMyNotification, focusWindow } from '@/utils/Utils';
 import { topojsonUrls, iconUrls } from '@/utils/Urls';
 import { jmaSeisIntLoc } from '@/utils/JmaSeisIntLoc';
 import { isTauri } from '@tauri-apps/api/core';
@@ -372,7 +372,7 @@ classNameArray.forEach(color => tsunamiColors[color] = style.getPropertyValue(`-
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
-let map, jpEewBaseMap, cnEewBaseMap, jpTsunamiBaseMap, cnTsunamiBaseMap, labelLayer1, labelLayer2, terminatorLayer, terminatorFillLayer, cnFaultBaseMap
+let map, jpEewBaseMap, krEewBaseMap, cnEewBaseMap, jpTsunamiBaseMap, cnTsunamiBaseMap, labelLayer1, labelLayer2, terminatorLayer, terminatorFillLayer, cnFaultBaseMap
 let eewMarkerPane, eqlistMarkerPane, historyMarkerPane, wavePane, waveFillPane, niedGridPane, tremGridPane, kmaGridPane, msilNetPane, msilNetLayer, tremRtsLayer, eewBasePane, tsunamiBasePane, labelPane1, labelPane2
 let msilWorker
 let userMarker
@@ -1477,7 +1477,7 @@ onMounted(() => {
         waveFillPane.style.opacity = 0.3
         niedGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
         tremGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
-        kmaGridPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
+        kmaGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0)
         msilNetPane.style.opacity = 0.3
     }
     else{
@@ -1486,7 +1486,7 @@ onMounted(() => {
         waveFillPane.style.opacity = 1
         niedGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
         tremGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
-        kmaGridPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
+        kmaGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0)
         msilNetPane.style.opacity = 1
     }
     tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
@@ -1664,14 +1664,22 @@ const loadMaps = async (retries = 0) => {
         promises = Object.keys(topojsonUrls).map(key=>fetch(topojsonUrls[key]).then(res=>res?.json()))
     }
     const resps = await Promise.all(promises)
-    const [global, cn, cn_eew, cn_fault, jp, jp_eew, jp_tsunami, cn_tsunami] = resps
-    if(global && cn && cn_eew && cn_fault && jp && jp_eew && jp_tsunami){
+    const [global, cn, cn_eew, cn_fault, jp, jp_eew, jp_tsunami, kr_eew, cn_tsunami] = resps
+    if(global && cn && cn_eew && cn_fault && jp && jp_eew && kr_eew && jp_tsunami){
         clearTimeout(msgTimer)
         loadBaseMap(global, 'basePane')
         loadBaseMap(jp, 'basePane')
         loadBaseMap(cn, 'basePane')
         jpEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
         ? null : loadBaseMap(jp_eew, 'eewBasePane', false, {
+            color: '#bbbbbb00',
+            opacity: 1,
+            fillColor: '#39393900',
+            fillOpacity: 1,
+            weight: 1,
+        })
+        krEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
+        ? null : loadBaseMap(kr_eew, 'eewBasePane', false, {
             color: '#bbbbbb00',
             opacity: 1,
             fillColor: '#39393900',
@@ -1697,9 +1705,9 @@ const loadMaps = async (retries = 0) => {
             }
         }, { immediate: true })
         if(settingsStore.advancedSettings.forceCalcInt){
-            watch(cnEewInfoList, newVal=>{
+            watch(eewInfoList, newVal=>{
                 const newCsisList = {}
-                const areaClass = {}
+                const cnAreaClass = {}, krAreaClass = {}
                 cnEewBaseMap?.eachLayer(layer=>{
                     let maxInt = 0
                     newVal.forEach(info=>{
@@ -1710,13 +1718,35 @@ const loadMaps = async (retries = 0) => {
                     if(maxInt > 0){
                         const className = setClassName(maxInt, false)
                         const layerName = layer.feature.properties.name
-                        areaClass[layerName] = className
+                         cnAreaClass[layerName] = className
+                        if(!(maxInt in newCsisList)) newCsisList[maxInt] = []
+                        newCsisList[maxInt].push(layerName)
+                    }
+                })
+                krEewBaseMap?.eachLayer(layer=>{
+                    let maxInt = 0
+                    newVal.forEach(info=>{
+                        const dist = pointDistToKrArea([info.lng, info.lat], layer.feature)
+                        const int = Number(calcCsisLevel(info.magnitude, info.depth, dist))
+                        if(int > maxInt) maxInt = int
+                    })
+                    if(maxInt > 0){
+                        const className = setClassName(maxInt, false)
+                        const layerName = layer.feature.properties.name
+                        krAreaClass[layerName] = className
                         if(!(maxInt in newCsisList)) newCsisList[maxInt] = []
                         newCsisList[maxInt].push(layerName)
                     }
                 })
                 cnEwBaseMap?.setStyle(feature => {
-                    const className = areaClass[feature.properties.name]
+                    const className = cnAreaClass[feature.properties.name]
+                    return ({
+                        color: className ? '#bbbbbb' : '#bbbbbb00',
+                        fillColor: classNameColors[className] || '#39393900'
+                    })
+                })
+                krEewBaseMap?.setStyle(feature => {
+                    const className = krAreaClass[feature.properties.name]
                     return ({
                         color: className ? '#bbbbbb' : '#bbbbbb00',
                         fillColor: classNameColors[className] || '#39393900'
@@ -1802,7 +1832,7 @@ const intervalEvents = ()=>{
     eewMarkerPane.style.opacity = (blinkStatus.value ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
     niedGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
     tremGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
-    kmaGridPane.style.opacity = (blinkStatus.value ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
+    kmaGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
     msilNetPane.style.opacity = (menuId.value == 'eqlists' ? 0.3 : 1)
     tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
     isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
@@ -1885,6 +1915,16 @@ const setView = () => {
                 }
             }
         })
+        krEewBaseMap?.eachLayer(layer => {
+                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                        if(layer.getBounds){
+                            bounds.extend(layer.getBounds())
+                        }
+                        else if(layer.getLatLng){
+                            bounds.extend(layer.getLatLng())
+                        }
+                    }
+                })
         cnEewBaseMap?.eachLayer(layer => {
             if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
                 if(layer.getBounds){
@@ -1918,7 +1958,9 @@ const setView = () => {
             }
             break
           case 'kmaGridPane':
-            shouldExtend = true
+            if(!statusStore.isActive.kmaEew) {
+                                shouldExtend = true
+                            }
             break
         }
         if(shouldExtend) {
@@ -1960,6 +2002,16 @@ const setView = () => {
                 }
             }
         })
+        krEewBaseMap?.eachLayer(layer => {
+                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                        if(layer.getBounds){
+                            bounds.extend(layer.getBounds())
+                        }
+                        else if(layer.getLatLng){
+                            bounds.extend(layer.getLatLng())
+                        }
+                    }
+                })
         cnEewBaseMap?.eachLayer(layer => {
             if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
                 if(layer.getBounds){
@@ -2009,6 +2061,16 @@ const setView = () => {
                     }
                 }
             })
+            krEewBaseMap?.eachLayer(layer => {
+                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                        if(layer.getBounds){
+                            bounds.extend(layer.getBounds())
+                        }
+                        else if(layer.getLatLng){
+                            bounds.extend(layer.getLatLng())
+                        }
+                    }
+                })
             cnEewBaseMap?.eachLayer(layer => {
                 if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
                     if(layer.getBounds){
@@ -2242,7 +2304,7 @@ const jpEewInfoList = computed(()=>{
     })
     return jpEewInfoList
 })
-const cnEewInfoList = computed(() => {
+const eewInfoList = computed(()=>{
     const sourceList = menuId.value === 'eqlists'
         ? (historyList.length > 0
             ? historyList

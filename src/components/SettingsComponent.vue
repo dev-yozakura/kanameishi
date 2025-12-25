@@ -175,6 +175,7 @@
                                     <el-option :label="$t('settings.seisNet.off')" :value=0 />
                                     <el-option :label="$t('settings.seisNet.low')" :value=1 />
                                     <el-option :label="$t('settings.seisNet.medium')" :value=2 />
+                                    <el-option :label="$t('settings.seisNet.high')" :value=3 />
                                 </el-select>
                             </div>
                             <div class="switch-full pl-4">
