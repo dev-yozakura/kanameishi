@@ -13,7 +13,6 @@ export const useSettingsStore = defineStore('settingsStore', {
                 iclEew: false,
                 scEew: true,
                 fjEew: true,
-                kmaEew: false,
                 gqEew: false,
                 jmaEqlist: false,
                 cwaEqlist: false,
@@ -39,6 +38,9 @@ export const useSettingsStore = defineStore('settingsStore', {
                 kmaSensitivity: 2,
                 kmaIntHold: 1,
                 displayKmaInt: false,
+                msilNet: false,
+                msilInterval: 10,
+                msilStations: true
             },
             actionMag: 0.0,
             actionLocalCsis: 0,
@@ -111,7 +113,8 @@ export const useSettingsStore = defineStore('settingsStore', {
             minimizeOnLaunch: false,
             autoCheckNewVersion: false,
             checkPrerelease: false,
-            autoRefresh: false
+            autoRefresh: false,
+            language: 'zh'
         },
         advancedSettings: {
             enableIclEew: false,

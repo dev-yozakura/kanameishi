@@ -10,7 +10,7 @@
             <div class="text" :class="fontClass">{{ formatText(eqMessage.originTimeText) }}</div>
             <div class="text" :class="fontClass">{{ formatText(eqMessage.magnitudeText) }}</div>
             <div class="text" :class="fontClass">{{ formatText(eqMessage.maxIntensityText) }}</div>
-            <div class="text" :class="fontClass">经过时间: {{ formatText(msToTime(passedTimeFromOrigin)) }}</div>
+            <div class="text" :class="fontClass">{{ $t('eqGrid.elapsed_time') }} {{ formatText(msToTime(passedTimeFromOrigin)) }}</div>
         </div>
     </div>
 </template>

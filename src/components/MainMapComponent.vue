@@ -16,13 +16,13 @@
                             }">
                                 <div class="background" :class="event.eqMessage.className"></div>
                                 <div v-if="event.eqMessage.useShindo" class="intensity" :class="event.eqMessage.className">
-                                    <div class="intensity-title">最大震度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
                                     <div :class="formatShindo(event.eqMessage.maxIntensity) != '?'?'shindo':'csis'">
                                         {{ formatShindo(event.eqMessage.maxIntensity) }}
                                     </div>
                                 </div>
                                 <div v-else class="intensity" :class="event.eqMessage.className">
-                                    <div class="intensity-title">最大烈度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_csis') }}</div>
                                     <div class="csis" :class="{
                                         'roman': settingsStore.mainSettings.useRomanCsis,
                                         'scale-75': event.eqMessage.maxIntensity == '8',
@@ -35,14 +35,14 @@
                                     <div class="location">{{ event.eqMessage.hypocenter }}</div>
                                     <div class="time">{{ event.eqMessage.originTime + ` (${formatTimeZone(event.eqMessage.timeZone)})` }}</div>
                                     <div class="bottom">
-                                        <div class="magnitude">{{ event.eqMessage.isAssumption?'仮定震源要素':'M' + event.eqMessage.magnitude.toFixed(1) }}</div>
+                                        <div class="magnitude">{{ event.eqMessage.isAssumption? $t('mainMap.eew.assumed_hypocenter') : $t('mainMap.eew.magnitude') + event.eqMessage.magnitude.toFixed(1) }}</div>
                                         <div class="depth">{{ event.eqMessage.isAssumption?'':event.eqMessage.depthText }}</div>
                                         <div class="type" v-if="settingsStore.advancedSettings.displayApiType">{{ sourceTypes[event.eqMessage.source][event.eqMessage.type] }}</div>
                                     </div>
                                 </div>
                                 <div class="eew-buttons" v-if="event.showMenu">
-                                    <el-button class="eew-button" type="primary" plain @click="event.mute = !event.mute">{{ event.mute ? '取消静默' : '静默' }}</el-button>
-                                    <el-button class="eew-button" type="danger" plain @click.stop="event.terminate(true)">关闭预警</el-button>
+                                    <el-button class="eew-button" type="primary" plain @click="event.mute = !event.mute">{{ event.mute ? $t('mainMap.eew.unmute') : $t('mainMap.eew.mute') }}</el-button>
+                                    <el-button class="eew-button" type="danger" plain @click.stop="event.terminate(true)">{{ $t('mainMap.eew.close_alert') }}</el-button>
                                 </div>
                             </div>
                         </div>
@@ -57,7 +57,7 @@
                             </div>
                             <div class="info" v-if="event.nearestJmaLoc">
                                 <div class="intensity" :class="setClassName(event.userShindo, true, event.eqMessage.isCanceled)">
-                                    <div class="intensity-title">本地震度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.local_intensity') }}</div>
                                     <div :class="event.userShindo != '?'?'shindo':'csis'">
                                         {{ event.userShindo }}
                                     </div>
@@ -65,7 +65,7 @@
                             </div>
                             <div class="info" v-else>
                                 <div class="intensity" :class="setClassName(event.userCsis, false, event.eqMessage.isCanceled)">
-                                    <div class="intensity-title">本地烈度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.local_csis') }}</div>
                                     <div class="csis" :class="{
                                         'roman': settingsStore.mainSettings.useRomanCsis,
                                         'scale-75': event.userCsis == '8',
@@ -89,13 +89,13 @@
                             }">
                                 <div class="background" :class="event.eqMessage.className"></div>
                                 <div v-if="event.eqMessage.useShindo" class="intensity" :class="event.eqMessage.className">
-                                    <div class="intensity-title">最大震度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
                                     <div :class="formatShindo(event.eqMessage.maxIntensity) != '?'?'shindo':'csis'">
                                         {{ formatShindo(event.eqMessage.maxIntensity) }}
                                     </div>
                                 </div>
                                 <div v-else class="intensity" :class="event.eqMessage.className">
-                                    <div class="intensity-title">最大烈度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_csis') }}</div>
                                     <div class="csis" :class="{
                                         'roman': settingsStore.mainSettings.useRomanCsis,
                                         'scale-75': event.eqMessage.maxIntensity == '8',
@@ -105,10 +105,10 @@
                                     </div>
                                 </div>
                                 <div class="right">
-                                    <div class="location">{{ event.eqMessage.hypocenter || '震源 調査中' }}</div>
+                                    <div class="location">{{ event.eqMessage.hypocenter || $t('mainMap.eqlist.location_ongoing') }}</div>
                                     <div class="time">{{ event.eqMessage.originTime + ` (${formatTimeZone(event.eqMessage.timeZone)})` }}</div>
                                     <div class="bottom">
-                                        <div class="magnitude">{{ event.eqMessage.magnitude != -1 ? 'M' + event.eqMessage.magnitude.toFixed(1) : '規模 調査中' }}</div>
+                                        <div class="magnitude">{{ event.eqMessage.magnitude != -1 ? $t('mainMap.eqlist.magnitude') + event.eqMessage.magnitude.toFixed(1) : $t('mainMap.eqlist.magnitude_ongoing') }}</div>
                                         <div class="depth">{{ event.eqMessage.depth != -1 ? event.eqMessage.depthText : '' }}</div>
                                         <div class="type" v-if="settingsStore.advancedSettings.displayApiType">{{ sourceTypes[event.eqMessage.source][event.eqMessage.type] }}</div>
                                     </div>
@@ -125,7 +125,7 @@
                                         }
                                         event.deactivate()
                                     }"
-                                    >关闭信息</el-button>
+                                    >{{ $t('mainMap.eqlist.close_info') }}</el-button>
                                 </div>
                             </div>
                         </div>
@@ -138,11 +138,11 @@
                             <div class="tsunami-info">
                                 <div class="background" :class="statusStore.tsunamiMessage.nmefcTsunami.className"></div>
                                 <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 3" class="legend tsunami-purple"></div>
-                                <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 3" class="text">大海啸警报</div>
+                                <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 3" class="text">{{ $t('mainMap.tsunami.major_warning') }}</div>
                                 <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 2" class="legend tsunami-red"></div>
-                                <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 2" class="text">海啸警报</div>
+                                <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 2" class="text">{{ $t('mainMap.tsunami.warning') }}</div>
                                 <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 1" class="legend tsunami-yellow"></div>
-                                <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 1" class="text">海啸注意报</div>
+                                <div v-show="statusStore.tsunamiMessage.nmefcTsunami.status >= 1" class="text">{{ $t('mainMap.tsunami.advisory') }}</div>
                             </div>
                         </div>
                     </div>
@@ -154,20 +154,20 @@
                             <div class="tsunami-info">
                                 <div class="background" :class="statusStore.tsunamiMessage.jmaTsunami.className"></div>
                                 <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 3" class="legend tsunami-purple"></div>
-                                <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 3" class="text">大津波警報</div>
+                                <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 3" class="text">{{ $t('mainMap.tsunami.jma_major_warning') }}</div>
                                 <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 2" class="legend tsunami-red"></div>
-                                <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 2" class="text">津波警報</div>
+                                <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 2" class="text">{{ $t('mainMap.tsunami.jma_warning') }}</div>
                                 <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 1" class="legend tsunami-yellow"></div>
-                                <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 1" class="text">津波注意報</div>
+                                <div v-show="statusStore.tsunamiMessage.jmaTsunami.status >= 1" class="text">{{ $t('mainMap.tsunami.jma_advisory') }}</div>
                             </div>
                         </div>
                     </div>
                     <div class="event">
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.niedNet && settingsStore.mainSettings.displaySeisNet.displayNiedShindo">
-                            <div class="shindo-bar gray">NIED实时</div>
+                            <div class="shindo-bar gray">{{ $t('mainMap.realtime.nied_realtime') }}</div>
                             <div class="info">
                                 <div class="intensity" :class="setClassName(niedMaxShindo, true)">
-                                    <div class="intensity-title">最大震度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
                                     <div :class="niedMaxShindo != '?'?'shindo':'csis'">
                                         {{ niedMaxShindo }}
                                     </div>
@@ -175,10 +175,10 @@
                             </div>
                         </div>
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.niedNet && settingsStore.mainSettings.displaySeisNet.displayNiedShindo && niedPeriodMaxShindo != '?'">
-                            <div class="shindo-bar" :class="niedPeriodBarClass">NIED区间</div>
+                            <div class="shindo-bar" :class="niedPeriodBarClass">{{ $t('mainMap.realtime.nied_period') }}</div>
                             <div class="info">
                                 <div class="intensity" :class="setClassName(niedPeriodMaxShindo, true)">
-                                    <div class="intensity-title">最大震度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
                                     <div :class="niedPeriodMaxShindo != '?'?'shindo':'csis'">
                                         {{ niedPeriodMaxShindo }}
                                     </div>
@@ -186,10 +186,10 @@
                             </div>
                         </div>
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.tremNet && settingsStore.mainSettings.displaySeisNet.displayTremShindo">
-                            <div class="shindo-bar gray">TREM实时</div>
+                            <div class="shindo-bar gray">{{ $t('mainMap.realtime.trem_realtime') }}</div>
                             <div class="info">
                                 <div class="intensity" :class="setClassName(tremMaxShindo, true)">
-                                    <div class="intensity-title">最大震度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
                                     <div :class="tremMaxShindo != '?'?'shindo':'csis'">
                                         {{ tremMaxShindo }}
                                     </div>
@@ -197,10 +197,10 @@
                             </div>
                         </div>
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.tremNet && settingsStore.mainSettings.displaySeisNet.displayTremShindo && tremPeriodMaxShindo != '?'">
-                            <div class="shindo-bar" :class="tremPeriodBarClass">TREM区间</div>
+                            <div class="shindo-bar" :class="tremPeriodBarClass">{{ $t('mainMap.realtime.trem_period') }}</div>
                             <div class="info">
                                 <div class="intensity" :class="setClassName(tremPeriodMaxShindo, true)">
-                                    <div class="intensity-title">最大震度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
                                     <div :class="tremPeriodMaxShindo != '?'?'shindo':'csis'">
                                         {{ tremPeriodMaxShindo }}
                                     </div>
@@ -208,10 +208,10 @@
                             </div>
                         </div>
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.kmaNet && settingsStore.mainSettings.displaySeisNet.displayKmaInt">
-                            <div class="shindo-bar gray">KMA实时</div>
+                            <div class="shindo-bar gray">{{ $t('mainMap.realtime.kma_realtime') }}</div>
                             <div class="info">
                                 <div class="intensity" :class="setClassName(kmaMaxInt, false)">
-                                    <div class="intensity-title">最大烈度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_csis') }}</div>
                                     <div class="csis" :class="{
                                         'roman': settingsStore.mainSettings.useRomanCsis,
                                         'scale-75': kmaMaxInt == '8',
@@ -223,10 +223,10 @@
                             </div>
                         </div>
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.kmaNet && settingsStore.mainSettings.displaySeisNet.displayKmaInt && kmaPeriodMaxInt != '?'">
-                            <div class="shindo-bar" :class="kmaPeriodBarClass">KMA区间</div>
+                            <div class="shindo-bar" :class="kmaPeriodBarClass">{{ $t('mainMap.realtime.kma_period') }}</div>
                             <div class="info">
                                 <div class="intensity" :class="setClassName(kmaPeriodMaxInt, false)">
-                                    <div class="intensity-title">最大烈度</div>
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_csis') }}</div>
                                     <div class="csis" :class="{
                                         'roman': settingsStore.mainSettings.useRomanCsis,
                                         'scale-75': kmaPeriodMaxInt == '8',
@@ -247,27 +247,30 @@
                             <div class="align-left">{{ shindoArray[index] }}</div>
                         </div>
                         <div class="sub-title single-legend">
-                            <div class="align-right">烈度</div>
+                            <div class="align-right">{{ $t('mainMap.csis') }}</div>
                             <div class="color"></div>
-                            <div class="align-left">震度</div>
+                            <div class="align-left">{{ $t('mainMap.shindo') }}</div>
                         </div>
-                        <div class="legend-title">地图颜色</div>
+                        <div class="legend-title">{{ $t('mainMap.map_colors') }}</div>
                     </div>
                     <div class="ws-status">
-                        <div>WebSocket状态: </div>
+                        <div>{{ $t('mainMap.websocket_status') }}</div>
                         <div :class="'s' + wolfxRS">Wolfx{{ wolfxUrlIndex ? '(B)' : '' }}</div>
                         <div :class="'s' + fanRS">FAN{{ fanUrlIndex ? '(B)' : '' }}</div>
                         <div :class="'s' + p2pquakeRS">P2PQ{{ p2pquakeUrlIndex ? '(B)' : '' }}</div>
                         <div v-if="settingsStore.advancedSettings.enableGqEew" :class="'s' + gqRS">GQ{{ gqUrlIndex ? '(B)' : '' }}</div>
                     </div>
                     <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isNiedDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.niedNet" @dblclick="resetSeisNetDelay">
-                        強震モニタ: {{ niedUpdateTime }} (UTC+9)
+                        {{ $t('mainMap.kyoshin_monitor') }} {{ niedUpdateTime }} (UTC+9)
                     </div>
                     <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isTremDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.tremNet" @dblclick="resetSeisNetDelay">
-                        TREM-Net : {{ tremUpdateTime }} (UTC+8)
+                        {{ $t('mainMap.trem_net') }} {{ tremUpdateTime }} (UTC+8)
                     </div>
                     <div class="update-time" :class="isKmaDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.kmaNet" @dblclick="resetSeisNetDelay">
-                        KMA-PEWS: {{ kmaUpdateTime }} (UTC+9)
+                        {{ $t('mainMap.kma_pews') }} {{ kmaUpdateTime }} (UTC+9)
+                    </div>
+                    <div class="update-time" :class="isMsilDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.msilNet" @dblclick="resetSeisNetDelay">
+                        {{ $t('settings.seisNet.msil_net') }} {{ msilUpdateTime }} (UTC+9)
                     </div>
                 </div>
                 <div class="int-list" v-if="settingsStore.mainSettings.displayAreaIntensities">
@@ -292,7 +295,7 @@
                     </div>
                 </div>
                 <div class="bottom-right">
-                    <div class="mocking" v-if="statusStore.isActive.mockEew" :class="blinkStatus ? 'mock-1' : 'mock-0'">模拟预警中</div>
+                    <div class="mocking" v-if="statusStore.isActive.mockEew" :class="blinkStatus ? 'mock-1' : 'mock-0'">{{ $t('mainMap.mock_eew_in_progress') }}</div>
                     <el-button
                     class="home"
                     :icon="HomeFilled"
@@ -351,12 +354,12 @@ import { useSettingsStore } from '@/stores/settings';
 import { useTimeStore } from '@/stores/time';
 import EqlistComponent from './EqlistComponent.vue';
 import SettingsComponent from './SettingsComponent.vue';
-import { verifyUpToDate, setClassName, getClassLevel, classNameArray, pointDistToCnArea, pointDistToKrArea, csisArray, shindoArray, calcCsisLevel, calcJmaShindoLevel, formatTimeZone, simplifyTopoJson, formatCsis, csisRomanArray, formatShindo } from '@/utils/Utils';
-import { topojsonUrls } from '@/utils/Urls';
+import { verifyUpToDate, setClassName, getClassLevel, classNameArray, pointDistToCnArea, csisArray, shindoArray, calcCsisLevel, calcJmaShindoLevel, formatTimeZone, simplifyTopoJson, formatCsis, csisRomanArray, formatShindo, stampToTime, getShindoFromInstShindo, getLevelFromInstShindo, playSound, sendMyNotification, focusWindow } from '@/utils/Utils';
+import { topojsonUrls, iconUrls } from '@/utils/Urls';
 import { jmaSeisIntLoc } from '@/utils/JmaSeisIntLoc';
 import { isTauri } from '@tauri-apps/api/core';
 import { storeToRefs } from 'pinia';
-import { simpleIcon } from '@/classes/StationClasses';
+import { simpleIcon, computeNiedStyleColorRadius } from '@/classes/StationClasses';
 import { feature } from 'topojson-client';
 import { cnCityLabels, cnProvinceLabels, jpPrefLabels } from '@/utils/Labels';
 import terminator from '@joergdietrich/leaflet.terminator';
@@ -369,9 +372,14 @@ classNameArray.forEach(color => tsunamiColors[color] = style.getPropertyValue(`-
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
-let map, jpEewBaseMap, krEewBaseMap, cnEewBaseMap, jpTsunamiBaseMap, cnTsunamiBaseMap, labelLayer1, labelLayer2, terminatorLayer, terminatorFillLayer, cnFaultBaseMap
-let eewMarkerPane, eqlistMarkerPane, historyMarkerPane, wavePane, waveFillPane, niedGridPane, tremGridPane, kmaGridPane, eewBasePane, tsunamiBasePane, labelPane1, labelPane2
+let map, jpEewBaseMap, cnEewBaseMap, jpTsunamiBaseMap, cnTsunamiBaseMap, labelLayer1, labelLayer2, terminatorLayer, terminatorFillLayer, cnFaultBaseMap
+let eewMarkerPane, eqlistMarkerPane, historyMarkerPane, wavePane, waveFillPane, niedGridPane, tremGridPane, kmaGridPane, msilNetPane, msilNetLayer, tremRtsLayer, eewBasePane, tsunamiBasePane, labelPane1, labelPane2
+let msilWorker
 let userMarker
+let kanameishiMarker
+let jpSeedlinkStationsLayer
+const jpStationWaveWindows = new Map()
+const kanameishiLatLng = [27.06, 142.208]
 const defaultLatLng = [38.1, 104.6]
 const { isValidUserLatLng, isValidViewLatLng, isDisplayUser, nearestJmaLoc } = storeToRefs(settingsStore)
 const userLatLng = computed(() => settingsStore.mainSettings.userLatLng)
@@ -394,7 +402,655 @@ const handleTempEqlists = (time, source = '') => {
         tempEqlists.value = ''
     }
 }
+
+const applyEstimatedShindoToMarker = (marker, shindoLabel) => {
+    if (!marker || typeof marker.setStyle !== 'function') return
+    const label = (typeof shindoLabel === 'string' && shindoLabel) ? shindoLabel : '0'
+    const className = setClassName(label, true)
+    const cssColor = classNameColors[className] || classNameColors['dark-gray']
+    marker.setStyle({
+        color: cssColor,
+        fillColor: cssColor,
+        opacity: 0.8,
+        fillOpacity: 0.4,
+        weight: 1,
+    })
+}
+
+const _parseIrisStationText = (text) => {
+    const lines = String(text)
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l && !l.startsWith('#'))
+
+    if (!lines.length) return []
+    const usePipe = lines[0].includes('|')
+
+    const out = []
+    for (const line of lines) {
+        const cols = usePipe ? line.split('|') : line.split(/\s+/)
+        if (cols.length < 4) continue
+        const net = String(cols[0] ?? '').trim()
+        const sta = String(cols[1] ?? '').trim()
+        const lat = Number(cols[2])
+        const lon = Number(cols[3])
+        if (!net || !sta) continue
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
+        out.push({ net, sta, lat, lon })
+    }
+    return out
+}
+
+const loadJpSeedlinkStations = async () => {
+    if (!map) return
+    if (!jpSeedlinkStationsLayer) return
+
+    const fetchStationText = async (net) => {
+        const urls = [
+            ...(import.meta.env.DEV
+                ? [`/iris/fdsnws/station/1/query?net=${encodeURIComponent(net)}&level=station&format=text&nodata=404`]
+                : []),
+            `https://service.iris.edu/fdsnws/station/1/query?net=${encodeURIComponent(net)}&level=station&format=text&nodata=404`,
+        ]
+
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, { cache: 'no-store' })
+                if (!res.ok) continue
+                const text = await res.text()
+                if (text.trim()) return text
+            }
+            catch {
+                // ignore and try next
+            }
+        }
+        return ''
+    }
+
+    const [jpText, psText] = await Promise.all([
+        fetchStationText('JP'),
+        fetchStationText('PS'),
+    ])
+
+    if (!jpText.trim() && !psText.trim()) return
+
+    const jpStations = jpText.trim() ? _parseIrisStationText(jpText).filter(s => s.net === 'JP') : []
+    const psAllow = new Set(['MCSJ', 'ISG', 'INU'])
+    const psStations = psText.trim()
+        ? _parseIrisStationText(psText).filter(s => s.net === 'PS' && psAllow.has(s.sta))
+        : []
+
+    const stations = [...jpStations, ...psStations]
+
+    // clear and re-render
+    jpSeedlinkStationsLayer.clearLayers()
+
+    const css = window.getComputedStyle(document.body)
+    const color = css.getPropertyValue('--dark-gray').trim() || '#333333'
+
+    const _openWaveWindow = (key, initialTitle) => {
+        const existing = jpStationWaveWindows.get(key)
+        if (existing?.win && !existing.win.closed) {
+            existing.win.focus()
+            return existing
+        }
+
+        const win = window.open('', key, 'width=360,height=260,resizable=yes,scrollbars=no')
+        if (!win) return null
+
+        win.document.title = initialTitle
+        win.document.body.style.margin = '10px'
+        win.document.body.style.fontFamily = 'sans-serif'
+
+        const title = win.document.createElement('div')
+        title.textContent = initialTitle
+        title.style.fontWeight = '700'
+        title.style.marginBottom = '6px'
+
+        const canvas = win.document.createElement('canvas')
+        canvas.style.width = '320px'
+        canvas.style.height = '140px'
+
+        const note = win.document.createElement('div')
+        note.style.fontSize = '12px'
+        note.style.marginTop = '6px'
+        note.textContent = '読み込み中…'
+
+        win.document.body.append(title, canvas, note)
+
+        const state = { win, title, canvas, note, intervalId: null, marker: null }
+        jpStationWaveWindows.set(key, state)
+
+        win.addEventListener('beforeunload', () => {
+            if (state.intervalId) clearInterval(state.intervalId)
+            if (state.marker) applyEstimatedShindoToMarker(state.marker, '0')
+            jpStationWaveWindows.delete(key)
+        })
+
+        return state
+    }
+
+    const loadStationSeries = async (net, sta, chan = 'BHZ') => {
+        const res = await fetch(`/waveforms/${net}_${sta}_${chan}.json?_=${Date.now()}`, { cache: 'no-store' })
+        if (!res.ok) return { error: `waveforms/${net}_${sta}_${chan}.json が見つかりません（まず run_realtime_alljp.cmd を起動してください）` }
+        const text2 = await res.text()
+        if (!text2.trim()) return { error: 'JSONが空です' }
+
+        let parsed2
+        try {
+            parsed2 = JSON.parse(text2)
+        }
+        catch {
+            return { error: 'JSONとして読み取れません' }
+        }
+
+        const points2 = Array.isArray(parsed2) ? parsed2 : (Array.isArray(parsed2?.points) ? parsed2.points : null)
+        if (!points2) return { error: 'JSON形式が不明です（配列 もしくは {points: []} を期待）' }
+
+        const mode2 = (!Array.isArray(parsed2) && typeof parsed2?.mode === 'string') ? parsed2.mode : undefined
+        const unit2 = (!Array.isArray(parsed2) && typeof parsed2?.unit === 'string') ? parsed2.unit : undefined
+        const shake2 = (!Array.isArray(parsed2) && parsed2 && typeof parsed2 === 'object') ? parsed2?.shake : undefined
+        const shindoEst2 = (!Array.isArray(parsed2) && parsed2 && typeof parsed2 === 'object') ? parsed2?.shindo_est : undefined
+
+        const series2 = []
+        for (const p of points2) {
+            if (Array.isArray(p) && p.length >= 2) {
+                const t = Number(p[0])
+                const v = Number(p[1])
+                if (Number.isFinite(t) && Number.isFinite(v)) series2.push({ t, v })
+            }
+        }
+        series2.sort((a, b) => a.t - b.t)
+        return { series: series2, mode: mode2, unit: unit2, shake: shake2, shindo_est: shindoEst2 }
+    }
+
+    const openStationWindow = async (marker, station) => {
+        const { net, sta } = station
+        const chan = 'BHZ'
+        const key = `wave_${net}_${sta}_${chan}`
+        const state = _openWaveWindow(key, `${net}_${sta}_${chan}`)
+        if (!state) return
+
+        state.marker = marker
+
+        const refresh = async () => {
+            if (state.win.closed) return
+            const loaded = await loadStationSeries(net, sta, chan)
+            if (loaded?.error) {
+                state.note.textContent = loaded.error
+                drawKanameishiLineChart(state.canvas, [])
+                return
+            }
+            const mode = loaded?.mode || 'waveform'
+            const unit = loaded?.unit || ''
+            const series = loaded?.series || []
+
+            const latestAll = series.length ? series[series.length - 1] : null
+            let shown = series
+            if (latestAll) {
+                const windowMs = 3 * 60 * 1000
+                const cutoff = latestAll.t - windowMs
+                shown = series.filter(p => p.t >= cutoff)
+            }
+            const latest = shown.length ? shown[shown.length - 1] : null
+            const shake = (loaded?.shake && typeof loaded.shake === 'object')
+                ? loaded.shake
+                : computeShakeFromSeries(shown, 180000)
+            const shakeText = (shake && shake.detected) ? '揺れ検知: あり' : '揺れ検知: なし'
+
+            const inst3c = (loaded?.inst_shindo_3c && typeof loaded.inst_shindo_3c === 'object')
+                ? loaded.inst_shindo_3c
+                : null
+
+            const instLabel = (inst3c && inst3c.available && typeof inst3c.label === 'string') ? inst3c.label : null
+            const estLabel = (loaded?.shindo_est && typeof loaded.shindo_est === 'object' && typeof loaded.shindo_est.label === 'string')
+                ? loaded.shindo_est.label
+                : estimateShindoFromSeries(shown, 180000).label
+            const shindoLabel = instLabel || estLabel
+
+            const instText = (inst3c && inst3c.available && typeof inst3c.I === 'number' && typeof inst3c.amax_gal === 'number')
+                ? `計測震度I: ${inst3c.I.toFixed(2)} (amax=${inst3c.amax_gal.toFixed(1)} gal)`
+                : null
+            const shindoText = instText ? `${instText} / 震度: ${shindoLabel}` : `推定震度: ${shindoLabel}`
+
+            applyEstimatedShindoToMarker(state.marker, shindoLabel)
+            state.note.textContent = latest
+                ? `${shindoText} / ${shakeText} / 最新: ${latest.v}${unit ? ` (${unit})` : ''}  at ${new Date(latest.t).toLocaleString()}`
+                : `${shindoText} / ${shakeText} / データなし`
+            state.title.textContent = mode === 'pga' ? `${net}_${sta} PGA` : `${net}_${sta} Waveform`
+            state.win.document.title = state.title.textContent
+            drawKanameishiLineChart(state.canvas, shown)
+        }
+
+        if (state.intervalId) clearInterval(state.intervalId)
+        await refresh()
+        state.intervalId = setInterval(async () => {
+            if (state.win.closed) {
+                if (state.intervalId) clearInterval(state.intervalId)
+                jpStationWaveWindows.delete(key)
+                return
+            }
+            await refresh()
+        }, 1000)
+    }
+
+    for (const s of stations) {
+        const marker = L.circleMarker([s.lat, s.lon], {
+            radius: 3,
+            pane: 'jpSeedlinkPane',
+            interactive: true,
+            color,
+            weight: 1,
+            opacity: 0.6,
+            fillColor: color,
+            fillOpacity: 0.15,
+        }).addTo(jpSeedlinkStationsLayer)
+
+        marker.on('click', () => openStationWindow(marker, s))
+    }
+}
+
+const shindoTextToBin = (text) => {
+    if(text === null || text === undefined) return -1
+    const s = String(text)
+    if(s === '?' || s === '不明') return -1
+    if(s === '7') return 7
+    if(s.startsWith('6')) return 6
+    if(s.startsWith('5')) return 5
+    const n = Number(s)
+    if(Number.isFinite(n)) return Math.max(0, Math.min(4, Math.floor(n)))
+    return -1
+}
+
+const instToShindoBin = (inst) => {
+    if(inst === null || inst === undefined) return -1
+    if(Number.isNaN(inst)) return -1
+    return shindoTextToBin(getShindoFromInstShindo(inst))
+}
+
+const triggerShakeIfRising = (newVal, oldVal, flags) => {
+    if(newVal > oldVal){
+        if(settingsStore.mainSettings.onShake.sound){
+            const type = `shindo${newVal}`
+            playSound(type)
+        }
+        if(settingsStore.mainSettings.onShake.notification){
+            if(newVal >= 1 && newVal <= 3 && !flags.shake1Notified){
+                sendMyNotification('揺れを検出',
+                    '揺れに注意してください。',
+                    iconUrls.caution,
+                    settingsStore.mainSettings.muteNotification)
+                flags.shake1Notified = true
+            }
+            else if(newVal >= 4 && !flags.shake2Notified){
+                sendMyNotification('強い揺れを検出',
+                    '強い揺れに警戒してください。',
+                    iconUrls.warn,
+                    settingsStore.mainSettings.muteNotification)
+                flags.shake1Notified = true
+                flags.shake2Notified = true
+            }
+        }
+        if(settingsStore.mainSettings.onShake.focus){
+            if(newVal >= 1 && !flags.focused){
+                focusWindow()
+                flags.focused = true
+            }
+        }
+        handleTempEqlists(0)
+    }
+    else{
+        flags.shake1Notified = false
+        flags.shake2Notified = false
+        flags.focused = false
+    }
+}
 provide('handleTempEqlists', handleTempEqlists)
+
+const computeShakeFromSeries = (series, totalWindowMs = 180000) => {
+    if (!Array.isArray(series) || series.length < 10) return { detected: false }
+    const pts = [...series].sort((a, b) => a.t - b.t)
+    const lastT = pts[pts.length - 1].t
+    const curFrom = lastT - 10000
+    const baseFrom = lastT - (Number.isFinite(totalWindowMs) ? totalWindowMs : 180000)
+    const baseTo = lastT - 20000
+
+    const cur = []
+    const base = []
+    for (const p of pts) {
+        const v = Number(p.v)
+        if (!Number.isFinite(v)) continue
+        if (p.t >= curFrom) cur.push(v)
+        else if (p.t >= baseFrom && p.t < baseTo) base.push(v)
+    }
+    if (!base.length) {
+        for (const p of pts) {
+            const v = Number(p.v)
+            if (!Number.isFinite(v)) continue
+            if (p.t < curFrom) base.push(v)
+        }
+    }
+
+    const rms = (arr) => {
+        if (!arr.length) return 0
+        let s = 0
+        for (const v of arr) s += v * v
+        return Math.sqrt(s / arr.length)
+    }
+    const peak = (arr) => {
+        let m = 0
+        for (const v of arr) {
+            const av = Math.abs(v)
+            if (av > m) m = av
+        }
+        return m
+    }
+
+    const curRms = rms(cur)
+    const baseRms = rms(base)
+    const curPeak = peak(cur)
+    const basePeak = peak(base)
+
+    const eps = 1
+    const baseRmsEff = Math.max(baseRms, eps)
+    const basePeakEff = Math.max(basePeak, eps)
+
+    const detected = (curRms > baseRmsEff * 6 && curPeak > basePeakEff * 6) || (curPeak > basePeakEff * 10)
+    return { detected, current_rms: curRms, baseline_rms: baseRms, current_peak: curPeak, baseline_peak: basePeak }
+}
+
+const estimateShindoFromSeries = (series, totalWindowMs = 180000) => {
+    const shake = computeShakeFromSeries(series, totalWindowMs)
+    const curPeak = Math.abs(Number(shake.current_peak) || 0)
+    const basePeak = Math.abs(Number(shake.baseline_peak) || 0)
+    const curRms = Math.abs(Number(shake.current_rms) || 0)
+    const baseRms = Math.abs(Number(shake.baseline_rms) || 0)
+
+    const eps = 1
+    const ratioPeak = curPeak / Math.max(basePeak, eps)
+    const ratioRms = curRms / Math.max(baseRms, eps)
+    const r = Math.max(ratioPeak, ratioRms)
+
+    let label = '0'
+    if (!(curPeak < eps * 2 && curRms < eps * 2)) {
+        if (r < 2) label = '0'
+        else if (r < 3) label = '1'
+        else if (r < 4) label = '2'
+        else if (r < 6) label = '3'
+        else if (r < 9) label = '4'
+        else if (r < 13) label = '5-'
+        else if (r < 18) label = '5+'
+        else if (r < 25) label = '6-'
+        else if (r < 35) label = '6+'
+        else label = '7'
+    }
+    return { label, ratio_peak: ratioPeak, ratio_rms: ratioRms }
+}
+
+const loadKanameishiSeries = async () => {
+    const res = await fetch(`/pga_points.json?_=${Date.now()}`, { cache: 'no-store' })
+    const text = await res.text()
+    if (!text.trim()) return []
+
+    let parsed
+    try {
+        parsed = JSON.parse(text)
+    }
+    catch {
+        return { error: 'pga_points.json がJSONとして読み取れません' }
+    }
+
+    const points = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.points) ? parsed.points : null)
+    if (!points) return { error: 'pga_points.json の形式が不明です（配列 もしくは {points: []} を期待）' }
+
+    const mode = (!Array.isArray(parsed) && typeof parsed?.mode === 'string') ? parsed.mode : undefined
+    const unit = (!Array.isArray(parsed) && typeof parsed?.unit === 'string') ? parsed.unit : undefined
+    const shake = (!Array.isArray(parsed) && parsed && typeof parsed === 'object') ? parsed?.shake : undefined
+    const shindoEst = (!Array.isArray(parsed) && parsed && typeof parsed === 'object') ? parsed?.shindo_est : undefined
+
+    const series = []
+    for (const p of points) {
+        if (Array.isArray(p) && p.length >= 2) {
+            const t = Number(p[0])
+            const v = Number(p[1])
+            if (Number.isFinite(t) && Number.isFinite(v)) series.push({ t, v })
+            continue
+        }
+        const tRaw = p?.t ?? p?.time ?? p?.timestamp ?? p?.ts
+        const vRaw = p?.pga ?? p?.value ?? p?.v
+        const t = (typeof tRaw === 'string') ? Date.parse(tRaw) : Number(tRaw)
+        const v = Number(vRaw)
+        if (Number.isFinite(t) && Number.isFinite(v)) series.push({ t, v })
+    }
+    series.sort((a, b) => a.t - b.t)
+    return { series, mode, unit, shake, shindo_est: shindoEst }
+}
+
+const drawKanameishiLineChart = (canvas, series) => {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const css = window.getComputedStyle(document.body)
+    const axisColor = css.getPropertyValue('--dark-gray').trim() || '#333333'
+    const lineColor = css.getPropertyValue('--blue').trim() || axisColor
+
+    const w = canvas.clientWidth || 280
+    const h = canvas.clientHeight || 140
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.floor(w * dpr)
+    canvas.height = Math.floor(h * dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+    ctx.clearRect(0, 0, w, h)
+
+    const padL = 36
+    const padR = 8
+    const padT = 8
+    const padB = 18
+
+    ctx.strokeStyle = axisColor
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(padL, padT)
+    ctx.lineTo(padL, h - padB)
+    ctx.lineTo(w - padR, h - padB)
+    ctx.stroke()
+
+    const x0 = padL
+    const x1 = w - padR
+    const y0 = h - padB
+    const y1 = padT
+
+    const formatNumber = (v) => {
+        const av = Math.abs(v)
+        if (av >= 1000) return Math.round(v).toString()
+        if (av >= 10) return (Math.round(v * 10) / 10).toString()
+        return (Math.round(v * 100) / 100).toString()
+    }
+
+    const formatTime = (t) => {
+        try {
+            return new Date(t).toLocaleTimeString('ja-JP', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        }
+        catch {
+            return ''
+        }
+    }
+
+    if (!series.length) {
+        ctx.fillStyle = axisColor
+        ctx.font = '12px sans-serif'
+        ctx.fillText('データなし', padL + 8, padT + 14)
+        return
+    }
+
+    const tMin = series[0].t
+    const tMax = series[series.length - 1].t
+    let vMin = series[0].v
+    let vMax = series[0].v
+    for (const p of series) {
+        vMin = Math.min(vMin, p.v)
+        vMax = Math.max(vMax, p.v)
+    }
+    if (vMin === vMax) {
+        vMin -= 1
+        vMax += 1
+    }
+    const xScale = (tMax === tMin) ? 1 : (x1 - x0) / (tMax - tMin)
+    const yScale = (y0 - y1) / (vMax - vMin)
+    const x = (t) => x0 + (t - tMin) * xScale
+    const y = (v) => y0 - (v - vMin) * yScale
+
+    // Y-axis ticks
+    ctx.font = '11px sans-serif'
+    ctx.fillStyle = axisColor
+    ctx.strokeStyle = axisColor
+    const yTicks = 4
+    for (let i = 0; i <= yTicks; i++) {
+        const vv = vMin + (vMax - vMin) * (i / yTicks)
+        const yy = y(vv)
+
+        // small tick
+        ctx.beginPath()
+        ctx.moveTo(x0 - 4, yy)
+        ctx.lineTo(x0, yy)
+        ctx.stroke()
+
+        // label
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(formatNumber(vv), x0 - 6, yy)
+
+        // light gridline
+        ctx.save()
+        ctx.globalAlpha = 0.18
+        ctx.beginPath()
+        ctx.moveTo(x0, yy)
+        ctx.lineTo(x1, yy)
+        ctx.stroke()
+        ctx.restore()
+    }
+
+    // X-axis ticks
+    const xTicks = 2
+    for (let i = 0; i <= xTicks; i++) {
+        const tt = tMin + (tMax - tMin) * (i / xTicks)
+        const xx = x(tt)
+        ctx.beginPath()
+        ctx.moveTo(xx, y0)
+        ctx.lineTo(xx, y0 + 4)
+        ctx.stroke()
+
+        ctx.textBaseline = 'top'
+        ctx.textAlign = i === 0 ? 'left' : (i === xTicks ? 'right' : 'center')
+        ctx.fillText(formatTime(tt), xx, y0 + 4)
+    }
+
+    ctx.strokeStyle = lineColor
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(x(series[0].t), y(series[0].v))
+    for (let i = 1; i < series.length; i++) {
+        ctx.lineTo(x(series[i].t), y(series[i].v))
+    }
+    ctx.stroke()
+}
+
+const kanameishiWaveWindowKey = 'wave_kanameishi'
+
+const openKanameishiWindow = async () => {
+    const existing = jpStationWaveWindows.get(kanameishiWaveWindowKey)
+    let state
+    if (existing?.win && !existing.win.closed) {
+        state = existing
+        state.win.focus()
+    }
+    else {
+        const win = window.open('', kanameishiWaveWindowKey, 'width=360,height=260,resizable=yes,scrollbars=no')
+        if (!win) return
+
+        win.document.title = 'Waveform'
+        win.document.body.style.margin = '10px'
+        win.document.body.style.fontFamily = 'sans-serif'
+
+        const title = win.document.createElement('div')
+        title.textContent = 'Waveform'
+        title.style.fontWeight = '700'
+        title.style.marginBottom = '6px'
+
+        const canvas = win.document.createElement('canvas')
+        canvas.style.width = '320px'
+        canvas.style.height = '140px'
+
+        const note = win.document.createElement('div')
+        note.style.fontSize = '12px'
+        note.style.marginTop = '6px'
+        note.textContent = '読み込み中…'
+
+        win.document.body.append(title, canvas, note)
+
+        state = { win, title, canvas, note, intervalId: null }
+        jpStationWaveWindows.set(kanameishiWaveWindowKey, state)
+
+        win.addEventListener('beforeunload', () => {
+            if (state.intervalId) clearInterval(state.intervalId)
+            applyEstimatedShindoToMarker(kanameishiMarker, '0')
+            jpStationWaveWindows.delete(kanameishiWaveWindowKey)
+        })
+    }
+
+    const refresh = async () => {
+        if (state.win.closed) return
+        const loaded = await loadKanameishiSeries()
+        if (loaded?.error) {
+            state.note.textContent = loaded.error
+            drawKanameishiLineChart(state.canvas, [])
+            return
+        }
+        const mode = loaded?.mode || 'waveform'
+        const unit = loaded?.unit || ''
+        state.title.textContent = mode === 'pga' ? 'PGA' : 'Waveform'
+        state.win.document.title = state.title.textContent
+
+        let series = loaded?.series || []
+        const latestAll = series.length ? series[series.length - 1] : null
+        if (latestAll) {
+            const windowMs = 3 * 60 * 1000
+            const cutoff = latestAll.t - windowMs
+            series = series.filter(p => p.t >= cutoff)
+        }
+
+        const latest = series.length ? series[series.length - 1] : null
+        const shake = (loaded?.shake && typeof loaded.shake === 'object')
+            ? loaded.shake
+            : computeShakeFromSeries(series, 180000)
+        const shakeText = (shake && shake.detected) ? '揺れ検知: あり' : '揺れ検知: なし'
+
+        const shindoLabel = (loaded?.shindo_est && typeof loaded.shindo_est === 'object' && typeof loaded.shindo_est.label === 'string')
+            ? loaded.shindo_est.label
+            : estimateShindoFromSeries(series, 180000).label
+        const shindoText = `推定震度: ${shindoLabel}`
+
+        applyEstimatedShindoToMarker(kanameishiMarker, shindoLabel)
+
+        state.note.textContent = latest
+            ? `${shindoText} / ${shakeText} / 最新: ${latest.v}${unit ? ` (${unit})` : ''}  at ${new Date(latest.t).toLocaleString()}`
+            : `${shindoText} / ${shakeText} / データなし`
+        drawKanameishiLineChart(state.canvas, series)
+    }
+
+    if (state.intervalId) clearInterval(state.intervalId)
+    await refresh()
+    state.intervalId = setInterval(async () => {
+        if (state.win.closed) {
+            if (state.intervalId) clearInterval(state.intervalId)
+            jpStationWaveWindows.delete(kanameishiWaveWindowKey)
+            return
+        }
+        await refresh()
+    }, 1000)
+}
+
 const defaultMenuId = computed(() => {
     let defaultMenuId = 'main'
     if(settingsStore.mainSettings.cinemaMode) {
@@ -492,6 +1148,15 @@ provide('kmaUpdateTime', kmaUpdateTime)
 provide('kmaMaxInt', kmaMaxInt)
 provide('kmaPeriodMaxInt', kmaPeriodMaxInt)
 provide('kmaPeriodBarClass', kmaPeriodBarClass)
+const msilUpdateTime = ref('1970-01-01 09:00:00')
+const msilMaxShindo = ref('?')
+const msilPeriodMaxShindo = ref('?')
+const msilPeriodBarClass = ref('gray')
+const isMsilDelayed = ref(true)
+provide('msilUpdateTime', msilUpdateTime)
+provide('msilMaxShindo', msilMaxShindo)
+provide('msilPeriodMaxShindo', msilPeriodMaxShindo)
+provide('msilPeriodBarClass', msilPeriodBarClass)
 const isAutoZoom = ref(true)
 const activeEewList = reactive([])
 const eqlistList = reactive([])
@@ -544,7 +1209,15 @@ const getBarClass = (event)=>{
     }
 }
 let mainInterval, terminatorInterval
-onMounted(()=>{
+onMounted(() => {
+    msilWorker = new Worker(new URL('../workers/msil-decoder.js', import.meta.url), { type: 'module' });
+    msilWorker.onmessage = (event) => {
+        const { type, data, y, uid } = event.data;
+        if (type === 'decoded') {
+            handleMsilData(data, y, uid);
+        }
+    };
+
     map = L.map('mainMap', {
         attributionControl: false,
         center: defaultLatLng,
@@ -602,8 +1275,22 @@ onMounted(()=>{
         map.createPane(`kmaStationPane${i}`)
         map.getPane(`kmaStationPane${i}`).style.zIndex = i + 50
     }
+
+    map.createPane('jpSeedlinkPane')
+    map.getPane('jpSeedlinkPane').style.zIndex = 95
+    jpSeedlinkStationsLayer = L.layerGroup().addTo(map)
+
     map.createPane('userPane')
     map.getPane('userPane').style.zIndex = 100
+    kanameishiMarker = L.circleMarker(kanameishiLatLng, {
+        radius: 6,
+        pane: 'userPane',
+        interactive: true
+    }).addTo(map)
+    kanameishiMarker.on('click', openKanameishiWindow)
+
+    // JP network (SeedLink/IRIS) station markers (except JCJ)
+    loadJpSeedlinkStations()
     map.createPane('terminatorPane')
     map.getPane('terminatorPane').style.zIndex = 130
     map.createPane('niedGridPane')
@@ -612,9 +1299,16 @@ onMounted(()=>{
     map.createPane('tremGridPane')
     tremGridPane = map.getPane('tremGridPane')
     tremGridPane.style.zIndex = 140
+    map.createPane('tremRtsPane')
+    map.getPane('tremRtsPane').style.zIndex = 142;
+    tremRtsLayer = L.layerGroup()
     map.createPane('kmaGridPane')
     kmaGridPane = map.getPane('kmaGridPane')
     kmaGridPane.style.zIndex = 140
+    map.createPane('msilNetPane')
+    msilNetPane = map.getPane('msilNetPane')
+    msilNetPane.style.zIndex = 141
+    msilNetLayer = L.layerGroup()
     map.createPane('wavePane')
     wavePane = map.getPane('wavePane')
     wavePane.style.zIndex = 150
@@ -635,6 +1329,10 @@ onMounted(()=>{
     eewMarkerPane.style.zIndex = 200
     map.on('dragstart', handleManual)
     map.on('zoomend', () => zoomLevel.value = map.getZoom())
+    map.on('zoomend', () => {
+        // Keep MSIL markers scaled like NIED even without new frames.
+        if (settingsStore.mainSettings.displaySeisNet.msilNet) refreshMsilMarkerStyleForZoom()
+    })
     if(settingsStore.advancedSettings.preventFlickerMode){
         map.on('zoomstart', ()=>{setMapHeight('calc(100% - 1px)');})
         map.on('zoomend', ()=>{setMapHeight('100%');})
@@ -687,7 +1385,28 @@ onMounted(()=>{
     labelLayer1 = L.layerGroup().addTo(map);
     labelLayer2 = L.layerGroup().addTo(map);
     loadMaps()
-    watch(()=>settingsStore.mainSettings.displayTerminator, newVal => {
+    loadMsilNet()
+    loadTremRts()
+
+    watch(
+        () => settingsStore.mainSettings.displaySeisNet.tremNet,
+        (newVal) => {
+            if (newVal) map.addLayer(tremRtsLayer)
+            else map.removeLayer(tremRtsLayer)
+        },
+        { immediate: true }
+    )
+
+    watch(
+        () => settingsStore.mainSettings.displaySeisNet.msilNet,
+        (newVal) => {
+            if (newVal) map.addLayer(msilNetLayer)
+            else map.removeLayer(msilNetLayer)
+        },
+        { immediate: true }
+    )
+
+    watch(() => settingsStore.mainSettings.displayTerminator, newVal => {
         if(terminatorLayer && map.hasLayer(terminatorLayer)) map.removeLayer(terminatorLayer)
         if(terminatorFillLayer && map.hasLayer(terminatorFillLayer)) map.removeLayer(terminatorFillLayer)
         clearInterval(terminatorInterval)
@@ -730,6 +1449,60 @@ onMounted(()=>{
             }
         }, { immediate: true })
     }
+    watchEffect(()=>{
+        document.removeEventListener('mousemove', resetDefaultMenuTimer)
+        if(menuId.value == defaultMenuId.value){
+            clearTimeout(defaultMenuTimer)
+        }
+        else{
+            resetDefaultMenuTimer()
+            document.addEventListener('mousemove', resetDefaultMenuTimer)
+        }
+    })
+
+  watch(menuId, (newVal) => {
+    drawer.value.scrollTop = 0
+    clearHistoryList()
+    if(newVal == 'eews'){
+        eqlistMarkerPane.style.opacity = 0.3
+        tsunamiBasePane.style.opacity = 0.3 * (tsunamiFlickerCounter ? 1 : 0)
+    }
+    else{
+        eqlistMarkerPane.style.opacity = 1
+        tsunamiBasePane.style.opacity = 1 * (tsunamiFlickerCounter ? 1 : 0)
+    }
+    if(newVal == 'eqlists'){
+        eewMarkerPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
+        wavePane.style.opacity = 0.3
+        waveFillPane.style.opacity = 0.3
+        niedGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
+        tremGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
+        kmaGridPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
+        msilNetPane.style.opacity = 0.3
+    }
+    else{
+        eewMarkerPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
+        wavePane.style.opacity = 1
+        waveFillPane.style.opacity = 1
+        niedGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
+        tremGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
+        kmaGridPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
+        msilNetPane.style.opacity = 1
+    }
+    tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
+    isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
+    isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
+    isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
+    isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
+    wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
+    fanRS.value = statusStore.fanSocket?.socket.readyState ?? 4
+    p2pquakeRS.value = statusStore.p2pquakeSocket?.socket.readyState ?? 4
+    gqRS.value = statusStore.gqSocket?.socket.readyState ?? 4
+    wolfxUrlIndex.value = statusStore.wolfxSocket?.urlIndex
+    fanUrlIndex.value = statusStore.fanSocket?.urlIndex
+    p2pquakeUrlIndex.value = statusStore.p2pquakeSocket?.urlIndex
+    gqUrlIndex.value = statusStore.gqSocket?.urlIndex
+  }, { immediate: true })
     watchEffect(() => {
         document.removeEventListener('mousemove', resetDefaultMenuTimer)
         if(menuId.value == defaultMenuId.value){
@@ -740,35 +1513,50 @@ onMounted(()=>{
             document.addEventListener('mousemove', resetDefaultMenuTimer)
         }
     })
-    watch(menuId, (newVal) => {
-        drawer.value.scrollTop = 0
-        clearHistoryList()
-        if(newVal == 'eews'){
-            eqlistMarkerPane.style.opacity = 0.3
-            tsunamiBasePane.style.opacity = 0.3 * (tsunamiFlickerCounter ? 1 : 0)
-        }
-        else{
-            eqlistMarkerPane.style.opacity = 1
-            tsunamiBasePane.style.opacity = 1 * (tsunamiFlickerCounter ? 1 : 0)
-        }
-        if(newVal == 'eqlists'){
-            eewMarkerPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
-            wavePane.style.opacity = 0.3
-            waveFillPane.style.opacity = 0.3
-            niedGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
-            tremGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
-            kmaGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0)
-        }
-        else{
-            eewMarkerPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
-            wavePane.style.opacity = 1
-            waveFillPane.style.opacity = 1
-            niedGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
-            tremGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
-            kmaGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0)
-        }
-        simpleIcon.value = newVal == 'eqlists'
-    }, { immediate: true })
+
+  watch(menuId, (newVal) => {
+    drawer.value.scrollTop = 0
+    clearHistoryList()
+    if(newVal == 'eews'){
+        eqlistMarkerPane.style.opacity = 0.3
+        tsunamiBasePane.style.opacity = 0.3 * (tsunamiFlickerCounter ? 1 : 0)
+    }
+    else{
+        eqlistMarkerPane.style.opacity = 1
+        tsunamiBasePane.style.opacity = 1 * (tsunamiFlickerCounter ? 1 : 0)
+    }
+    if(newVal == 'eqlists'){
+        eewMarkerPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
+        wavePane.style.opacity = 0.3
+        waveFillPane.style.opacity = 0.3
+        niedGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
+        tremGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
+        kmaGridPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
+        msilNetPane.style.opacity = 0.3
+    }
+    else{
+        eewMarkerPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
+        wavePane.style.opacity = 1
+        waveFillPane.style.opacity = 1
+        niedGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
+        tremGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
+        kmaGridPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
+        msilNetPane.style.opacity = 1
+    }
+    tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
+    isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
+    isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
+    isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
+    isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
+    wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
+    fanRS.value = statusStore.fanSocket?.socket.readyState ?? 4
+    p2pquakeRS.value = statusStore.p2pquakeSocket?.socket.readyState ?? 4
+    gqRS.value = statusStore.gqSocket?.socket.readyState ?? 4
+    wolfxUrlIndex.value = statusStore.wolfxSocket?.urlIndex
+    fanUrlIndex.value = statusStore.fanSocket?.urlIndex
+    p2pquakeUrlIndex.value = statusStore.p2pquakeSocket?.urlIndex
+    gqUrlIndex.value = statusStore.gqSocket?.urlIndex
+  }, { immediate: true })
     intervalEvents()
     mainInterval = setInterval(() => {
         intervalEvents()
@@ -876,22 +1664,14 @@ const loadMaps = async (retries = 0) => {
         promises = Object.keys(topojsonUrls).map(key=>fetch(topojsonUrls[key]).then(res=>res?.json()))
     }
     const resps = await Promise.all(promises)
-    const [global, cn, cn_eew, cn_fault, jp, jp_eew, jp_tsunami, kr_eew, cn_tsunami] = resps
-    if(global && cn && cn_eew && cn_fault && jp && jp_eew && kr_eew && jp_tsunami){
+    const [global, cn, cn_eew, cn_fault, jp, jp_eew, jp_tsunami, cn_tsunami] = resps
+    if(global && cn && cn_eew && cn_fault && jp && jp_eew && jp_tsunami){
         clearTimeout(msgTimer)
         loadBaseMap(global, 'basePane')
         loadBaseMap(jp, 'basePane')
         loadBaseMap(cn, 'basePane')
         jpEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
         ? null : loadBaseMap(jp_eew, 'eewBasePane', false, {
-            color: '#bbbbbb00',
-            opacity: 1,
-            fillColor: '#39393900',
-            fillOpacity: 1,
-            weight: 1,
-        })
-        krEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
-        ? null : loadBaseMap(kr_eew, 'eewBasePane', false, {
             color: '#bbbbbb00',
             opacity: 1,
             fillColor: '#39393900',
@@ -916,79 +1696,10 @@ const loadMaps = async (retries = 0) => {
                 })
             }
         }, { immediate: true })
-        if(settingsStore.mainSettings.displayPlaceName) {
-            const createTextIcon = (text, fontSize = 15) => {
-                const dpr = settingsStore.mainSettings.uiScale * (window.devicePixelRatio || 1);
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.font = `${fontSize}px Arial`;
-                const textWidth = tempCtx.measureText(text).width;
-                const textHeight = fontSize;
-
-                const canvas = document.createElement('canvas');
-                canvas.width = (textWidth + 5) * dpr;
-                canvas.height = (textHeight + 5) * dpr;
-                const ctx = canvas.getContext('2d');
-                ctx.scale(dpr, dpr);
-                ctx.font = `${fontSize}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#ffffffcc';
-                ctx.shadowColor = '#000000aa';
-                ctx.shadowBlur = 5;
-                ctx.fillText(text, canvas.width / dpr / 2, canvas.height / dpr / 2);
-
-                return L.icon({
-                    iconUrl: canvas.toDataURL(),
-                    iconSize: [canvas.width / dpr, canvas.height / dpr],
-                    iconAnchor: [canvas.width / dpr / 2, canvas.height / dpr / 2]
-                });
-            };
-            cnProvinceLabels.forEach(item => {
-                const { name, coord } = item
-                const label = L.marker(coord, {
-                    icon: createTextIcon(name),
-                    pane: "labelPane1",
-                    interactive: false
-                })
-                labelLayer1.addLayer(label)
-            })
-            cnCityLabels.forEach(item => {
-                const { name, coord } = item
-                const label = L.marker(coord, {
-                    icon: createTextIcon(name),
-                    pane: "labelPane2",
-                    interactive: false
-                })
-                labelLayer2.addLayer(label)
-            })
-            jpPrefLabels.forEach(item => {
-                const { name, coord } = item
-                const label = L.marker(coord, {
-                    icon: createTextIcon(name),
-                    pane: "labelPane2",
-                    interactive: false
-                })
-                labelLayer2.addLayer(label)
-            })
-            watchEffect(() => {
-                labelPane1.style.display = zoomLevel.value >= 5 && zoomLevel.value < 8 ? 'block' : 'none'
-                labelPane2.style.display = zoomLevel.value >= 8 ? 'block' : 'none'
-            })
-        }
-        watch(jmaWarnArea, (newVal)=>{
-            jpEewBaseMap?.setStyle(feature => {
-                const className = newVal[feature.properties.name]?.className
-                return ({
-                    color: className ? '#bbbbbb' : '#bbbbbb00',
-                    fillColor: classNameColors[className] || '#39393900'
-                })
-            })
-        }, { deep: true, immediate: true })
         if(settingsStore.advancedSettings.forceCalcInt){
-            watch(eewInfoList, newVal=>{
+            watch(cnEewInfoList, newVal=>{
                 const newCsisList = {}
-                const cnAreaClass = {}, krAreaClass = {}
+                const areaClass = {}
                 cnEewBaseMap?.eachLayer(layer=>{
                     let maxInt = 0
                     newVal.forEach(info=>{
@@ -999,35 +1710,13 @@ const loadMaps = async (retries = 0) => {
                     if(maxInt > 0){
                         const className = setClassName(maxInt, false)
                         const layerName = layer.feature.properties.name
-                        cnAreaClass[layerName] = className
+                        areaClass[layerName] = className
                         if(!(maxInt in newCsisList)) newCsisList[maxInt] = []
                         newCsisList[maxInt].push(layerName)
                     }
                 })
-                krEewBaseMap?.eachLayer(layer=>{
-                    let maxInt = 0
-                    newVal.forEach(info=>{
-                        const dist = pointDistToKrArea([info.lng, info.lat], layer.feature)
-                        const int = Number(calcCsisLevel(info.magnitude, info.depth, dist))
-                        if(int > maxInt) maxInt = int
-                    })
-                    if(maxInt > 0){
-                        const className = setClassName(maxInt, false)
-                        const layerName = layer.feature.properties.name
-                        krAreaClass[layerName] = className
-                        if(!(maxInt in newCsisList)) newCsisList[maxInt] = []
-                        newCsisList[maxInt].push(layerName)
-                    }
-                })
-                cnEewBaseMap?.setStyle(feature => {
-                    const className = cnAreaClass[feature.properties.name]
-                    return ({
-                        color: className ? '#bbbbbb' : '#bbbbbb00',
-                        fillColor: classNameColors[className] || '#39393900'
-                    })
-                })
-                krEewBaseMap?.setStyle(feature => {
-                    const className = krAreaClass[feature.properties.name]
+                cnEwBaseMap?.setStyle(feature => {
+                    const className = areaClass[feature.properties.name]
                     return ({
                         color: className ? '#bbbbbb' : '#bbbbbb00',
                         fillColor: classNameColors[className] || '#39393900'
@@ -1113,11 +1802,13 @@ const intervalEvents = ()=>{
     eewMarkerPane.style.opacity = (blinkStatus.value ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
     niedGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
     tremGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
-    kmaGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
+    kmaGridPane.style.opacity = (blinkStatus.value ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
+    msilNetPane.style.opacity = (menuId.value == 'eqlists' ? 0.3 : 1)
     tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
     isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
     isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
     isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
+    isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
     wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
     fanRS.value = statusStore.fanSocket?.socket.readyState ?? 4
     p2pquakeRS.value = statusStore.p2pquakeSocket?.socket.readyState ?? 4
@@ -1136,279 +1827,259 @@ const setMapHeight = (height) => {
 }
 let pendingSetView = false
 const setView = () => {
-    if(!map) return
-    if(document.visibilityState === 'visible') {
-        const bounds = L.latLngBounds([])
-        //临时Eqlist
-        if(settingsStore.mainSettings.cinemaMode && tempEqlists.value && menuId.value == 'eqlists' && historyList.length == 0) {
-            if(tempEqlists.value == 'jmaTsunami') {
-                statusStore.isActive.jmaTsunami && jpTsunamiBaseMap?.eachLayer(layer => {
-                    if(layer.options.color && layer.options.color != '#ffffff00') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-                if(!bounds.isValid()) {
-                    bounds.extend(jpTsunamiBaseMap?.getBounds())
+  if (!map) return
+
+  if (document.visibilityState !== 'visible') {
+    pendingSetView = true
+    return
+  }
+
+  const bounds = L.latLngBounds([])
+  const candidates = [] // Eew/SeisNet 用の候補
+
+  // 临时Eqlist
+  if(settingsStore.mainSettings.cinemaMode && tempEqlists.value && menuId.value == 'eqlists' && historyList.length == 0) {
+    if(tempEqlists.value == 'jmaTsunami') {
+        statusStore.isActive.jmaTsunami && jpTsunamiBaseMap?.eachLayer(layer => {
+            if(layer.options.color && layer.options.color != '#ffffff00') {
+                if(layer.getBounds){
+                    bounds.extend(layer.getBounds())
+                }
+                else if(layer.getLatLng){
+                    bounds.extend(layer.getLatLng())
                 }
             }
-            else if(tempEqlists.value == 'nmefcTsunami') {
-                statusStore.isActive.nmefcTsunami && cnTsunamiBaseMap?.eachLayer(layer => {
-                    if(layer.options.color && layer.options.color != '#ffffff00') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-                if(!bounds.isValid()) {
-                    bounds.extend(cnTsunamiBaseMap?.getBounds())
-                }
-            }
-            else if(activeEqlistList.value.length > 0) {
-                activeEqlistList.value.forEach(event=>{
-                    if(event.eqMessage.source == tempEqlists.value && event.isValidHypo) {
-                        bounds.extend(event.hypoLatLng)
-                    }
-                })
-                jpEewBaseMap?.eachLayer(layer => {
-                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-                krEewBaseMap?.eachLayer(layer => {
-                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-                cnEewBaseMap?.eachLayer(layer => {
-                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-            }
+        })
+        if(!bounds.isValid()) {
+            bounds.extend(jpTsunamiBaseMap?.getBounds())
         }
-        else {
-            //Eew和SeisNet
-            if(menuId.value != 'eqlists') {
-                map.eachLayer(layer => {
-                    let shouldExtend = false
-                    switch(layer.options.pane) {
-                        case 'eewMarkerPane':
-                        case 'waveFillPane':
-                            shouldExtend = true
-                            break
-                        case 'niedGridPane':
-                            if(!statusStore.isActive.jmaEew) {
-                                shouldExtend = true
-                            }
-                            break
-                        case 'tremGridPane':
-                            if(!statusStore.isActive.cwaEew) {
-                                shouldExtend = true
-                            }
-                            break
-                        case 'kmaGridPane':
-                            if(!statusStore.isActive.kmaEew) {
-                                shouldExtend = true
-                            }
-                            break
-                    }
-                    if(shouldExtend) {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-            }
-            //历史地震
-            if(!bounds.isValid() && menuId.value == 'eqlists' && historyList.length > 0) {
-                historyList.forEach(event => {
-                    if(event.isValidHypo){
-                        bounds.extend(event.hypoLatLng)
-                    }
-                })
-                jpEewBaseMap?.eachLayer(layer => {
-                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-                krEewBaseMap?.eachLayer(layer => {
-                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-                cnEewBaseMap?.eachLayer(layer => {
-                    if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-            }
-            //活跃的Eqlist和Tsunami
-            if(!bounds.isValid() && menuId.value != 'eews') {
-                statusStore.isActive.jmaTsunami && jpTsunamiBaseMap?.eachLayer(layer => {
-                    if(layer.options.color && layer.options.color != '#ffffff00') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-                statusStore.isActive.nmefcTsunami && cnTsunamiBaseMap?.eachLayer(layer => {
-                    if(layer.options.color && layer.options.color != '#ffffff00') {
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            bounds.extend(layer.getLatLng())
-                        }
-                    }
-                })
-                if(activeEqlistList.value.length > 0) {
-                    activeEqlistList.value.forEach(event=>{
-                        if(event.isValidHypo){
-                            bounds.extend(event.hypoLatLng)
-                        }
-                    })
-                    jpEewBaseMap?.eachLayer(layer => {
-                        if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                            if(layer.getBounds){
-                                bounds.extend(layer.getBounds())
-                            }
-                            else if(layer.getLatLng){
-                                bounds.extend(layer.getLatLng())
-                            }
-                        }
-                    })
-                    krEewBaseMap?.eachLayer(layer => {
-                        if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                            if(layer.getBounds){
-                                bounds.extend(layer.getBounds())
-                            }
-                            else if(layer.getLatLng){
-                                bounds.extend(layer.getLatLng())
-                            }
-                        }
-                    })
-                    cnEewBaseMap?.eachLayer(layer => {
-                        if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
-                            if(layer.getBounds){
-                                bounds.extend(layer.getBounds())
-                            }
-                            else if(layer.getLatLng){
-                                bounds.extend(layer.getLatLng())
-                            }
-                        }
-                    })
+    }
+    else if(tempEqlists.value == 'nmefcTsunami') {
+        statusStore.isActive.nmefcTsunami && cnTsunamiBaseMap?.eachLayer(layer => {
+            if(layer.options.color && layer.options.color != '#ffffff00') {
+                if(layer.getBounds){
+                    bounds.extend(layer.getBounds())
+                }
+                else if(layer.getLatLng){
+                    bounds.extend(layer.getLatLng())
                 }
             }
-            //不活跃的Eqlist
-            if(!bounds.isValid() && menuId.value == 'eqlists') {
-                const candidates = []
-                map.eachLayer(layer => {
-                    if(layer.options.pane == 'eqlistMarkerPane' || 
-                    layer.options.pane == 'eewBasePane' && layer.options.fillColor && layer.options.fillColor != '#39393900'){
-                        if(layer.getBounds){
-                            bounds.extend(layer.getBounds())
-                        }
-                        else if(layer.getLatLng){
-                            const latLng = layer.getLatLng()
-                            const { lat, lng } = latLng
-                            if(
-                                lat >= 18 && lat <= 54 && lng >= 73 && lng <= 149
-                                ||
-                                lat >= 3 && lat <= 18 && lng >= 107 && lng <= 120
-                            ) {
-                                bounds.extend(latLng)
-                            }
-                            else {
-                                candidates.push(latLng)
-                            }
-                        }
-                    }
-                })
-                if(!bounds.isValid()) {
-                    candidates.forEach(latLng => bounds.extend(latLng))
-                }
-            }
+        })
+        if(!bounds.isValid()) {
+            bounds.extend(cnTsunamiBaseMap?.getBounds())
         }
-        let targetCenter, targetZoom
-        //应用bounds
-        if(bounds.isValid()){
-            const target = map._getBoundsCenterZoom(bounds, {
-                padding: [50, 50],
-                maxZoom: 8
+    }
+    else if(activeEqlistList.value.length > 0) {
+        activeEqlistList.value.forEach(event=>{
+            if(event.eqMessage.source == tempEqlists.value && event.isValidHypo) {
+                bounds.extend(event.hypoLatLng)
+            }
+        })
+        jpEewBaseMap?.eachLayer(layer => {
+            if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                if(layer.getBounds){
+                    bounds.extend(layer.getBounds())
+                }
+                else if(layer.getLatLng){
+                    bounds.extend(layer.getLatLng())
+                }
+            }
+        })
+        cnEewBaseMap?.eachLayer(layer => {
+            if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                if(layer.getBounds){
+                    bounds.extend(layer.getBounds())
+                }
+                else if(layer.getLatLng){
+                    bounds.extend(layer.getLatLng())
+                }
+            }
+        })
+    }
+  }
+  else {
+    // EewとSeisNet
+    if (menuId.value != 'eqlists') {
+      map.eachLayer(layer => {
+        let shouldExtend = false
+        switch(layer.options.pane) {
+          case 'eewMarkerPane':
+          case 'waveFillPane':
+            shouldExtend = true
+            break
+          case 'niedGridPane':
+            if(!statusStore.isActive.jmaEew) {
+                shouldExtend = true
+            }
+            break
+          case 'tremGridPane':
+            if(!statusStore.isActive.cwaEew) {
+                shouldExtend = true
+            }
+            break
+          case 'kmaGridPane':
+            shouldExtend = true
+            break
+        }
+        if(shouldExtend) {
+          if (layer.getBounds) {
+            bounds.extend(layer.getBounds())
+          } else if (layer.getLatLng) {
+            const latLng = layer.getLatLng()
+            const { lat, lng } = latLng
+            if (
+              (lat >= 18 && lat <= 54 && lng >= 73 && lng <= 149) ||
+              (lat >= 3 && lat <= 18 && lng >= 107 && lng <= 120)
+            ) {
+              bounds.extend(latLng)
+            } else {
+              candidates.push(latLng)
+            }
+          }
+        }
+      })
+
+      if (!bounds.isValid() && candidates.length) {
+        candidates.forEach(latLng => bounds.extend(latLng))
+      }
+    }
+    // 历史地震
+    if(!bounds.isValid() && menuId.value == 'eqlists' && historyList.length > 0) {
+        historyList.forEach(event => {
+            if(event.isValidHypo){
+                bounds.extend(event.hypoLatLng)
+            }
+        })
+        jpEewBaseMap?.eachLayer(layer => {
+            if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                if(layer.getBounds){
+                    bounds.extend(layer.getBounds())
+                }
+                else if(layer.getLatLng){
+                    bounds.extend(layer.getLatLng())
+                }
+            }
+        })
+        cnEewBaseMap?.eachLayer(layer => {
+            if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                if(layer.getBounds){
+                    bounds.extend(layer.getBounds())
+                }
+                else if(layer.getLatLng){
+                    bounds.extend(layer.getLatLng())
+                }
+            }
+        })
+    }
+    // 活跃的Eqlist和Tsunami
+    if(!bounds.isValid() && menuId.value != 'eews') {
+        statusStore.isActive.jmaTsunami && jpTsunamiBaseMap?.eachLayer(layer => {
+            if(layer.options.color && layer.options.color != '#ffffff00') {
+                if(layer.getBounds){
+                    bounds.extend(layer.getBounds())
+                }
+                else if(layer.getLatLng){
+                    bounds.extend(layer.getLatLng())
+                }
+            }
+        })
+        statusStore.isActive.nmefcTsunami && cnTsunamiBaseMap?.eachLayer(layer => {
+            if(layer.options.color && layer.options.color != '#ffffff00') {
+                if(layer.getBounds){
+                    bounds.extend(layer.getBounds())
+                }
+                else if(layer.getLatLng){
+                    bounds.extend(layer.getLatLng())
+                }
+            }
+        })
+        if(activeEqlistList.value.length > 0) {
+            activeEqlistList.value.forEach(event=>{
+                if(event.isValidHypo){
+                    bounds.extend(event.hypoLatLng)
+                }
             })
-            targetCenter = target.center
-            targetZoom = target.zoom
+            jpEewBaseMap?.eachLayer(layer => {
+                if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                    if(layer.getBounds){
+                        bounds.extend(layer.getBounds())
+                    }
+                    else if(layer.getLatLng){
+                        bounds.extend(layer.getLatLng())
+                    }
+                }
+            })
+            cnEewBaseMap?.eachLayer(layer => {
+                if(layer.options.fillColor && layer.options.fillColor != '#39393900') {
+                    if(layer.getBounds){
+                        bounds.extend(layer.getBounds())
+                    }
+                    else if(layer.getLatLng){
+                        bounds.extend(layer.getLatLng())
+                    }
+                }
+            })
         }
-        //默认视野
-        else{
-            let centerArr
-            if(isValidViewLatLng.value){
-                centerArr = viewLatLng.value
+    }
+    // 不活跃的Eqlist（※ここで candidates を再宣言しない）
+    if(!bounds.isValid() && menuId.value == 'eqlists') {
+      const eqlistCandidates = []
+      map.eachLayer(layer => {
+        if(layer.options.pane == 'eqlistMarkerPane' || 
+        layer.options.pane == 'eewBasePane' && layer.options.fillColor && layer.options.fillColor != '#39393900'){
+            if(layer.getBounds){
+                bounds.extend(layer.getBounds())
             }
-            else if(isValidUserLatLng.value){
-                centerArr = userLatLng.value
+            else if(layer.getLatLng){
+                const latLng = layer.getLatLng()
+                const { lat, lng } = latLng
+                if(
+                    lat >= 18 && lat <= 54 && lng >= 73 && lng <= 149
+                    ||
+                    lat >= 3 && lat <= 18 && lng >= 107 && lng <= 120
+                ) {
+                    bounds.extend(latLng)
+                }
+                else {
+                    eqlistCandidates.push(latLng)
+                }
             }
-            else{
-                centerArr = defaultLatLng
-            }
-            const [lat, lng] = centerArr
-            targetCenter = { lat, lng }
-            targetZoom = settingsStore.mainSettings.defaultZoom
         }
-        const currCenter = map.getCenter()
-        const currZoom = map.getZoom()
-        const err = 1 / 2 ** targetZoom
-        if(currZoom != targetZoom || Math.abs(currCenter.lat - targetCenter.lat) >= err || Math.abs(currCenter.lng - targetCenter.lng) >= err)
-            map.setView(targetCenter, targetZoom, { animate: true })
+      })
+      if(!bounds.isValid()) {
+        eqlistCandidates.forEach(latLng => bounds.extend(latLng))
+      }
     }
-    else {
-        pendingSetView = true
-    }
+  }
+
+  // bounds適用 / デフォルト視野（このブロックを if-else の外に置く）
+  let targetCenter, targetZoom
+  if (bounds.isValid()) {
+    const target = map._getBoundsCenterZoom(bounds, { padding: [50, 50], maxZoom: 8 })
+    targetCenter = target.center
+    targetZoom = target.zoom
+  } else {
+    let centerArr
+    if (isValidViewLatLng.value) centerArr = viewLatLng.value
+    else if (isValidUserLatLng.value) centerArr = userLatLng.value
+    else centerArr = defaultLatLng
+    const [lat, lng] = centerArr
+    targetCenter = { lat, lng }
+    targetZoom = settingsStore.mainSettings.defaultZoom
+  }
+
+  const currCenter = map.getCenter()
+  const currZoom = map.getZoom()
+  const err = 1 / 2 ** targetZoom
+  if (
+    currZoom != targetZoom ||
+    Math.abs(currCenter.lat - targetCenter.lat) >= err ||
+    Math.abs(currCenter.lng - targetCenter.lng) >= err
+  ) {
+    map.setView(targetCenter, targetZoom, { animate: true })
+  }
 }
+
 const smartSetView = () => {
     setTimeout(() => {
         if(isAutoZoom.value) setView()
@@ -1482,6 +2153,13 @@ watch(isAutoZoom, (newVal)=>{
         }, 1000);
     }
 }, { immediate: true })
+
+watch(
+    () => `${settingsStore.mainSettings.viewLatLng[0]}|${settingsStore.mainSettings.viewLatLng[1]}|${settingsStore.mainSettings.defaultZoom}`,
+    () => {
+        if(isAutoZoom.value) smartSetView()
+    }
+)
 const jmaWarnArea = computed(()=>{
     const jmaWarnArea = {}
     if(menuId.value != 'eqlists') {
@@ -1520,8 +2198,6 @@ const jmaWarnArea = computed(()=>{
         : activeEqlistList.value.length > 0
         ? settingsStore.mainSettings.cinemaMode && tempEqlists.value.endsWith('Eqlist')
         ? tempEqlists.value == 'jmaEqlist'
-        ? activeEqlistList.value.find(event => event.eqMessage.source == 'jmaEqlist')
-        : null
         : activeEqlistList.value.find(event => event.eqMessage.source == 'jmaEqlist')
         : eqlistList.find(event => event.eqMessage.source == 'jmaEqlist')
         if(!jmaEqlistEvent) return {}
@@ -1566,30 +2242,410 @@ const jpEewInfoList = computed(()=>{
     })
     return jpEewInfoList
 })
-const eewInfoList = computed(()=>{
-    const cnEewList = menuId.value == 'eqlists'
-        ? historyList.length > 0
-        ? historyList.filter(event => event.hypoMarker && !event.eqMessage.isCanceled)
-        : activeEqlistList.value.length > 0
-        ? settingsStore.mainSettings.cinemaMode && tempEqlists.value.endsWith('Eqlist')
-        ? activeEqlistList.value.filter(event=>event.eqMessage.source == tempEqlists.value && event.hypoMarker && !event.eqMessage.isCanceled)
-        : activeEqlistList.value.filter(event=>event.hypoMarker && !event.eqMessage.isCanceled)
-        : eqlistList.filter(event=>event.hypoMarker && !event.eqMessage.isCanceled)
-        : activeEewList.filter(event=>!(event.eqMessage.isCanceled || event.eqMessage.isAssumption))
-    const eewInfoList = cnEewList.map(event=>{
-        const { magnitude, depth, lat, lng } = event.eqMessage
-        return { magnitude, depth, lat, lng }
-    })
-    return eewInfoList
+const cnEewInfoList = computed(() => {
+    const sourceList = menuId.value === 'eqlists'
+        ? (historyList.length > 0
+            ? historyList
+            : (activeEqlistList.value.length > 0
+                ? (settingsStore.mainSettings.cinemaMode && tempEqlists.value.endsWith('Eqlist')
+                    ? activeEqlistList.value.filter(event => event.eqMessage.source === tempEqlists.value)
+                    : activeEqlistList.value)
+                : eqlistList))
+        : [];
+
+    return sourceList
+        .filter(event => event.hypoMarker && !event.eqMessage.isCanceled)
+        .map(event => {
+            const { magnitude, depth, lat, lng } = event.eqMessage;
+            return { magnitude, depth, lat, lng };
+        });
+});
+
+const tremStations = ref({});
+let tremStationInfo = {};
+let tremTimeout;
+
+const tremStationProxyBase = computed(() => {
+    const selected = settingsStore.mainSettings.displaySeisNet.tremApi;
+    const isDev = import.meta.env.DEV
+
+    // station APIは api-1/api-2
+    if (selected === 'api-2') return isDev ? '/exptech-api-2' : 'https://api-2.exptech.dev'
+
+    // lb-* が選ばれても、stationは api-1 を使う（Zero-Quakeもフェイルオーバーあり）
+    return isDev ? '/exptech-api-1' : 'https://api-1.exptech.dev'
 })
-onBeforeUnmount(()=>{
+
+const tremRtsProxyBase = computed(() => {
+    const selected = settingsStore.mainSettings.displaySeisNet.tremApi;
+    const isDev = import.meta.env.DEV
+
+    // rts APIは lb-1..lb-4
+    if (selected?.startsWith('lb-')) {
+        return isDev ? `/exptech-${selected}` : `https://${selected}.exptech.dev`
+    }
+    // api-1/api-2 の場合は対応する lb-1/lb-2
+    if (selected === 'api-2') return isDev ? '/exptech-lb-2' : 'https://lb-2.exptech.dev'
+    return isDev ? '/exptech-lb-1' : 'https://lb-1.exptech.dev'
+})
+
+const tremRtsMaxInst = ref(null)
+const tremRtsCurrentBin = computed(() => instToShindoBin(tremRtsMaxInst.value))
+const tremRtsShakeFlags = reactive({ shake1Notified: false, shake2Notified: false, focused: false })
+const tremRtsPrevBins = reactive({})
+const tremRtsRisingCount = ref(0)
+const tremRtsRisingCountThreshold = 3
+
+watch(
+    () => settingsStore.mainSettings.displaySeisNet.tremNet,
+    (newVal) => {
+        if(!newVal) {
+            tremRtsMaxInst.value = null
+            for(const k in tremRtsPrevBins) delete tremRtsPrevBins[k]
+            tremRtsRisingCount.value = 0
+            tremRtsShakeFlags.shake1Notified = false
+            tremRtsShakeFlags.shake2Notified = false
+            tremRtsShakeFlags.focused = false
+        }
+    }
+)
+
+const _getTremRtsNiedStyle = (instShindo) => {
+    const zoom = map?.getZoom?.() ?? settingsStore.mainSettings.defaultZoom
+    const level = getLevelFromInstShindo(Number.isFinite(instShindo) ? instShindo : -3.1)
+    return computeNiedStyleColorRadius(level, zoom)
+}
+
+const updateTremMarkers = (data) => {
+    let max = null
+    let risingCount = 0
+    for (const id in tremStations.value) {
+        const station = tremStations.value[id];
+        const stationData = data[id];
+        if (station.marker && stationData) {
+            const shindo = stationData.i;
+            if (shindo !== null && shindo !== undefined) {
+                max = (max === null) ? shindo : Math.max(max, shindo)
+            }
+            const newBin = instToShindoBin(shindo)
+            const oldBin = (id in tremRtsPrevBins) ? tremRtsPrevBins[id] : -1
+            if (newBin > oldBin) risingCount += 1
+            tremRtsPrevBins[id] = newBin
+            const { color, radius } = _getTremRtsNiedStyle(shindo)
+            station.marker.setStyle({
+                color,
+                fillColor: color,
+                opacity: 1,
+                fillOpacity: 1,
+                weight: 0,
+            });
+            station.marker.setRadius(radius)
+        } else if (station.marker) {
+            const { color, radius } = _getTremRtsNiedStyle(null)
+            station.marker.setStyle({
+                color,
+                fillColor: color,
+                opacity: 1,
+                fillOpacity: 1,
+                weight: 0,
+            })
+            station.marker.setRadius(radius)
+        }
+    }
+    tremRtsMaxInst.value = max
+    tremRtsRisingCount.value = risingCount
+    tremMaxShindo.value = (max === null) ? '?' : getShindoFromInstShindo(max)
+};
+
+const loadTremRts = async () => {
+    clearTimeout(tremTimeout);
+
+    if (Object.keys(tremStationInfo).length === 0) {
+        try {
+            const res = await fetch(`${tremStationProxyBase.value}/api/v1/trem/station?_=${Date.now()}`);
+            tremStationInfo = await res.json();
+
+            tremRtsLayer.clearLayers();
+            const stations = {};
+            for (const id in tremStationInfo) {
+                const info = tremStationInfo[id].info[0];
+                const { color, radius } = _getTremRtsNiedStyle(null)
+                const marker = L.circleMarker([info.lat, info.lon], {
+                    radius,
+                    color,
+                    weight: 0,
+                    fillColor: color,
+                    opacity: 1,
+                    fillOpacity: 1,
+                    pane: 'tremRtsPane'
+                });
+                marker.bindPopup(`<b>${id}</b>`);
+                tremRtsLayer.addLayer(marker);
+                stations[id] = { marker, info };
+            }
+            tremStations.value = stations;
+            console.log('TREM-RTS stations initialized.');
+        } catch (e) {
+            console.error('Failed to load TREM-RTS station data:', e);
+        }
+    }
+
+    if (settingsStore.mainSettings.displaySeisNet.tremNet) {
+        try {
+            const res = await fetch(`${tremRtsProxyBase.value}/api/v1/trem/rts?_=${Date.now()}`);
+            const data = await res.json();
+            if (data && data.station) {
+                updateTremMarkers(data.station);
+                tremUpdateTime.value = stampToTime(data.time, 8);
+            }
+        } catch (e) {
+            console.error('Failed to load TREM-RTS data:', e);
+        }
+    }
+
+    tremTimeout = setTimeout(loadTremRts, 1000);
+};
+
+watch(
+    () => settingsStore.mainSettings.displaySeisNet.tremApi,
+    () => {
+        // API切替時は観測点キャッシュ/レイヤーを作り直す
+        tremStationInfo = {}
+        tremStations.value = {}
+        tremRtsLayer?.clearLayers()
+        loadTremRts()
+    }
+)
+
+const msilStations = ref({});
+const msil_latest = {};
+const msilLatestByCode = {};
+let msil_lastTime = '';
+let msilTimeout;
+
+const msilMaxInst = ref(null)
+const msilCurrentBin = computed(() => instToShindoBin(msilMaxInst.value))
+const msilShakeFlags = reactive({ shake1Notified: false, shake2Notified: false, focused: false })
+const msilPrevBins = reactive({})
+const msilRisingCount = ref(0)
+const msilRisingCountThreshold = 2
+
+watch(
+    () => settingsStore.mainSettings.displaySeisNet.msilNet,
+    (newVal) => {
+        if(!newVal) {
+            msilMaxInst.value = null
+            for(const k in msilPrevBins) delete msilPrevBins[k]
+            msilRisingCount.value = 0
+            msilShakeFlags.shake1Notified = false
+            msilShakeFlags.shake2Notified = false
+            msilShakeFlags.focused = false
+        }
+    }
+)
+
+const _getMsilNiedStyle = (instShindo) => {
+    const zoom = map?.getZoom?.() ?? settingsStore.mainSettings.defaultZoom
+    const level = getLevelFromInstShindo(Number.isFinite(instShindo) ? instShindo : -3.1)
+    return computeNiedStyleColorRadius(level, zoom)
+}
+
+const refreshMsilMarkerStyleForZoom = () => {
+    if (!msilStations?.value) return
+    for (const code in msilStations.value) {
+        const station = msilStations.value[code]
+        const marker = station?.marker
+        if (!marker) continue
+        const shindo = msilLatestByCode[code]
+        const { color, radius } = _getMsilNiedStyle(shindo)
+        marker.setStyle({
+            color,
+            fillColor: color,
+            opacity: 1,
+            fillOpacity: 1,
+            weight: 0,
+        })
+        marker.setRadius(radius)
+    }
+}
+
+const formatUtcToBasetime = (timestampMs) => {
+    const d = new Date(timestampMs);
+    const yyyy = d.getUTCFullYear();
+    const MM = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${yyyy}${MM}${dd}${hh}${mm}${ss}`;
+};
+
+const basetimeToUnixMs = (basetime) => {
+    const yyyy = Number(basetime.slice(0, 4));
+    const MM = Number(basetime.slice(4, 6));
+    const dd = Number(basetime.slice(6, 8));
+    const hh = Number(basetime.slice(8, 10));
+    const mm = Number(basetime.slice(10, 12));
+    const ss = Number(basetime.slice(12, 14));
+    return Date.UTC(yyyy, MM - 1, dd, hh, mm, ss);
+};
+
+const updateMsilMarkers = (data) => {
+    let max = null;
+    let risingCount = 0
+    for (const code in data) {
+        const station = msilStations.value[code];
+        if (!station?.marker) continue;
+        const shindo = data[code]?.shindo;
+        msilLatestByCode[code] = shindo
+        if (shindo !== null && shindo !== undefined) {
+            max = (max === null) ? shindo : Math.max(max, shindo);
+        }
+        const newBin = instToShindoBin(shindo)
+        const oldBin = (code in msilPrevBins) ? msilPrevBins[code] : -1
+        if (newBin > oldBin) risingCount += 1
+        msilPrevBins[code] = newBin
+        const { color, radius } = _getMsilNiedStyle(shindo)
+        station.marker.setStyle({
+            color,
+            fillColor: color,
+            opacity: 1,
+            fillOpacity: 1,
+            weight: 0,
+        });
+        station.marker.setRadius(radius)
+    }
+    msilMaxInst.value = max
+    msilRisingCount.value = risingCount
+    msilMaxShindo.value = (max === null) ? '?' : getShindoFromInstShindo(max);
+};
+
+watch(tremRtsCurrentBin, (newVal, oldVal) => {
+    if(!settingsStore.mainSettings.displaySeisNet.tremNet) return
+    if(newVal > oldVal && tremRtsRisingCount.value >= tremRtsRisingCountThreshold) {
+        triggerShakeIfRising(newVal, oldVal, tremRtsShakeFlags)
+    }
+    else {
+        triggerShakeIfRising(oldVal, oldVal, tremRtsShakeFlags)
+    }
+})
+
+watch(msilCurrentBin, (newVal, oldVal) => {
+    if(!settingsStore.mainSettings.displaySeisNet.msilNet) return
+    if(newVal > oldVal && msilRisingCount.value >= msilRisingCountThreshold) {
+        triggerShakeIfRising(newVal, oldVal, msilShakeFlags)
+    }
+    else {
+        triggerShakeIfRising(oldVal, oldVal, msilShakeFlags)
+    }
+})
+
+const handleMsilData = (data, y, uid) => {
+    msil_latest[y] = { uid, data };
+    const another = (y === 11) ? 12 : 11;
+    if (msil_latest[another] && msil_latest[another].uid === uid) {
+        const merged = { ...msil_latest[11].data, ...msil_latest[12].data };
+        updateMsilMarkers(merged);
+    }
+};
+
+const loadMsilNet = async () => {
+    clearTimeout(msilTimeout);
+
+    // 観測点（マーカー）の初期化：msilNet のON/OFFに関係なく一度だけ生成
+    if (Object.keys(msilStations.value).length === 0) {
+        try {
+            const response = await fetch(`${import.meta.env.BASE_URL}resources/Snet_Points.json`);
+            const points = await response.json();
+            msilNetLayer.clearLayers();
+            const { color, radius } = _getMsilNiedStyle(null)
+            const stations = {};
+            points.forEach(point => {
+                if (!point.Point || point.IsSuspended) return;
+                const { Latitude: lat, Longitude: lon } = point.Location;
+                const code = point.Code;
+                const marker = L.circleMarker([lat, lon], {
+                    radius,
+                    color,
+                    weight: 0,
+                    fillColor: color,
+                    opacity: 1,
+                    fillOpacity: 1,
+                    pane: 'msilNetPane'
+                });
+                marker.bindPopup(`<b>${code}</b>`);
+                msilNetLayer.addLayer(marker);
+                stations[code] = { marker };
+            });
+            msilStations.value = stations;
+            refreshMsilMarkerStyleForZoom()
+        } catch (e) {
+            console.error('Failed to initialize MSIL stations:', e);
+        }
+    }
+
+    // 変更：msilNet がOFFならデータ取得はしない（マーカーは msilStations の設定で表示/非表示）
+    if (!settingsStore.mainSettings.displaySeisNet.msilNet) {
+        msilTimeout = setTimeout(loadMsilNet, 10000);
+        return;
+    }
+
+    try {
+        const msilBase = import.meta.env.DEV ? '/msil' : 'https://www.msil.go.jp'
+        const targetTimesRes = await fetch(`${msilBase}/tiles/smoni/targetTimes.json?_=${Date.now()}`);
+        const targetTimes = await targetTimesRes.json();
+        if (!Array.isArray(targetTimes)) throw new Error('Invalid targetTimes format');
+
+        const nowKey = formatUtcToBasetime(timeStore.getTimeStamp());
+        let basetime = '';
+        targetTimes.forEach(elm => {
+            const bt = String(elm.basetime || '');
+            if (bt && bt <= nowKey && bt > basetime) basetime = bt;
+        });
+        if (!basetime) throw new Error('No valid basetime found');
+
+        // 更新時刻表示
+        msilUpdateTime.value = stampToTime(basetimeToUnixMs(basetime), 9);
+
+        if (msil_lastTime !== basetime) {
+            msil_lastTime = basetime;
+            const unique_id = Date.now();
+            const urls = [
+                { url: `${msilBase}/tiles/smoni/${basetime}/${basetime}/5/28/11.png?_=${unique_id}`, y: 11 },
+                { url: `${msilBase}/tiles/smoni/${basetime}/${basetime}/5/28/12.png?_=${unique_id}`, y: 12 }
+            ];
+
+            urls.forEach(async ({ url, y }) => {
+                try {
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    const imageBitmap = await createImageBitmap(blob);
+                    if (msilWorker) {
+                        msilWorker.postMessage({ imageBitmap, y, uid: unique_id }, [imageBitmap]);
+                    }
+                } catch (e) {
+                    console.error(`Failed to fetch or process MSIL tile ${url}`, e);
+                }
+            });
+        }
+    } catch (e) {
+        console.error('Failed to load MSIL data:', e);
+    }
+
+    msilTimeout = setTimeout(loadMsilNet, settingsStore.mainSettings.displaySeisNet.msilInterval * 1000);
+};
+
+onBeforeUnmount(() => {
     clearInterval(mainInterval)
     clearInterval(terminatorInterval)
     clearInterval(autoZoomInterval)
     clearTimeout(autoZoomTimer)
     clearTimeout(defaultMenuTimer)
     clearTimeout(tempEqlistsTimer)
+    clearTimeout(tremTimeout)
+    clearTimeout(msilTimeout)
     document.removeEventListener('mousemove', resetDefaultMenuTimer)
+    if(msilWorker) msilWorker.terminate()
     document.removeEventListener('keydown', handleKeydown)
     activeEewList.length = 0
     eqlistList.length = 0

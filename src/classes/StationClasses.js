@@ -125,6 +125,51 @@ const kmaIntColorBand = [
 
 export const simpleIcon = ref(false)
 
+export const computeNiedStyleColorRadius = (level, zoom, opts = {}) => {
+    if (!settingsStore) settingsStore = useSettingsStore()
+    const style = opts.style ?? settingsStore.mainSettings.displaySeisNet.style
+    const hideNoData = opts.hideNoData ?? settingsStore.mainSettings.displaySeisNet.hideNoData
+    const clampedZoom = Math.min(Math.max(Number(zoom), 4), 10)
+
+    let color
+    let radius
+    switch (style) {
+        case 'nied': {
+            if (level < 0 || level >= colorBand.nied.length) {
+                color = hideNoData ? '#cfcfcf00' : '#cfcfcf'
+            }
+            else {
+                color = colorBand.nied[level]
+            }
+            radius = (level <= 5 ? 2 : 2.5) * 2 ** (clampedZoom / 2 - 3)
+            break
+        }
+        case 'srev': {
+            if (level < 0 || level >= colorBand.srev.length) {
+                color = colorBand.srev[0]
+            }
+            else {
+                color = colorBand.srev[level]
+            }
+            radius = 2.5 * 2 ** (clampedZoom / 2 - 3)
+            break
+        }
+        case 'mix':
+        default: {
+            if (level < 0 || level >= colorBand.mix.length) {
+                color = colorBand.mix[0]
+            }
+            else {
+                color = colorBand.mix[level]
+            }
+            radius = 2.5 * 2 ** (clampedZoom / 2 - 3)
+            break
+        }
+    }
+
+    return { color, radius }
+}
+
 const shindoIcons = {}, intIcons = {}
 for(let zoom = 6; zoom <= 10; zoom ++) {
     let icons = {}
@@ -352,27 +397,64 @@ export class NiedStation {
     }
 }
 export class TremStation {
-    constructor(map, id, latLng, intensity, isActive){
+    constructor(map, id, latLng, intensity, expireSeconds = 10){
         if(!settingsStore) settingsStore = useSettingsStore()
         this.map = map
         this.id = id
         this.latLng = latLng
+        this.defaultExpireSeconds = this.expireSeconds = expireSeconds
+        this.maxExpireSeconds = 30
         this.intensity = intensity
         this.shindo = getShindoFromInstShindo(intensity)
         this.level = getLevelFromInstShindo(intensity)
-        this.isActive = isActive
+        this.ascend = 0
+        this.recentLevel = []
+        this.activity = 0
+        this.isActive = false
         this.markerType = null
         this.render()
     }
-    update(intensity, isActive, render = true){
-        this.intensity = intensity
-        const level = getLevelFromInstShindo(intensity)
+    update(intensity, render = true){
+        const originLevel = getLevelFromInstShindo(intensity)
+        const level = originLevel == -1 ? this.recentLevel.slice(0, 4).find(val => val != -1) ?? -1 : originLevel
+        if(level > this.level && this.level != -1) this.expireSeconds = Math.min(this.expireSeconds + 2, this.maxExpireSeconds)
+        else if(level < this.level || level == -1) this.expireSeconds = this.defaultExpireSeconds
         if(level != this.level){
+            this.intensity = intensity
             this.shindo = getShindoFromInstShindo(intensity)
             this.level = level
             render && this.render()
         }
-        this.isActive = isActive
+        let recentFilter = this.recentLevel.slice(0, this.expireSeconds).filter(val => val != -1)
+        let ascend = 0
+        if(recentFilter.length > 0){
+            const minRecent = Math.min(...recentFilter)
+            ascend = level - minRecent
+        }
+        this.ascend = ascend
+        this.activity = this.calcActivity(level, ascend)
+        this.recentLevel.unshift(originLevel)
+        this.recentLevel.splice(this.maxExpireSeconds)
+        if(this.expireSeconds > this.defaultExpireSeconds && !this.isActive && this.recentLevel.length >= this.expireSeconds) {
+            recentFilter = this.recentLevel.slice(0, this.expireSeconds).filter(val => val != -1)
+            if(recentFilter.every(val => val == recentFilter[0])) {
+                this.expireSeconds = this.defaultExpireSeconds
+            }
+        }
+    }
+    calcActivity(level, ascend){
+        let levelActivity, ascendActivity
+        if(ascend > 0 || this.isActive) {
+            if(level <= 5) levelActivity = 0
+            else if(level <= 7) levelActivity = (this.isActive ? 0.5 : 0.25) * (level - 5)
+            else if(level <= 11) levelActivity = 2 * (level - 7)
+            else levelActivity = 6 * (level - 10)
+        } else levelActivity = 0
+        if(ascend <= 0) ascendActivity = 0
+        else if(ascend <= 1) ascendActivity = this.isActive ? 0.5 : 0.25
+        else if(ascend <= 6) ascendActivity = 2 * (ascend - 2) + 1
+        else ascendActivity = 6 * (ascend - 5)
+        return levelActivity + ascendActivity
     }
     render(){
         const oldMarkerType = this.markerType
@@ -492,10 +574,18 @@ export class TremStation {
                 break
         }
     }
+    setActive(){
+        this.isActive = true
+        clearTimeout(this.activeTimer)
+        this.activeTimer = setTimeout(() => {
+            this.isActive = false
+        }, 10500);
+    }
     terminate(){
         if(this.marker && this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker)
         this.map = null
         this.marker = null
+        clearTimeout(this.activeTimer)
     }
 }
 export class KmaStation {
@@ -522,7 +612,7 @@ export class KmaStation {
         const activityArr = this.recentLevel.slice(0, this.activitySeconds)
         const pastArr = this.recentLevel.slice(this.activitySeconds)
         this.activityLevel = Math.max(...activityArr, -1)
-        const pastLevel = pastArr.filter(level => level >= 0).length >= this.activitySeconds * 3.5 ? Math.max(...pastArr, -1) : -1
+        const pastLevel = pastArr.length >= this.activitySeconds * 3.5 ? Math.max(...pastArr, -1) : -1
         this.ascend = pastLevel >= 0 ? activityArr.filter(level => level > pastLevel).length : 0
         const holdLevel = Math.max(...this.recentLevel.slice(0, settingsStore.mainSettings.displaySeisNet.kmaIntHold), -1)
         if(holdLevel != this.holdLevel) {

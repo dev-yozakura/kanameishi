@@ -55,7 +55,11 @@ import { iconUrls } from '@/utils/Urls';
 
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
+
+// NOTE: MainMapComponent の “一時的にEqlist表示へ寄せる” 仕組み（津波を見せる）
 const handleTempEqlists = inject('handleTempEqlists')
+
+// NOTE: warnArea を grade 別に整形して表示用にする
 const warnAreaByGrade = computed(() => {
     const warnAreaByGrade = {}
     const warnArea = JSON.parse(statusStore.tsunamiMessage.jmaTsunami.warnArea)
@@ -89,6 +93,7 @@ const handleClick = ()=>{
     openUrl('https://typhoon.yahoo.co.jp/weather/jp/tsunami/')
 }
 
+// NOTE: status変化（発表/切替/解除/更新）で通知・音声・フォーカスを分岐
 let oldMessage = Object.assign({}, defaultTsunamiMessage)
 let currentStatus = 'notsunami'
 watch(() => statusStore.map, newVal => {

@@ -2,7 +2,7 @@
   <div class="outer1">
     <div class="container">
       <div class="bar">
-        <div class="title">地震/海啸信息</div>
+        <div class="title">{{ $t('eqlist.title') }}</div>
         <div class="switch">
           <div class="mag"
             :class="setClassName(calcCsisLevel(settingsStore.mainSettings.historyMagThres, 10, 0), false)">

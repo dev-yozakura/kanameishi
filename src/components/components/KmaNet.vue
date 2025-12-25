@@ -8,7 +8,7 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, inject } from 'vue';
 import { useStatusStore } from '@/stores/status';
 import { useSettingsStore } from '@/stores/settings';
-import { iconUrls, seisNetUrls } from '@/utils/Urls';
+import { seisNetUrls } from '@/utils/Urls';
 import { playSound, sendMyNotification, calcTimeDiff, focusWindow, getMmiFromKmaLevel } from '@/utils/Utils';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -73,12 +73,12 @@ const currentMaxShindo = computed(()=>{
 const update = (intensities) => {
     const render = document.visibilityState === 'visible'
     if(!render) pendingRender = true
-    let maxLevel = -1
+    let maxInt = 0
     stations.forEach((station, index) => {
         station.update(intensities[index], render)
-        if(station.holdLevel > maxLevel) maxLevel = station.holdLevel
+        if(station.intensity > maxInt) maxInt = station.intensity
     })
-    kmaMaxInt.value = getMmiFromKmaLevel(maxLevel)
+    kmaMaxInt.value = maxInt.toString()
     const activeStations = new Set()
     let first = null
     for(let i = 0; i < stationList.length; i++) {
@@ -104,7 +104,6 @@ const update = (intensities) => {
                 break
             case 3: 
                 flag = flag1 || flag2 || flag3
-                break
             default:
                 return
         }
@@ -146,14 +145,10 @@ onMounted(()=>{
                 const { timestamp, mmi } = Data
                 const timeDiff = calcTimeDiff(timestamp, 9, kmaUpdateTime.value, 9)
                 if(timeDiff > 0) {
-                    if(mmi.length != stations.length || mmi.some(int => int == -3)) return
+                    if(mmi.length != stations.length) return
                     if(timeDiff > 1000) {
-                        const popNum = Math.min(Math.round(timeDiff / 1000) - 1, 60)
-                        const noDataArr = Array(popNum).fill(-1)
-                        stations.forEach(station => {
-                            station.recentLevel.unshift(...noDataArr)
-                            station.recentLevel.splice(station.recentSeconds)
-                        })
+                        const popNum = Math.round(timeDiff / 1000) - 1
+                        stations.forEach(station => station.recentLevel.splice(station.recentSeconds))
                     }
                     kmaUpdateTime.value = timestamp
                     update(mmi)
@@ -263,7 +258,7 @@ watch(()=>statusStore.map, newVal=>{
         )
     }
 }, { immediate: true })
-watch(()=>(statusStore.isActive.kmaEew || statusStore.isActive.kmaNet), newVal=>{
+watch(()=>(statusStore.isActive.kmaNet), newVal=>{
     if(newVal){
         if(periodMaxLevel == -1){
             periodMaxLevel = 0

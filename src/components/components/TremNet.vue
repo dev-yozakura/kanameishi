@@ -22,7 +22,7 @@ const timeStore = useTimeStore()
 
 Object.assign(seisNetUrls, JSON.parse(localStorage.getItem('tremUrl'))?.seisNetUrls)
 const stationList = reactive({})
-let stationData
+let stationData = {}
 const stations = reactive({})
 let map
 const delay = computed(()=>settingsStore.mainSettings.displaySeisNet.delay * 60000)
@@ -104,7 +104,8 @@ const clearReactiveObject = (obj) => {
 let fetchStationInterval, requestInterval
 const fetchStationList = async () => {
     try {
-        const res = await Http.get(seisNetUrls?.trem.stationList + `?time=${Date.now()}`)
+        if(!seisNetUrls?.trem?.stationList) return
+        const res = await Http.get(seisNetUrls.trem.stationList + `?time=${Date.now()}`)
         if(res && JSON.stringify(res) != JSON.stringify(stationList)){
             clearReactiveObject(stationList)
             Object.assign(stationList, res)
@@ -118,10 +119,11 @@ onMounted(()=>{
     fetchStationList()
     requestInterval = setInterval(async () => {
         try {
+            if(!stationDataUrl.value) return
             const time = timeStore.getTimeStamp() - delay.value
             const res = await Http.get(stationDataUrl.value + (delay.value > 0 ? `/${Math.round(time / 1000)}` : `?time=${time}`), { timeout: 10000 })
             if(res && Object.keys(res).length > 0){
-                stationData = res.station
+                stationData = res.station || {}
                 const timeString = stampToTime(res.time, 8)
                 const timeDiff = calcTimeDiff(timeString, 8, tremUpdateTime.value, 8)
                 if(delay.value > 0 && timeDiff < 0 || timeDiff > 0){
@@ -157,7 +159,8 @@ watch(()=>statusStore.map, newVal=>{
                     }
                 })
                 Object.keys(newVal).forEach(id=>{
-                    const info = newVal[id].info.slice(-1)[0]
+                    const info = newVal[id]?.info?.slice?.(-1)?.[0]
+                    if(!info) return
                     const latLng = [info.lat, info.lon]
                     const station = reactive(new TremStation(map, id, latLng, -3.1, false))
                     stations[id] = station
@@ -266,7 +269,11 @@ watch(currentMaxShindo, (newVal, oldVal)=>{
         focused = false
     }
 })
-const stationDataUrl = computed(() => seisNetUrls?.trem.stationData.replace('api-2', settingsStore.mainSettings.displaySeisNet.tremApi))
+const stationDataUrl = computed(() => {
+    const base = seisNetUrls?.trem?.stationData
+    if(!base) return ''
+    return base.replace('api-2', settingsStore.mainSettings.displaySeisNet.tremApi)
+})
 onBeforeUnmount(()=>{
     clearInterval(fetchStationInterval)
     clearInterval(requestInterval)

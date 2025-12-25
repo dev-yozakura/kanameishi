@@ -1,0 +1,225 @@
+{
+  "settings": {
+    "title": "设置",
+    "general": {
+      "title": "通用",
+      "language": "语言"
+    },
+    "dataSource": {
+      "title": "预警/信息数据源",
+      "reload_hint": "需重新加载页面后生效。",
+      "eew_title": "地震预警",
+      "cea_eew": "中国地震局: 地震预警",
+      "icl_eew": "成都高新减灾研究所: 地震预警",
+      "sc_eew": "四川地震局: 地震预警",
+      "fj_eew": "福建地震局: 地震预警",
+      "cwa_eew": "臺灣中央氣象署: 強震即時警報",
+      "jma_eew": "日本気象庁: 緊急地震速報",
+      "gq_eew": "GlobalQuake: 地震预警",
+      "eqlist_title": "地震信息",
+      "cenc_eqlist": "中国地震台网: 地震测定",
+      "cwa_eqlist": "臺灣中央氣象署: 地震報告",
+      "jma_eqlist": "日本気象庁: 地震情報",
+      "kma_eqlist": "기상청: 지진 정보",
+      "usgs_eqlist": "USGS: 地震测定",
+      "fssn_eqlist": "FSSN: 地震测定",
+      "tsunami_title": "海啸信息",
+      "jma_tsunami": "日本気象庁: 津波情報",
+      "nmefc_tsunami": "自然资源部: 海啸预警"
+    },
+    "seisNet": {
+      "title": "地震监测网",
+      "dataSource": "数据源",
+      "nied_net": "強震モニタ・震度（日本）",
+      "analysis_shindo": "解析震度阶",
+      "sensitivity": "检知灵敏度",
+      "off": "关",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "trem_net": "TREM-Net・震度（台湾）",
+      "api": "API",
+      "kma_net": "KMA-PEWS・加速度（韩国）",
+      "convert_to_mmi": "转换为烈度（MMI）",
+      "pga_hold_time": "加速度保持时间",
+      "msil_net": "海しる・海底地殻変動観測点"
+    },
+    "generalSettings": {
+      "title": "通用设置",
+      "station_replay": "测站回放(min)",
+      "restore": "还原",
+      "replay_by_time": "选择时间回放",
+      "replay_placeholder": "选择日期时间(CST)",
+      "replay": "回放",
+      "station_style": "测站风格",
+      "nied_style": "NIED",
+      "srev_style": "SREV",
+      "mix_style": "混合",
+      "hide_no_data_stations": "隐藏无数据测站",
+      "display_shindo_0": "显示震度0/烈度1图标"
+    },
+    "behavior": {
+      "title": "行为",
+      "filter_settings": {
+        "title": "过滤设置",
+        "hint1": "以下所有条件关系为“与”。",
+        "hint2": "从下一个事件开始生效。",
+        "mag_threshold": "震级阈值",
+        "mag_threshold_hint1": "地震预警事件中，仅在预估震级达到阈值时进行提醒。",
+        "mag_threshold_hint2": "设置为“0”表示不作筛选。",
+        "local_csis_threshold": "本地烈度阈值",
+        "local_csis_threshold_hint1": "需要启用“软件估算烈度/震度”。",
+        "local_csis_threshold_hint2": "地震预警事件中，仅在预估本地烈度达到阈值时进行提醒。",
+        "local_csis_threshold_hint3": "对日本以外地区生效。",
+        "local_csis_threshold_hint4": "设置为“0”表示不作筛选。",
+        "local_csis_threshold_hint5": "参考：",
+        "local_csis_threshold_hint6": " - 1度及以下：基本无感",
+        "local_csis_threshold_hint7": " - 2~3度：敏感或位于高层的人群静止下有感；悬挂物轻微晃动",
+        "local_csis_threshold_hint8": " - 4~5度：绝大部分人群静止时有感，少部分人从睡梦中被唤醒；悬挂物显著晃动",
+        "local_csis_threshold_hint9": " - 6~7度：所有人有感，大部分人从睡梦中被唤醒；稳定性差的摆件倾倒；抗震性差的房屋可能出现破坏",
+        "local_csis_threshold_hint10": " - 8~9度：行走困难；家具倾倒；抗震性差的房屋可能倒塌，抗震性好的房屋可能损坏",
+        "local_csis_threshold_hint11": " - 10度及以上：无法行走，有抛起感；房屋大规模倒塌；山崩地裂",
+        "local_shindo_threshold": "本地震度阈值",
+        "local_shindo_threshold_hint1": "需要启用“软件估算烈度/震度”。",
+        "local_shindo_threshold_hint2": "地震预警事件中，仅在预估本地震度达到阈值时进行提醒。",
+        "local_shindo_threshold_hint3": "对附近包含震度观测点的日本地区生效。",
+        "local_shindo_threshold_hint4": "设置为“0”表示不作筛选。",
+        "local_shindo_threshold_hint5": "参考：",
+        "local_shindo_threshold_hint6": " - 震度0：基本无感",
+        "local_shindo_threshold_hint7": " - 震度1：敏感人群静止时有感",
+        "local_shindo_threshold_hint8": " - 震度2：大部分人群静止时有感；悬挂物轻微晃动",
+        "local_shindo_threshold_hint9": " - 震度3：绝大部分人群静止时有感；一部分人从睡梦中被唤醒；悬挂物显著晃动",
+        "local_shindo_threshold_hint10": " - 震度4：所有人有感，大部分人从睡梦中被唤醒；稳定性差的摆件倾倒",
+        "local_shindo_threshold_hint11": " - 震度5弱~5强：大多数人有恐惧感；部分家具倾倒",
+        "local_shindo_threshold_hint12": " - 震度6弱~6强：行走困难；家具大规模倾倒；抗震性差的房屋出现损坏甚至倒塌",
+        "local_shindo_threshold_hint13": " - 震度7：无法行走，有抛起感；房屋大规模倒塌；山崩地裂",
+        "strong_shaking_prompt": "强有感提示音",
+        "gq_mag_threshold": "GQ预警震级阈值",
+        "usgs_mag_threshold": "USGS震级阈值",
+        "fssn_reception_type": "FSSN事件接收类型",
+        "fssn_reception_type_auto": "自动和正式测定",
+        "fssn_reception_type_official": "仅正式测定",
+        "fssn_mag_threshold": "FSSN震级阈值",
+        "location_whitelist": "地名白名单",
+        "location_whitelist_hint1": "地名包含关键词的事件，始终通过过滤。",
+        "location_whitelist_hint2": "使用“|”对多个关键词进行分隔。",
+        "location_whitelist_placeholder": "使用“|”对多个关键词进行分隔"
+      },
+      "on_eew_warn": {
+        "title": "收到地震预警（警报）时",
+        "send_notification": "发送通知",
+        "play_sound": "播放声音",
+        "popup_window": "弹出窗口"
+      },
+      "on_any_eew": {
+        "title": "收到任意地震预警时"
+      },
+      "on_report": {
+        "title": "收到地震信息时"
+      },
+      "on_shake": {
+        "title": "地震监测网检测到摇晃时"
+      },
+      "on_tsunami": {
+        "title": "收到海啸信息时"
+      }
+    }
+  },
+  "mainMap": {
+    "map_colors": "地图颜色",
+    "csis": "烈度",
+    "shindo": "震度",
+    "websocket_status": "WebSocket状态:",
+    "kyoshin_monitor": "強震モニタ:",
+    "trem_net": "TREM-Net :",
+    "kma_pews": "KMA-PEWS:",
+    "mock_eew_in_progress": "模拟预警中",
+    "eew": {
+      "max_intensity": "最大震度",
+      "max_csis": "最大烈度",
+      "location": "震源地",
+      "magnitude": "M",
+      "depth": "深度",
+      "assumed_hypocenter": "仮定震源要素",
+      "mute": "静默",
+      "unmute": "取消静默",
+      "close_alert": "关闭预警",
+      "local_intensity": "本地震度",
+      "local_csis": "本地烈度"
+    },
+    "eqlist": {
+      "max_intensity": "最大震度",
+      "max_csis": "最大烈度",
+      "location": "震源地",
+      "location_ongoing": "震源 調査中",
+      "magnitude": "M",
+      "magnitude_ongoing": "規模 調査中",
+      "depth": "深度",
+      "close_info": "关闭信息"
+    },
+    "tsunami": {
+      "major_warning": "大海啸警报",
+      "warning": "海啸警报",
+      "advisory": "海啸注意报",
+      "jma_major_warning": "大津波警報",
+      "jma_warning": "津波警報",
+      "jma_advisory": "津波注意報"
+    },
+    "realtime": {
+      "nied_realtime": "NIED实时",
+      "nied_period": "NIED区间",
+      "trem_realtime": "TREM实时",
+      "trem_period": "TREM区间",
+      "kma_realtime": "KMA实时",
+      "kma_period": "KMA区间"
+    }
+  },
+  "eqlist": {
+    "title": "地震/海啸信息"
+  },
+  "status": {
+    "title": "状态面板"
+  },
+  "eqGrid": {
+    "elapsed_time": "经过时间:"
+  },
+  "mockEew": {
+    "create_mock_eew": "新建模拟地震预警",
+    "title": "模拟地震预警",
+    "import": "导入",
+    "export": "导出",
+    "form": {
+      "id": "预警ID",
+      "optional": "选填",
+      "title": "标题",
+      "report_num": "第{num}报",
+      "origin_delay": "发震延迟 (s)",
+      "report_delay": "发报延迟 (s)",
+      "hypocenter": "震中地名",
+      "pick_latlng": "拾取经纬度",
+      "lat": "纬度",
+      "lng": "经度",
+      "depth": "深度 (km)",
+      "magnitude": "震级",
+      "use_shindo": "使用震度",
+      "max_shindo": "最大震度",
+      "max_csis": "最大烈度",
+      "select_placeholder": "请选择",
+      "auto": "自动",
+      "unknown": "不明",
+      "is_assumption": "假定震源",
+      "is_warn": "警报",
+      "auto_judge": "自动判断",
+      "is_canceled": "取消报",
+      "json_format_error": "JSON 格式错误！"
+    },
+    "footer": {
+      "prev_page": "上一页",
+      "next_page": "下一页",
+      "remove": "删除",
+      "insert": "插入",
+      "cancel": "取消",
+      "submit": "提交"
+    }
+  }
+}

@@ -1,10 +1,22 @@
 <template>
     <div class="outer1">
         <div class="container">
-            <div class="title">设置</div>
+            <div class="title">{{ $t('settings.title') }}</div>
             <div class="settings">
+                <span class="sub-title">{{ $t('settings.general.title') }}</span>
+                <div class="group">
+                    <div class="switch-group">
+                        <div class="switch-full">
+                            <span>{{ $t('settings.general.language') }}</span>
+                            <el-select v-model="settingsStore.mainSettings.language" placeholder="Select" style="width: 120px">
+                                <el-option label="日本語" value="ja" />
+                                <el-option label="中文" value="zh" />
+                            </el-select>
+                        </div>
+                    </div>
+                </div>
                 <span class="sub-title">
-                    预警/信息数据源
+                    {{ $t('settings.dataSource.title') }}
                     <el-popover
                         placement="top"
                         :width="300"
@@ -14,124 +26,120 @@
                             <question-filled width="1em" height="1em" />
                         </template>
                         <strong>
-                            <p>需重新加载页面后生效。</p>
+                            <p>{{ $t('settings.dataSource.reload_hint') }}</p>
                         </strong>
                     </el-popover>
                 </span>
                 <div class="group">
                     <div class="switch-group">
-                        <span class="font-bold w-full">地震预警</span>
+                        <span class="font-bold w-full">{{ $t('settings.dataSource.eew_title') }}</span>
                         <div class="switch-full">
-                            <div>中国地震局: 地震预警</div>
+                            <div>{{ $t('settings.dataSource.cea_eew') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.ceaEew" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full" v-if="settingsStore.advancedSettings.enableIclEew">
-                            <div>成都高新减灾研究所: 地震预警</div>
+                            <div>{{ $t('settings.dataSource.icl_eew') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.iclEew" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <div>四川地震局: 地震预警</div>
+                            <div>{{ $t('settings.dataSource.sc_eew') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.scEew" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <div>福建地震局: 地震预警</div>
+                            <div>{{ $t('settings.dataSource.fj_eew') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.fjEew" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <div>臺灣中央氣象署: 強震即時警報</div>
+                            <div>{{ $t('settings.dataSource.cwa_eew') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.cwaEew" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <div>日本気象庁: 緊急地震速報</div>
+                            <div>{{ $t('settings.dataSource.jma_eew') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.jmaEew" @change="handleNeedReload" />
                         </div>
-                        <div class="switch-full">
-                            <div>기상청: 지진 조기 경보</div>
-                            <el-switch v-model="settingsStore.mainSettings.source.kmaEew" @change="handleNeedReload" />
-                        </div>
                         <div class="switch-full" v-if="settingsStore.advancedSettings.enableGqEew">
-                            <div>GlobalQuake: 地震预警</div>
+                            <div>{{ $t('settings.dataSource.gq_eew') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.gqEew" @change="handleNeedReload" />
                         </div>
                     </div>
                     <div class="switch-group">
-                        <span class="font-bold w-full">地震信息</span>
+                        <span class="font-bold w-full">{{ $t('settings.dataSource.eqlist_title') }}</span>
                         <div class="switch-full">
-                            <div>中国地震台网: 地震测定</div>
+                            <div>{{ $t('settings.dataSource.cenc_eqlist') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.cencEqlist" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full" v-if="settingsStore.advancedSettings.enableTremFunctions">
-                            <div>臺灣中央氣象署: 地震報告</div>
+                            <div>{{ $t('settings.dataSource.cwa_eqlist') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.cwaEqlist" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <div>日本気象庁: 地震情報</div>
+                            <div>{{ $t('settings.dataSource.jma_eqlist') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.jmaEqlist" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <div>기상청: 지진 정보</div>
+                            <div>{{ $t('settings.dataSource.kma_eqlist') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.kmaEqlist" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <div>USGS: 地震测定</div>
+                            <div>{{ $t('settings.dataSource.usgs_eqlist') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.usgsEqlist" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <div>FSSN: 地震测定</div>
+                            <div>{{ $t('settings.dataSource.fssn_eqlist') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.fssnEqlist" @change="handleFssnEqlist" />
                         </div>
                     </div>
                     <div class="switch-group">
-                        <span class="font-bold w-full">海啸信息</span>
+                        <span class="font-bold w-full">{{ $t('settings.dataSource.tsunami_title') }}</span>
                         <div class="switch-full">
-                            <div>日本気象庁: 津波情報</div>
+                            <div>{{ $t('settings.dataSource.jma_tsunami') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.jmaTsunami" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full" v-if="settingsStore.advancedSettings.enableNmefcTsunami">
-                            <div>自然资源部: 海啸预警</div>
+                            <div>{{ $t('settings.dataSource.nmefc_tsunami') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.nmefcTsunami" @change="handleNeedReload" />
                         </div>
                     </div>
                 </div>
-                <span class="sub-title">地震监测网</span>
+                <span class="sub-title">{{ $t('settings.seisNet.title') }}</span>
                 <div class="group">
-                    <span class="font-bold w-full">数据源</span>
+                    <span class="font-bold w-full">{{ $t('settings.seisNet.dataSource') }}</span>
                     <div class="switch-group">
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>強震モニタ・震度（日本）</span>
+                                <span>{{ $t('settings.seisNet.nied_net') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.niedNet" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>解析震度阶</span>
+                                <span>{{ $t('settings.seisNet.analysis_shindo') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.displayNiedShindo" :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>检知灵敏度</span>
+                                <span>{{ $t('settings.seisNet.sensitivity') }}</span>
                                 <el-select 
                                     v-model="settingsStore.mainSettings.displaySeisNet.niedSensitivity"
                                     size="small"
                                     :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet"
                                     style="width: 48px;"
                                 >
-                                    <el-option label="关" :value=0 />
-                                    <el-option label="低" :value=1 />
-                                    <el-option label="中" :value=2 />
-                                    <el-option label="高" :value=3 />
+                                    <el-option :label="$t('settings.seisNet.off')" :value=0 />
+                                    <el-option :label="$t('settings.seisNet.low')" :value=1 />
+                                    <el-option :label="$t('settings.seisNet.medium')" :value=2 />
+                                    <el-option :label="$t('settings.seisNet.high')" :value=3 />
                                 </el-select>
                             </div>
                         </div>
-                        <div class="w-full" v-if="settingsStore.advancedSettings.enableTremFunctions">
+                        <div class="w-full">
                             <div class="switch-full">
-                                <span>TREM-Net・震度（台湾）</span>
+                                <span>{{ $t('settings.seisNet.trem_net') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.tremNet" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>解析震度阶</span>
+                                <span>{{ $t('settings.seisNet.analysis_shindo') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.displayTremShindo" :disabled="!settingsStore.mainSettings.displaySeisNet.tremNet" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>API</span>
+                                <span>{{ $t('settings.seisNet.api') }}</span>
                                 <el-select 
                                     v-model="settingsStore.mainSettings.displaySeisNet.tremApi"
                                     size="small"
@@ -149,36 +157,35 @@
                         </div>
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>KMA-PEWS・加速度（韩国）</span>
+                                <span>{{ $t('settings.seisNet.kma_net') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.kmaNet" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>转换为烈度（MMI）</span>
+                                <span>{{ $t('settings.seisNet.convert_to_mmi') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.displayKmaInt" :disabled="!settingsStore.mainSettings.displaySeisNet.kmaNet" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>检知灵敏度</span>
+                                <span>{{ $t('settings.seisNet.sensitivity') }}</span>
                                 <el-select 
                                     v-model="settingsStore.mainSettings.displaySeisNet.kmaSensitivity"
                                     size="small"
                                     :disabled="!settingsStore.mainSettings.displaySeisNet.kmaNet"
                                     style="width: 48px;"
                                 >
-                                    <el-option label="关" :value=0 />
-                                    <el-option label="低" :value=1 />
-                                    <el-option label="中" :value=2 />
-                                    <el-option label="高" :value=3 />
+                                    <el-option :label="$t('settings.seisNet.off')" :value=0 />
+                                    <el-option :label="$t('settings.seisNet.low')" :value=1 />
+                                    <el-option :label="$t('settings.seisNet.medium')" :value=2 />
                                 </el-select>
                             </div>
                             <div class="switch-full pl-4">
-                                <span>加速度保持</span>
+                                <span>{{ $t('settings.seisNet.pga_hold_time') }}</span>
                                 <el-select 
                                     v-model="settingsStore.mainSettings.displaySeisNet.kmaIntHold"
                                     size="small"
                                     :disabled="!settingsStore.mainSettings.displaySeisNet.kmaNet"
                                     style="width: 72px;"
                                 >
-                                    <el-option label="实时" :value="1" />
+                                    <el-option label="关" :value="1" />
                                     <el-option label="5秒" :value="5" />
                                     <el-option label="10秒" :value="10" />
                                     <el-option label="30秒" :value="30" />
@@ -186,12 +193,24 @@
                                 </el-select>
                             </div>
                         </div>
+                        <div class="w-full">
+                            <div class="switch-full">
+                                <span>{{ $t('settings.seisNet.msil_net') }}</span>
+                                <el-switch v-model="settingsStore.mainSettings.displaySeisNet.msilNet" />
+                            </div>
+
+                            <!-- 追加：観測点マーカー表示の切り替え -->
+                            <div class="switch-full pl-4">
+                                <span>{{ $t('settings.seisNet.msil_station_markers') }}</span>
+                                <el-switch v-model="settingsStore.mainSettings.displaySeisNet.msilStations" />
+                            </div>
+                        </div>
                     </div>
-                    <div class="font-bold w-full">通用设置</div>
+                    <div class="font-bold w-full">{{ $t('settings.generalSettings.title') }}</div>
                     <div class="switch-group">
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>测站回放(min)</span>
+                                <span>{{ $t('settings.generalSettings.station_replay') }}</span>
                                 <div class="flex gap-2">
                                     <el-input-number
                                         v-model="settingsStore.mainSettings.displaySeisNet.delay"
@@ -203,18 +222,18 @@
                                         size="small"
                                         @click="settingsStore.mainSettings.displaySeisNet.delay = 0"
                                         :disabled="settingsStore.mainSettings.displaySeisNet.delay == 0"
-                                    >还原</el-button>
+                                    >{{ $t('settings.generalSettings.restore') }}</el-button>
                                 </div>
                             </div>
                             <div class="switch-full pl-4">
-                                <span>选择时间回放</span>
+                                <span>{{ $t('settings.generalSettings.replay_by_time') }}</span>
                                 <div class="flex gap-2">
                                     <el-date-picker
                                         v-model="replayDateTime"
                                         type="datetime"
                                         size="small"
                                         style="width: 156px;"
-                                        placeholder="选择日期时间(CST)"
+                                        :placeholder="$t('settings.generalSettings.replay_placeholder')"
                                         format="YYYY-MM-DD HH:mm:ss"
                                         value-format="YYYY-MM-DD HH:mm:ss"
                                     />
@@ -222,38 +241,38 @@
                                         size="small"
                                         @click="setReplayDateTime"
                                         :disabled="!replayDateTime"
-                                    >回放</el-button>
+                                    >{{ $t('settings.generalSettings.replay') }}</el-button>
                                 </div>
                             </div>
                         </div>
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>测站风格</span>
+                                <span>{{ $t('settings.generalSettings.station_style') }}</span>
                                 <el-select
                                     style="width: 72px;"
                                     v-model="settingsStore.mainSettings.displaySeisNet.style"
                                     size="small"
                                 >
-                                    <el-option label="NIED" value="nied" />
-                                    <el-option label="SREV" value="srev" />
-                                    <el-option label="混合" value="mix" />
+                                    <el-option :label="$t('settings.generalSettings.nied_style')" value="nied" />
+                                    <el-option :label="$t('settings.generalSettings.srev_style')" value="srev" />
+                                    <el-option :label="$t('settings.generalSettings.mix_style')" value="mix" />
                                 </el-select>
                             </div>
                             <div class="switch-full pl-4" v-show="settingsStore.mainSettings.displaySeisNet.style == 'nied'">
-                                <span>隐藏无数据测站</span>
+                                <span>{{ $t('settings.generalSettings.hide_no_data_stations') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.hideNoData" />
                             </div>
                             <div class="switch-full">
-                                <span>显示震度0/烈度1图标</span>
+                                <span>{{ $t('settings.generalSettings.display_shindo_0') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.displayShindo0" />
                             </div>
                         </div>
                     </div>
                 </div>
-                <span class="sub-title">行为</span>
+                <span class="sub-title">{{ $t('settings.behavior.title') }}</span>
                 <div class="group">
                     <span class="font-bold w-full">
-                        过滤设置
+                        {{ $t('settings.behavior.filter_settings.title') }}
                         <el-popover
                             placement="top"
                             :width="200"
@@ -262,15 +281,15 @@
                             <template #reference>
                                 <question-filled width="1em" height="1em" />
                             </template>
-                            <p><strong>以下所有条件关系为“与”。</strong></p>
-                            <p><strong>从下一个事件开始生效。</strong></p>
+                            <p><strong>{{ $t('settings.behavior.filter_settings.hint1') }}</strong></p>
+                            <p><strong>{{ $t('settings.behavior.filter_settings.hint2') }}</strong></p>
                         </el-popover>
                     </span>
                     <div class="switch-group">
                         <div class="switch-full">
                             <div class="justify-between" style="width: 10rem;">
                                 <span>
-                                    震级阈值
+                                    {{ $t('settings.behavior.filter_settings.mag_threshold') }}
                                     <el-popover
                                         placement="top"
                                         :width="310"
@@ -279,8 +298,8 @@
                                         <template #reference>
                                             <question-filled width="1em" height="1em" />
                                         </template>
-                                        <p>地震预警事件中，仅在预估震级达到阈值时进行提醒。</p>
-                                        <p>设置为“0”表示不作筛选。</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.mag_threshold_hint1') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.mag_threshold_hint2') }}</p>
                                     </el-popover>
                                 </span>
                                 <div class="mag" :class="setClassName(calcCsisLevel(settingsStore.mainSettings.actionMag, 10, 0), false)">
@@ -297,7 +316,7 @@
                         <div class="switch-full" v-if="!settingsStore.nearestJmaLoc">
                             <div class="justify-between" style="width: 10rem;">
                                 <span>
-                                    本地烈度阈值
+                                    {{ $t('settings.behavior.filter_settings.local_csis_threshold') }}
                                     <el-popover
                                         placement="top"
                                         :width="310"
@@ -306,17 +325,17 @@
                                         <template #reference>
                                             <question-filled width="1em" height="1em" />
                                         </template>
-                                        <p><strong>需要启用“软件估算烈度/震度”。</strong></p>
-                                        <p>地震预警事件中，仅在预估本地烈度达到阈值时进行提醒。</p>
-                                        <p>对日本以外地区生效。</p>
-                                        <p>设置为“0”表示不作筛选。</p>
-                                        <p>参考：</p>
-                                        <p> - 1度及以下：基本无感</p>
-                                        <p> - 2~3度：敏感或位于高层的人群静止下有感；悬挂物轻微晃动</p>
-                                        <p> - 4~5度：绝大部分人群静止时有感，少部分人从睡梦中被唤醒；悬挂物显著晃动</p>
-                                        <p> - 6~7度：所有人有感，大部分人从睡梦中被唤醒；稳定性差的摆件倾倒；抗震性差的房屋可能出现破坏</p>
-                                        <p> - 8~9度：行走困难；家具倾倒；抗震性差的房屋可能倒塌，抗震性好的房屋可能损坏</p>
-                                        <p> - 10度及以上：无法行走，有抛起感；房屋大规模倒塌；山崩地裂</p>
+                                        <p><strong>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint1') }}</strong></p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint2') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint3') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint4') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint5') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint6') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint7') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint8') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint9') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint10') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_csis_threshold_hint11') }}</p>
                                     </el-popover>
                                 </span>
                                 <div class="int" :class="setClassName(settingsStore.mainSettings.actionLocalCsis, false)">
@@ -338,7 +357,7 @@
                         <div class="switch-full" v-else>
                             <div class="justify-between" style="width: 10rem;">
                                 <span>
-                                    本地震度阈值
+                                    {{ $t('settings.behavior.filter_settings.local_shindo_threshold') }}
                                     <el-popover
                                         placement="top"
                                         :width="310"
@@ -347,19 +366,19 @@
                                         <template #reference>
                                             <question-filled width="1em" height="1em" />
                                         </template>
-                                        <p><strong>需要启用“软件估算烈度/震度”。</strong></p>
-                                        <p>地震预警事件中，仅在预估本地震度达到阈值时进行提醒。</p>
-                                        <p>对附近包含震度观测点的日本地区生效。</p>
-                                        <p>设置为“0”表示不作筛选。</p>
-                                        <p>参考：</p>
-                                        <p> - 震度0：基本无感</p>
-                                        <p> - 震度1：敏感人群静止时有感</p>
-                                        <p> - 震度2：大部分人群静止时有感；悬挂物轻微晃动</p>
-                                        <p> - 震度3：绝大部分人群静止时有感；一部分人从睡梦中被唤醒；悬挂物显著晃动</p>
-                                        <p> - 震度4：所有人有感，大部分人从睡梦中被唤醒；稳定性差的摆件倾倒</p>
-                                        <p> - 震度5弱~5强：大多数人有恐惧感；部分家具倾倒</p>
-                                        <p> - 震度6弱~6强：行走困难；家具大规模倾倒；抗震性差的房屋出现损坏甚至倒塌</p>
-                                        <p> - 震度7：无法行走，有抛起感；房屋大规模倒塌；山崩地裂</p>
+                                        <p><strong>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint1') }}</strong></p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint2') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint3') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint4') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint5') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint6') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint7') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint8') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint9') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint10') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint11') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint12') }}</p>
+                                        <p>{{ $t('settings.behavior.filter_settings.local_shindo_threshold_hint13') }}</p>
                                     </el-popover>
                                 </span>
                                 <div class="int" :class="setClassName(shindoScale[settingsStore.mainSettings.actionLocalShindo], true)">
@@ -381,7 +400,7 @@
                                 <el-checkbox 
                                     v-model="settingsStore.mainSettings.playIntenseSound" 
                                     :disabled="!settingsStore.advancedSettings.forceCalcInt"
-                                >强有感提示音</el-checkbox>
+                                >{{ $t('settings.behavior.filter_settings.strong_shaking_prompt') }}</el-checkbox>
                                 <div v-if="!settingsStore.nearestJmaLoc" class="int" :class="setClassName(settingsStore.mainSettings.intenseLocalCsis, false)">
                                     <div class="csis" :class="{
                                         'roman': settingsStore.mainSettings.useRomanCsis,
@@ -414,7 +433,7 @@
                         </div>
                         <div class="switch-full" v-if="settingsStore.advancedSettings.enableGqEew">
                             <div class="justify-between" style="width: 10rem;">
-                                <span>GQ预警震级阈值</span>
+                                <span>{{ $t('settings.behavior.filter_settings.gq_mag_threshold') }}</span>
                                 <div class="mag" :class="setClassName(calcCsisLevel(settingsStore.mainSettings.gqActionMag, 10, 0), false)">
                                     {{ settingsStore.mainSettings.gqActionMag.toFixed(1) }}
                                 </div>
@@ -428,7 +447,7 @@
                         </div>
                         <div class="switch-full">
                             <div class="justify-between" style="width: 10rem;">
-                                <span>USGS震级阈值</span>
+                                <span>{{ $t('settings.behavior.filter_settings.usgs_mag_threshold') }}</span>
                                 <div class="mag" :class="setClassName(calcCsisLevel(settingsStore.mainSettings.usgsActionMag, 10, 0), false)">
                                     {{ settingsStore.mainSettings.usgsActionMag.toFixed(1) }}
                                 </div>
@@ -441,19 +460,19 @@
                             />
                         </div>
                         <div class="switch-full">
-                            <span>FSSN事件接收类型</span>
+                            <span>{{ $t('settings.behavior.filter_settings.fssn_reception_type') }}</span>
                             <el-select
                                 style="width: 120px;"
                                 v-model="settingsStore.mainSettings.fssnActionType"
                                 size="small"
                             >
-                                <el-option label="自动和正式测定" :value=0 />
-                                <el-option label="仅正式测定" :value=1 />
+                                <el-option :label="$t('settings.behavior.filter_settings.fssn_reception_type_auto')" :value=0 />
+                                <el-option :label="$t('settings.behavior.filter_settings.fssn_reception_type_official')" :value=1 />
                             </el-select>
                         </div>
                         <div class="switch-full">
                             <div class="justify-between" style="width: 10rem;">
-                                <span>FSSN震级阈值</span>
+                                <span>{{ $t('settings.behavior.filter_settings.fssn_mag_threshold') }}</span>
                                 <div class="mag" :class="setClassName(calcCsisLevel(settingsStore.mainSettings.fssnActionMag, 10, 0), false)">
                                     {{ settingsStore.mainSettings.fssnActionMag.toFixed(1) }}
                                 </div>
@@ -467,7 +486,7 @@
                         </div>
                         <div class="switch-full">
                             <span>
-                                地名白名单
+                                {{ $t('settings.behavior.filter_settings.location_whitelist') }}
                                 <el-popover
                                     placement="top"
                                     :width="310"
@@ -476,8 +495,8 @@
                                     <template #reference>
                                         <question-filled width="1em" height="1em" />
                                     </template>
-                                    <p>地名包含关键词的事件，始终通过过滤。</p>
-                                    <p>使用“|”对多个关键词进行分隔。</p>
+                                    <p>{{ $t('settings.behavior.filter_settings.location_whitelist_hint1') }}</p>
+                                    <p>{{ $t('settings.behavior.filter_settings.location_whitelist_hint2') }}</p>
                                 </el-popover>
                             </span>
                             <el-input 
@@ -485,82 +504,82 @@
                                 v-model="settingsStore.mainSettings.actionWhiteList"
                                 style="width: 180px;"
                                 size="small"
-                                placeholder="使用“|”对多个关键词进行分隔"
+                                :placeholder="$t('settings.behavior.filter_settings.location_whitelist_placeholder')"
                             />
                         </div>
                     </div>
-                    <span class="font-bold w-full">收到地震预警（警报）时</span>
+                    <span class="font-bold w-full">{{ $t('settings.behavior.on_eew_warn.title') }}</span>
                     <div class="switch-group justify-between">
                         <div class="switch" v-if="showNotifButton">
-                            <span>发送通知</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.send_notification') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onEewWarn.notification" :disabled="settingsStore.mainSettings.onEew.notification" />
                         </div>
                         <div class="switch">
-                            <span>播放声音</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.play_sound') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onEewWarn.sound" :disabled="settingsStore.mainSettings.onEew.sound" />
                         </div>
                         <div class="switch" v-if="isTauri">
-                            <span>弹出窗口</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.popup_window') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onEewWarn.focus" :disabled="settingsStore.mainSettings.onEew.focus" />
                         </div>
                     </div>
-                    <span class="font-bold w-full">收到任意地震预警时</span>
+                    <span class="font-bold w-full">{{ $t('settings.behavior.on_any_eew.title') }}</span>
                     <div class="switch-group justify-between">
                         <div class="switch" v-if="showNotifButton">
-                            <span>发送通知</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.send_notification') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onEew.notification" />
                         </div>
                         <div class="switch">
-                            <span>播放声音</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.play_sound') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onEew.sound" />
                         </div>
                         <div class="switch" v-if="isTauri">
-                            <span>弹出窗口</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.popup_window') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onEew.focus" />
                         </div>
                     </div>
-                    <span class="font-bold w-full">收到地震信息时</span>
+                    <span class="font-bold w-full">{{ $t('settings.behavior.on_report.title') }}</span>
                     <div class="switch-group justify-between">
                         <div class="switch" v-if="showNotifButton">
-                            <span>发送通知</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.send_notification') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onReport.notification" />
                         </div>
                         <div class="switch">
-                            <span>播放声音</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.play_sound') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onReport.sound" />
                         </div>
                         <div class="switch" v-if="isTauri">
-                            <span>弹出窗口</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.popup_window') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onReport.focus" />
                         </div>
                     </div>
-                    <span class="font-bold w-full">地震监测网检测到摇晃时</span>
+                    <span class="font-bold w-full">{{ $t('settings.behavior.on_shake.title') }}</span>
                     <div class="switch-group justify-between">
                         <div class="switch" v-if="showNotifButton">
-                            <span>发送通知</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.send_notification') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onShake.notification" />
                         </div>
                         <div class="switch">
-                            <span>播放声音</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.play_sound') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onShake.sound" />
                         </div>
                         <div class="switch" v-if="isTauri">
-                            <span>弹出窗口</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.popup_window') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onShake.focus" />
                         </div>
                     </div>
-                    <span class="font-bold w-full">收到海啸信息时</span>
+                    <span class="font-bold w-full">{{ $t('settings.behavior.on_tsunami.title') }}</span>
                     <div class="switch-group justify-between">
                         <div class="switch" v-if="showNotifButton">
-                            <span>发送通知</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.send_notification') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onTsunami.notification" />
                         </div>
                         <div class="switch">
-                            <span>播放声音</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.play_sound') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onTsunami.sound" />
                         </div>
                         <div class="switch" v-if="isTauri">
-                            <span>弹出窗口</span>
+                            <span>{{ $t('settings.behavior.on_eew_warn.popup_window') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.onTsunami.focus" />
                         </div>
                     </div>
@@ -1235,8 +1254,10 @@
 import { useSettingsStore } from '@/stores/settings';
 import { useStatusStore } from '@/stores/status';
 import { chimeUrls, utilUrls } from '@/utils/Urls';
+import dayjs from 'dayjs';
+import { useI18n } from 'vue-i18n';
 import Http from '@/classes/Http';
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
 import { QuestionFilled } from '@element-plus/icons-vue';
 import { calcPassedTime, formatCsis, openUrl, playSound, setClassName, shindoScale, calcCsisLevel } from '@/utils/Utils';
 import { join, appDataDir } from "@tauri-apps/api/path";
@@ -1526,7 +1547,7 @@ const postVerify = async (type = verifyType)=>{
                 ElMessage({
                     message: '认证失败',
                     type: 'error'
-                })
+                               })
             }
             break
         }
@@ -1820,8 +1841,19 @@ const handleAutoStart = async (value) => {
         isAutoStart.value = await isEnabled()
     }
 }
+const { locale } = useI18n()
+watch(() => settingsStore.mainSettings.language, (newLang) => {
+  locale.value = newLang;
+});
 onMounted(async () => {
+    locale.value = settingsStore.mainSettings.language;
     handleAutoCheckVersion(settingsStore.mainSettings.autoCheckNewVersion)
+
+    // 追加：後方互換（保存済み設定に msilStations が無い場合）
+    if (settingsStore.mainSettings?.displaySeisNet?.msilStations === undefined) {
+      settingsStore.mainSettings.displaySeisNet.msilStations = true
+    }
+
     if(isTauri) {
         loadAudio()
         isAutoStart.value = await isEnabled()

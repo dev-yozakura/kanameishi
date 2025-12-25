@@ -9,7 +9,6 @@ lerna-debug.log*
 
 node_modules
 .DS_Store
-dist
 dist-ssr
 coverage
 *.local
@@ -31,3 +30,11 @@ coverage
 
 # dist zip file
 dist.zip
+
+# .gitignore の例
+node_modules/
+.pnpm-debug.log
+*.log
+
+# でも dist/ はコミットしたい → コメントアウト or 削除
+# dist/

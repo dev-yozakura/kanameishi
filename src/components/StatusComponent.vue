@@ -2,7 +2,7 @@
     <div class="outer1">
         <div class="modal" @click="statusStore.showStatusPanel = false"></div>
         <div class="container">
-            <div class="title">状态面板</div>
+            <div class="title">{{ $t('status.title') }}</div>
             <div class="grids">
                 <div class="eqGrid">
                     <EqGrid v-for="(source, index) of eewList" :key="index" :source />

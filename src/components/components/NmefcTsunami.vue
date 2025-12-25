@@ -54,7 +54,11 @@ import { iconUrls } from '@/utils/Urls';
 
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
+
+// NOTE: MainMapComponent の “一時的にEqlist表示へ寄せる” 仕組み（指定秒だけメニュー/視野を誘導）
 const handleTempEqlists = inject('handleTempEqlists')
+
+// NOTE: warnArea を grade 別に整形して表示用にする
 const warnAreaByGrade = computed(() => {
     const warnAreaByGrade = {}
     const warnArea = JSON.parse(statusStore.tsunamiMessage.nmefcTsunami.warnArea)
@@ -67,9 +71,11 @@ const warnAreaByGrade = computed(() => {
 })
 
 const handleClick = ()=>{
+    // NOTE: 外部ページへ遷移（クリックで詳細確認）
     openUrl('https://www.nmefc.cn/zhyj/hx')
 }
 
+// NOTE: メッセージ差分（statusの上下/更新）で通知・音声・フォーカスを分岐
 let oldMessage = Object.assign({}, defaultTsunamiMessage)
 let currentStatus = 'notsunami'
 watch(() => statusStore.map, newVal => {

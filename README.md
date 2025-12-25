@@ -8,6 +8,41 @@ icon是《铃芽之旅》的草太さん（椅子形态）。
 * [Web版备用](https://kanameishi.pages.dev/)（使用CloudFlare托管，速度更快，但国内可能需要代理访问。）
 * [应用程序下载](https://github.com/Lipomoea/kanameishi/releases)
 * [应用程序下载（备用）](https://gitee.com/lipomoea/kanameishi/releases)
+
+## Android（PWA）
+本仓库已加入 PWA 支持，可在 Android 上“安装到主屏幕”作为应用使用：
+* 用 Chrome 打开 Web 版
+* 浏览器菜单 → “添加到主屏幕”（或“安装应用”）
+
+> 说明：PWA 通过 Service Worker 缓存资源，若更新后仍显示旧版本，可在浏览器中清除站点数据/缓存后重试。
+
+### 开发者：如何以 PWA 方式验证（Android）
+PWA 的前提是 **安全上下文**（HTTPS 或 localhost）。因此：
+* 已部署到 HTTPS 的站点：直接用 Android Chrome 打开并“安装应用”。
+* 本地开发机：推荐用 **ADB 反向端口** 在手机上访问 `http://localhost`（依然满足 localhost 规则）。
+
+#### 方式 A：部署到 HTTPS（最简单）
+* 将 `dist/` 部署到任意 HTTPS 静态托管（例如 Cloudflare Pages / GitHub Pages 等）
+* Android Chrome 打开站点 → 菜单 → “安装应用/添加到主屏幕”
+
+#### 方式 B：本地 + ADB（无需折腾 HTTPS 证书）
+1) 构建并在本机启动预览：
+* `pnpm install`
+* `pnpm build`
+* `pnpm preview`
+
+2) 手机开启“USB 调试”，连接到电脑后执行：
+* `adb reverse tcp:4173 tcp:4173`
+
+3) 在手机 Chrome 打开：
+* `http://localhost:4173/`
+然后在菜单里选择“安装应用/添加到主屏幕”。
+
+#### 方式 C：同一局域网访问（需要 HTTPS）
+如果要在手机上直接访问电脑 IP（例如 `http://192.168.x.x:4173`），由于不是 localhost，Service Worker 通常不会在 HTTP 下工作。
+* 仅用于页面查看：`pnpm preview:host` 后用手机访问即可。
+* 需要完整 PWA（SW/离线缓存/安装）：请改用 HTTPS（自签证书/反代/隧道）或使用“方式 B”。
+
 ## 主要功能  
 * 接收日本气象厅、台湾省中央气象署、中国地震局（包括各省分局）、四川省地震局、福建省地震局地震预警信息。
 * 接收日本气象厅、中国地震台网地震信息。
@@ -25,6 +60,7 @@ icon是《铃芽之旅》的草太さん（椅子形态）。
 * 中国地图注记：[中国城市经纬度坐标点集](https://gitcode.com/Open-source-documentation-tutorial/a0d83)
 * 日本地图：[日本気象庁](https://www.data.jma.go.jp/developer/gis.html)（注意钓鱼岛地区处理）
 * 世界地图：[GeoJSON Maps of the globe](https://geojson-maps.kyd.au/)（注意甄别争议地区）
+* 地震計リアルタイム（SeedLink）：[IRIS DMC SeedLink Service](https://ds.iris.edu/ds/nodes/dmc/services/seedlink/)
 * SREV音效：[scratch-realtime-earthquake-viewer-page](https://github.com/kotoho7/scratch-realtime-earthquake-viewer-page)
 * 中文倒计时播报素材：[地牛Wake Up！](https://eew.earthquake.tw/)
 ## 参考软件

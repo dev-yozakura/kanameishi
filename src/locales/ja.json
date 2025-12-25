@@ -1,0 +1,232 @@
+{
+  "settings": {
+    "title": "設定",
+    "general": {
+      "title": "一般",
+      "language": "言語"
+    },
+    "dataSource": {
+      "title": "警報/情報データソース",
+      "reload_hint": "変更を有効にするには、ページを再読み込みする必要があります。",
+      "eew_title": "地震警報",
+      "cea_eew": "中国地震局: 地震警報",
+      "icl_eew": "成都高新減災研究所: 地震警報",
+      "sc_eew": "四川地震局: 地震警報",
+      "fj_eew": "福建地震局: 地震警報",
+      "cwa_eew": "台湾中央気象署: 強震即時警報",
+      "jma_eew": "日本気象庁: 緊急地震速報",
+      "gq_eew": "GlobalQuake: 地震警報",
+      "eqlist_title": "地震情報",
+      "cenc_eqlist": "中国地震台ネットワーク: 地震測定",
+      "cwa_eqlist": "台湾中央気象署: 地震報告",
+      "jma_eqlist": "日本気象庁: 地震情報",
+      "kma_eqlist": "気象庁: 地震情報",
+      "usgs_eqlist": "USGS: 地震測定",
+      "fssn_eqlist": "FSSN: 地震測定",
+      "tsunami_title": "津波情報",
+      "jma_tsunami": "日本気象庁: 津波情報",
+      "nmefc_tsunami": "自然資源部: 津波警報"
+    },
+    "seisNet": {
+      "title": "地震モニタリングネットワーク",
+      "dataSource": "データソース",
+      "nied_net": "強震モニタ・震度（日本）",
+      "analysis_shindo": "解析震度階",
+      "sensitivity": "検知感度",
+      "off": "オフ",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "trem_net": "TREM-Net・震度（台湾）",
+      "api": "API",
+      "kma_net": "KMA-PEWS・加速度（韓国）",
+      "convert_to_mmi": "MMI震度階級に変換",
+      "pga_hold_time": "加速度保持時間",
+      "msil_net": "海しる・海底地殻変動観測点",
+      "msil_station_markers": "観測点マーカーを表示"
+    },
+    "generalSettings": {
+      "title": "一般設定",
+      "station_replay": "観測点リプレイ(分)",
+      "restore": "リセット",
+      "replay_by_time": "時刻を指定してリプレイ",
+      "replay_placeholder": "日時を選択(CST)",
+      "replay": "リプレイ",
+      "station_style": "観測点スタイル",
+      "nied_style": "NIED",
+      "srev_style": "SREV",
+      "mix_style": "混合",
+      "hide_no_data_stations": "データのない観測点を隠す",
+      "display_shindo_0": "震度0/震度階級1のアイコンを表示"
+    },
+    "behavior": {
+      "title": "動作",
+      "filter_settings": {
+        "title": "フィルター設定",
+        "hint1": "以下の条件はすべて「AND」として扱われます。",
+        "hint2": "次のイベントから有効になります。",
+        "mag_threshold": "マグニチュード閾値",
+        "mag_threshold_hint1": "緊急地震速報イベントで、推定マグニチュードが閾値に達した場合にのみ通知します。",
+        "mag_threshold_hint2": "「0」に設定すると、フィルタリングは行われません。",
+        "local_csis_threshold": "現地MMI震度階級閾値",
+        "local_csis_threshold_hint1": "「ソフトウェアによる震度/MMI震度階級の推定」を有効にする必要があります。",
+        "local_csis_threshold_hint2": "緊急地震速報イベントで、推定された現地のMMI震度階級が閾値に達した場合にのみ通知します。",
+        "local_csis_threshold_hint3": "日本以外の地域で有効です。",
+        "local_csis_threshold_hint4": "「0」に設定すると、フィルタリングは行われません。",
+        "local_csis_threshold_hint5": "参考：",
+        "local_csis_threshold_hint6": " - I以下：ほとんど感じない",
+        "local_csis_threshold_hint7": " - II~III：静止している人や高層階にいる人が感じる。吊り下げ物がわずかに揺れる",
+        "local_csis_threshold_hint8": " - IV~V：ほとんどの人が静止時に感じる。一部の人は眠りから覚める。吊り下げ物が大きく揺れる",
+        "local_csis_threshold_hint9": " - VI~VII：すべての人が感じる。ほとんどの人が眠りから覚める。不安定な置物が倒れる。耐震性の低い家屋が損傷する可能性がある",
+        "local_csis_threshold_hint10": " - VIII~IX：歩行が困難。家具が転倒する。耐震性の低い家屋が倒壊し、耐震性の高い家屋が損傷する可能性がある",
+        "local_csis_threshold_hint11": " - X以上：立っていることができず、飛ばされるような感覚がある。家屋が大規模に倒壊する。山崩れや地割れが発生する",
+        "local_shindo_threshold": "現地震度閾値",
+        "local_shindo_threshold_hint1": "「ソフトウェアによる震度/MMI震度階級の推定」を有効にする必要があります。",
+        "local_shindo_threshold_hint2": "緊急地震速報イベントで、推定された現地震度が閾値に達した場合にのみ通知します。",
+        "local_shindo_threshold_hint3": "近くに震度観測点がある日本の地域で有効です。",
+        "local_shindo_threshold_hint4": "「0」に設定すると、フィルタリングは行われません。",
+        "local_shindo_threshold_hint5": "参考：",
+        "local_shindo_threshold_hint6": " - 震度0：ほとんど感じない",
+        "local_shindo_threshold_hint7": " - 震度1：静止している敏感な人が感じる",
+        "local_shindo_threshold_hint8": " - 震度2：静止しているほとんどの人が感じる。吊り下げ物がわずかに揺れる",
+        "local_shindo_threshold_hint9": " - 震度3：静止しているほとんどの人が感じる。一部の人は眠りから覚める。吊り下げ物が大きく揺れる",
+        "local_shindo_threshold_hint10": " - 震度4：すべての人が感じる。ほとんどの人が眠りから覚める。不安定な置物が倒れる",
+        "local_shindo_threshold_hint11": " - 震度5弱～5強：ほとんどの人が恐怖を感じる。一部の家具が転倒する",
+        "local_shindo_threshold_hint12": " - 震度6弱～6強：歩行が困難。家具が大規模に転倒する。耐震性の低い家屋が損傷または倒壊する可能性がある",
+        "local_shindo_threshold_hint13": " - 震度7：立っていることができず、飛ばされるような感覚がある。家屋が大規模に倒壊する。山崩れや地割れが発生する",
+        "strong_shaking_prompt": "強い揺れの通知音",
+        "gq_mag_threshold": "GQ警報マグニチュード閾値",
+        "usgs_mag_threshold": "USGSマグニチュード閾値",
+        "fssn_reception_type": "FSSNイベント受信タイプ",
+        "fssn_reception_type_auto": "自動および公式",
+        "fssn_reception_type_official": "公式のみ",
+        "fssn_mag_threshold": "FSSNマグニチュード閾値",
+        "location_whitelist": "地名ホワイトリスト",
+        "location_whitelist_hint1": "地名にキーワードが含まれるイベントは、常にフィルターを通過します。",
+        "location_whitelist_hint2": "複数のキーワードは「|」で区切ってください。",
+        "location_whitelist_placeholder": "複数のキーワードは「|」で区切ってください"
+      },
+      "on_eew_warn": {
+        "title": "緊急地震速報（警報）受信時",
+        "send_notification": "通知を送信",
+        "play_sound": "音を再生",
+        "popup_window": "ウィンドウをポップアップ"
+      },
+      "on_any_eew": {
+        "title": "緊急地震速報受信時"
+      },
+      "on_report": {
+        "title": "地震情報受信時"
+      },
+      "on_shake": {
+        "title": "地震観測網で揺れを検知した時"
+      },
+      "on_tsunami": {
+        "title": "津波情報受信時"
+      }
+    }
+  },
+  "mainMap": {
+    "map_colors": "地図の色",
+    "csis": "震度階級",
+    "shindo": "震度",
+    "websocket_status": "WebSocketステータス:",
+    "kyoshin_monitor": "強震モニタ:",
+    "trem_net": "TREM-Net :",
+    "kma_pews": "KMA-PEWS:",
+    "mock_eew_in_progress": "模擬警報中",
+    "eew": {
+      "max_intensity": "最大震度",
+      "max_csis": "最大震度階級",
+      "location": "震源地",
+      "magnitude": "M",
+      "depth": "深さ",
+      "assumed_hypocenter": "仮定震源要素",
+      "mute": "ミュート",
+      "unmute": "ミュート解除",
+      "close_alert": "警報を閉じる",
+      "local_intensity": "現在地の震度",
+      "local_csis": "現在地の震度階級"
+    },
+    "eqlist": {
+      "max_intensity": "最大震度",
+      "max_csis": "最大震度階級",
+      "location": "震源地",
+      "location_ongoing": "震源 調査中",
+      "magnitude": "M",
+      "magnitude_ongoing": "マグニチュード 調査中",
+      "depth": "深さ",
+      "close_info": "情報を閉じる"
+    },
+    "tsunami": {
+      "major_warning": "中国津波警報(大)",
+      "warning": "中国津波警報",
+      "advisory": "中国津波注意報",
+      "jma_major_warning": "大津波警報",
+      "jma_warning": "津波警報",
+      "jma_advisory": "津波注意報"
+    },
+    "realtime": {
+      "nied_realtime": "NIED",
+      "nied_period": "NIED期間",
+      "trem_realtime": "TREM",
+      "trem_period": "TREM期間",
+      "kma_realtime": "KMA",
+      "kma_period": "KMA期間"
+    }
+  },
+  "eqlist": {
+    "title": "地震/津波情報"
+  },
+  "status": {
+    "title": "ステータスパネル"
+  },
+  "eqGrid": {
+    "elapsed_time": "経過時間:"
+  },
+  "mockEew": {
+    "create_mock_eew": "新規模擬地震警報",
+    "title": "模擬地震警報",
+    "import": "インポート",
+    "export": "エクスポート",
+    "form": {
+      "id": "警報ID",
+      "optional": "任意",
+      "title": "タイトル",
+      "report_num": "第{num}報",
+      "origin_delay": "発生遅延 (s)",
+      "report_delay": "通知遅延 (s)",
+      "hypocenter": "震源地名",
+      "pick_latlng": "緯度経度を選択",
+      "lat": "緯度",
+      "lng": "経度",
+      "depth": "深さ (km)",
+      "magnitude": "マグニチュード",
+      "use_shindo": "震度を使用",
+      "max_shindo": "最大震度",
+      "max_csis": "最大震度階級",
+      "select_placeholder": "選択してください",
+      "auto": "自動",
+      "unknown": "不明",
+      "is_assumption": "仮定震源",
+      "is_warn": "警報",
+      "auto_judge": "自動判断",
+      "is_canceled": "取消報",
+      "json_format_error": "JSONフォーマットエラー！",
+      "origin_time": "発生時刻",
+      "origin_time_hint": "YYYY-MM-DDTHH:mm:ss.SSSZ",
+      "origin_time_placeholder": "YYYY-MM-DDTHH:mm:ss.SSSZ",
+      "report_time": "報告時刻",
+      "report_time_hint": "YYYY-MM-DDTHH:mm:ss.SSSZ",
+      "report_time_placeholder": "YYYY-MM-DDTHH:mm:ss.SSSZ"
+    },
+    "footer": {
+      "prev_page": "前のページ",
+      "next_page": "次のページ",
+      "remove": "削除",
+      "insert": "挿入",
+      "cancel": "キャンセル",
+      "submit": "送信"
+    }
+  }
+}
