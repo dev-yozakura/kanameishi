@@ -82,13 +82,19 @@ export const chimeUrls = {
 };
 export const topojsonUrls = {
     global: _withBase('json/medium.global.modified.topo.json'),
-    cn: _withBase('json/cn.province.topo.json'),
     cn_eew: _withBase('json/cn.eew.topo.json'),
     cn_fault: _withBase('json/cn.fault.modified.topo.json'),
+    cn_adm1: _withBase('json/cn.mainland.adm1.geo.json'),
+    cn_adm1_internal: _withBase('json/cn.mainland.adm1.internal.geo.json'),
     jp: _withBase('json/jp.pref.topo.json'),
     jp_eew: _withBase('json/jp.eew.topo.json'),
   jp_tsunami: _withBase('json/jp.tsunami.topo.json'),
-  kr_eew: _withBase('json/kr.eew.topo.json')
+  kr_eew: _withBase('json/kr.eew.topo.json'),
+  countries10m: _withBase('json/countries-10m.json'),
+  kr_adm1: _withBase('json/kr.adm1.geo.json'),
+  kr_adm1_internal: _withBase('json/kr.adm1.internal.geo.json'),
+  tw_adm1: _withBase('json/tw.adm1.geo.json'),
+  tw_adm1_internal: _withBase('json/tw.adm1.internal.geo.json')
 }
 export const utilUrls = {
     geoIp: 'https://api.wolfx.jp/geoip.php',

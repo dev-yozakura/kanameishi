@@ -1252,6 +1252,9 @@ onMounted(() => {
     map.removeControl(map.zoomControl)
     map.createPane('basePane')
     map.getPane('basePane').style.zIndex = 0
+    map.createPane('adminBoundaryPane')
+    // 行政境界線（県/道など）は塗りやグリッドより前面に出す（ただしラベルよりは下）
+    map.getPane('adminBoundaryPane').style.zIndex = 160
     map.createPane('terminatorFillPane')
     map.getPane('terminatorFillPane').style.zIndex = 9
     map.createPane('waveFillPane')
@@ -1642,7 +1645,7 @@ function handleKeydown(event) {
     }
 }
 const renderers = {}
-const panes = ['basePane', 'eewBasePane', 'tsunamiBasePane', 'faultBasePane']
+const panes = ['basePane', 'adminBoundaryPane', 'eewBasePane', 'tsunamiBasePane', 'faultBasePane']
 settingsStore.mainSettings.useCanvasRenderer && panes.forEach(pane => renderers[pane] = L.canvas({ pane }))
 const loadMaps = async (retries = 0) => {
     let msgTimer
@@ -1656,20 +1659,78 @@ const loadMaps = async (retries = 0) => {
         }, 1000);
     }
     let promises, shouldRetry = false
+    const topoKeys = Object.keys(topojsonUrls)
     if(!isTauri() && ('caches' in window)){
         const cache = await caches.open('topojson')
-        promises = Object.keys(topojsonUrls).map(key=>cache.match(topojsonUrls[key]).then(res=>res?.json()))
+        promises = topoKeys.map(key=>cache.match(topojsonUrls[key]).then(res=>res?.json()))
     }
     else{
-        promises = Object.keys(topojsonUrls).map(key=>fetch(topojsonUrls[key]).then(res=>res?.json()))
+        promises = topoKeys.map(key=>fetch(topojsonUrls[key]).then(res=>res?.json()))
     }
     const resps = await Promise.all(promises)
-    const [global, cn, cn_eew, cn_fault, jp, jp_eew, jp_tsunami, kr_eew, cn_tsunami] = resps
-    if(global && cn && cn_eew && cn_fault && jp && jp_eew && kr_eew && jp_tsunami){
+    const topoByKey = Object.fromEntries(topoKeys.map((key, i) => [key, resps[i]]))
+    const { global, cn_eew, cn_fault, cn_adm1, cn_adm1_internal, jp, jp_eew, jp_tsunami, kr_eew, countries10m, kr_adm1, kr_adm1_internal, tw_adm1, tw_adm1_internal } = topoByKey
+    if(global && cn_eew && cn_fault && jp && jp_eew && kr_eew && jp_tsunami){
         clearTimeout(msgTimer)
-        loadBaseMap(global, 'basePane')
+        loadBaseMap(global, 'basePane', true, undefined, { filterFeature: _isTaiwanOrKoreaByBboxCenter })
         loadBaseMap(jp, 'basePane')
-        loadBaseMap(cn, 'basePane')
+
+        // 台湾・韓国・中国(大陸部)の輪郭をより高精度(10m)の国境データで上書き
+        if(countries10m && countries10m.objects?.countries){
+            try {
+                const countriesGeo = feature(countries10m, countries10m.objects.countries)
+                const wanted = new Set([158, 410, 408, 156]) // TW, KR, KP, CN
+                const overlayGeo = {
+                    type: 'FeatureCollection',
+                    features: (countriesGeo?.features || []).filter(f => wanted.has(Number(f.id)))
+                }
+                L.geoJson(overlayGeo, {
+                    pane: 'basePane',
+                    renderer: settingsStore.mainSettings.useCanvasRenderer && renderers['basePane'],
+                    style: {
+                        color: '#ccc',
+                        fillColor: '#393939',
+                        fillOpacity: 1,
+                        weight: 1,
+                        fill: true
+                    },
+                    interactive: false
+                }).addTo(map)
+            } catch (e) {
+                console.log(e)
+            }
+        }
+
+        // 国際GeoJSON由来の行政境界（線のみ・最前面）
+        const adminLineStyle = {
+            // 日本のベース地図（loadBaseMap のデフォルト）と線の見た目を統一
+            color: '#ccc',
+            opacity: 1,
+            weight: 1,
+            fill: false,
+            fillOpacity: 0
+        }
+        if(cn_adm1_internal?.type) {
+            loadBaseMap(cn_adm1_internal, 'adminBoundaryPane', false, adminLineStyle, { simplifyFactor: 0 })
+        }
+        else if(cn_adm1?.type) {
+            // internal が無い場合はポリゴンの輪郭で代用
+            loadBaseMap(cn_adm1, 'adminBoundaryPane', false, adminLineStyle, { simplifyFactor: 0 })
+        }
+
+        if(kr_adm1_internal?.type) {
+            loadBaseMap(kr_adm1_internal, 'adminBoundaryPane', false, adminLineStyle, { simplifyFactor: 0 })
+        }
+        else if(kr_adm1?.type) {
+            loadBaseMap(kr_adm1, 'adminBoundaryPane', false, adminLineStyle, { simplifyFactor: 0 })
+        }
+        if(tw_adm1_internal?.type) {
+            loadBaseMap(tw_adm1_internal, 'adminBoundaryPane', false, adminLineStyle, { simplifyFactor: 0 })
+        }
+        else if(tw_adm1?.type) {
+            loadBaseMap(tw_adm1, 'adminBoundaryPane', false, adminLineStyle, { simplifyFactor: 0 })
+        }
+
         jpEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
         ? null : loadBaseMap(jp_eew, 'eewBasePane', false, {
             color: '#bbbbbb00',
@@ -1685,7 +1746,7 @@ const loadMaps = async (retries = 0) => {
             fillColor: '#39393900',
             fillOpacity: 1,
             weight: 1,
-        })
+        }, { simplifyFactor: 0 })
         cnEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
         ? null : loadBaseMap(cn_eew, 'eewBasePane', false, {
             color: '#bbbbbb00',
@@ -2148,17 +2209,99 @@ const smartSetView = () => {
     }, 0);
 }
 provide('smartSetView', smartSetView)
-const loadBaseMap = (topojson, pane, isBaseMap = true, style = {
+
+const _walkCoords = (coords, cb) => {
+    if(!coords) return
+    if(typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+        cb(coords)
+        return
+    }
+    for(const c of coords) _walkCoords(c, cb)
+}
+const _bboxCenterLngLat = (feature) => {
+    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity
+    _walkCoords(feature?.geometry?.coordinates, ([lng, lat]) => {
+        if(lng < minLng) minLng = lng
+        if(lat < minLat) minLat = lat
+        if(lng > maxLng) maxLng = lng
+        if(lat > maxLat) maxLat = lat
+    })
+    if(!Number.isFinite(minLng) || !Number.isFinite(minLat) || !Number.isFinite(maxLng) || !Number.isFinite(maxLat)) return null
+    return [(minLng + maxLng) / 2, (minLat + maxLat) / 2]
+}
+const _isInBox = ([lng, lat], box) => {
+    const [minLng, minLat, maxLng, maxLat] = box
+    return lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat
+}
+const _isTaiwanOrKoreaByBboxCenter = (feature) => {
+    const center = _bboxCenterLngLat(feature)
+    if(!center) return false
+    const taiwanBox = [119.0, 20.8, 122.3, 26.6]
+    const koreaBox = [124.0, 33.0, 131.5, 43.8]
+    return _isInBox(center, taiwanBox) || _isInBox(center, koreaBox)
+}
+const _isTaiwanByBboxCenter = (feature) => {
+    const center = _bboxCenterLngLat(feature)
+    if(!center) return false
+    const taiwanBox = [119.0, 20.8, 122.3, 26.6]
+    return _isInBox(center, taiwanBox)
+}
+
+// Feature を落とさずに、特定のbbox内にあるサブポリゴンだけ除外する（中国の MultiPolygon に台湾が含まれるケース対策）
+const _stripPolygonsInBox = (geojson, box) => {
+    if(!geojson || geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) return geojson
+    const out = {
+        ...geojson,
+        features: geojson.features.map((f) => {
+            const g = f?.geometry
+            if(!g || !g.type) return f
+
+            // Polygon: coords = [ring[]]
+            // MultiPolygon: coords = [[ring[]]]
+            if(g.type === 'Polygon') {
+                const center = _bboxCenterLngLat(f)
+                if(center && _isInBox(center, box)) return null
+                return f
+            }
+            if(g.type === 'MultiPolygon' && Array.isArray(g.coordinates)) {
+                const kept = []
+                for(const poly of g.coordinates) {
+                    // poly is [ring[]]
+                    const tmpFeature = { type: 'Feature', geometry: { type: 'Polygon', coordinates: poly }, properties: f.properties }
+                    const center = _bboxCenterLngLat(tmpFeature)
+                    if(center && _isInBox(center, box)) continue
+                    kept.push(poly)
+                }
+                if(kept.length === 0) return null
+                return { ...f, geometry: { ...g, coordinates: kept } }
+            }
+            return f
+        }).filter(Boolean)
+    }
+    return out
+}
+const loadBaseMap = (geoData, pane, isBaseMap = true, style = {
         color: '#ccc',
         fillColor: '#393939',
         fillOpacity: 1,
         weight: 1,
         fill: true
-    })=>{
-    if(Object.keys(topojson).length != 0){
+    }, options = {})=>{
+    if(geoData && Object.keys(geoData).length != 0){
         try {
+            const isTopo = geoData?.type === 'Topology' && geoData?.objects?.region
+            const isGeo = geoData?.type === 'FeatureCollection' || geoData?.type === 'Feature'
+
             if(isBaseMap && !settingsStore.advancedSettings.useClassicMapLoader) {
-                const geojson = feature(topojson, topojson.objects.region)
+                let geojson = isTopo ? feature(geoData, geoData.objects.region) : geoData
+                // ベース世界地図の MultiPolygon に台湾が混ざっている場合、台湾部分だけ落とす
+                if(pane === 'basePane') {
+                    const taiwanBox = [119.0, 20.8, 122.3, 26.6]
+                    geojson = _stripPolygonsInBox(geojson, taiwanBox)
+                }
+                if(typeof options?.filterFeature === 'function') {
+                    geojson.features = (geojson.features || []).filter(f => !options.filterFeature(f))
+                }
                 const vectorGrid = L.vectorGrid.slicer(geojson, {
                     pane,
                     rendererFactory: L.canvas.tile,
@@ -2171,9 +2314,16 @@ const loadBaseMap = (topojson, pane, isBaseMap = true, style = {
                 return vectorGrid;
             }
             else {
-                const factor = isBaseMap ? 0 : settingsStore.mainSettings.mapSimplifyFactor
-                const simplified = simplifyTopoJson(topojson, factor)
-                const geojson = feature(simplified, simplified.objects.region)
+                const factor = isBaseMap ? 0 : (options?.simplifyFactor ?? settingsStore.mainSettings.mapSimplifyFactor)
+                const simplified = isTopo ? simplifyTopoJson(geoData, factor) : geoData
+                let geojson = isTopo ? feature(simplified, simplified.objects.region) : simplified
+                if(pane === 'basePane') {
+                    const taiwanBox = [119.0, 20.8, 122.3, 26.6]
+                    geojson = _stripPolygonsInBox(geojson, taiwanBox)
+                }
+                if(typeof options?.filterFeature === 'function') {
+                    geojson.features = (geojson.features || []).filter(f => !options.filterFeature(f))
+                }
                 const baseMap = L.geoJson(geojson, {
                     pane,
                     renderer: settingsStore.mainSettings.useCanvasRenderer && renderers[pane],
