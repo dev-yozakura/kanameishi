@@ -1,4 +1,6 @@
 let Spoints;
+let canvas;
+let context;
 fetch(`${import.meta.env.BASE_URL}resources/Snet_Points.json`)
     .then(res => res.json())
     .then(json => {
@@ -40,10 +42,14 @@ self.onmessage = async (event) => {
     const { imageBitmap, y, uid } = event.data;
     if (!Spoints) return;
 
-    const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    context.drawImage(imageBitmap, 0, 0);
-    const imagedata = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    try {
+        if (!canvas || canvas.width !== imageBitmap.width || canvas.height !== imageBitmap.height) {
+            canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
+            context = canvas.getContext('2d', { willReadFrequently: true });
+        }
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(imageBitmap, 0, 0);
+        const imagedata = context.getImageData(0, 0, canvas.width, canvas.height).data;
 
     const Spoints_f = Spoints.filter(el => el.TileID == (y == 12 ? 1 : 2));
     
@@ -70,5 +76,8 @@ self.onmessage = async (event) => {
         }
     });
 
-    self.postMessage({ type: 'decoded', data: decodedData, y, uid });
+        self.postMessage({ type: 'decoded', data: decodedData, y, uid });
+    } finally {
+        try { imageBitmap.close?.(); } catch {}
+    }
 };

@@ -35,6 +35,8 @@ export const useSettingsStore = defineStore('settingsStore', {
                 niedSensitivity: 2,
                 displayNiedShindo: false,
                 tremNet: false,
+                palertNet: false,
+                palertQuantize01deg: true,
                 tremApi: 'lb-1',
                 tremSensitivity: 2,
                 displayTremShindo: false,

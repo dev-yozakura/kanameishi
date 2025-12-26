@@ -34,6 +34,27 @@ class Http {
             console.log(e);
         }
     }
+
+    static async tauriPost(url, data, config = {
+        connectTimeout: 30000,
+        headers: {}
+    }) {
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(config.headers || {})
+                },
+                body: JSON.stringify(data ?? {}),
+                ...config
+            })
+            const json = await res.json()
+            return json
+        } catch (e) {
+            console.log(e);
+        }
+    }
 }
 
 export default Http;

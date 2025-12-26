@@ -227,6 +227,7 @@ export const useStatusStore = defineStore('statusStore', {
             nmefcTsunami: false,
             niedNet: false,
             tremNet: false,
+            palertNet: false,
             kmaNet: false,
         },
         history: {

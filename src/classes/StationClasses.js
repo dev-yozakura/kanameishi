@@ -397,12 +397,13 @@ export class NiedStation {
     }
 }
 export class TremStation {
-    constructor(map, id, latLng, intensity, expireSeconds = 10, layerGroup = null){
+    constructor(map, id, latLng, intensity, expireSeconds = 10, layerGroup = null, panePrefix = 'tremStationPane'){
         if(!settingsStore) settingsStore = useSettingsStore()
         this.map = map
         this.layerGroup = layerGroup
         this.id = id
         this.latLng = latLng
+        this.panePrefix = panePrefix
         this.defaultExpireSeconds = this.expireSeconds = expireSeconds
         this.maxExpireSeconds = 30
         this.intensity = intensity
@@ -486,7 +487,7 @@ export class TremStation {
                     const shindoIcon = shindoIcons[iconZoom][this.shindo]
                     this.marker = L.marker(this.latLng, {
                         icon: shindoIcon,
-                        pane: `tremStationPane${this.level}`,
+                        pane: `${this.panePrefix}${this.level}`,
                         interactive: false
                     })
                     break
@@ -500,7 +501,7 @@ export class TremStation {
                         color: '#ffffff',
                         fillColor: color,
                         weight: radius * 0.4,
-                        pane: `tremStationPane${this.level}`,
+                        pane: `${this.panePrefix}${this.level}`,
                         interactive: false
                     })
                     break
@@ -512,7 +513,7 @@ export class TremStation {
                         color: this.color,
                         fillColor: this.color,
                         weight: 0,
-                        pane: `tremStationPane${this.level}`,
+                        pane: `${this.panePrefix}${this.level}`,
                         interactive: false
                     })
                     break

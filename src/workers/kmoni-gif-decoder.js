@@ -1,5 +1,8 @@
 let points = []
 
+let canvas = null
+let ctx = null
+
 const rgbToHsv = (r, g, b) => {
   r /= 255
   g /= 255
@@ -51,59 +54,66 @@ self.onmessage = async (ev) => {
   const { imageBitmap, tsMs } = msg
   if (!imageBitmap || !points.length) return
 
-  const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  ctx.drawImage(imageBitmap, 0, 0)
-  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+  try {
+    if (!canvas || canvas.width !== imageBitmap.width || canvas.height !== imageBitmap.height) {
+      canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height)
+      ctx = canvas.getContext('2d', { willReadFrequently: true })
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(imageBitmap, 0, 0)
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
 
-  const inst = new Float32Array(points.length)
-  const valid = new Uint8Array(points.length)
+    const inst = new Float32Array(points.length)
+    const valid = new Uint8Array(points.length)
 
-  for (let i = 0; i < points.length; i += 1) {
-    const p = points[i]
-    if (p?.suspended) {
-      inst[i] = 7.0
-      valid[i] = 0
-      continue
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i]
+      if (p?.suspended) {
+        inst[i] = 7.0
+        valid[i] = 0
+        continue
+      }
+
+      const x = p?.x
+      const y = p?.y
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        inst[i] = 7.0
+        valid[i] = 0
+        continue
+      }
+
+      if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) {
+        inst[i] = 7.0
+        valid[i] = 0
+        continue
+      }
+
+      const idx = (Math.floor(y) * canvas.width + Math.floor(x)) * 4
+      const r = data[idx]
+      const g = data[idx + 1]
+      const b = data[idx + 2]
+      const a = data[idx + 3]
+
+      if (!a) {
+        inst[i] = 7.0
+        valid[i] = 0
+        continue
+      }
+
+      const pos = color2position(r, g, b)
+      if (pos === null) {
+        inst[i] = 7.0
+        valid[i] = 0
+        continue
+      }
+
+      const shindo = 10.0 * pos - 3.0
+      inst[i] = Math.round(shindo * 10) / 10
+      valid[i] = 1
     }
 
-    const x = p?.x
-    const y = p?.y
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      inst[i] = 7.0
-      valid[i] = 0
-      continue
-    }
-
-    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) {
-      inst[i] = 7.0
-      valid[i] = 0
-      continue
-    }
-
-    const idx = (Math.floor(y) * canvas.width + Math.floor(x)) * 4
-    const r = data[idx]
-    const g = data[idx + 1]
-    const b = data[idx + 2]
-    const a = data[idx + 3]
-
-    if (!a) {
-      inst[i] = 7.0
-      valid[i] = 0
-      continue
-    }
-
-    const pos = color2position(r, g, b)
-    if (pos === null) {
-      inst[i] = 7.0
-      valid[i] = 0
-      continue
-    }
-
-    const shindo = 10.0 * pos - 3.0
-    inst[i] = Math.round(shindo * 10) / 10
-    valid[i] = 1
+    self.postMessage({ type: 'decoded', inst, valid, tsMs }, [inst.buffer, valid.buffer])
+  } finally {
+    try { imageBitmap.close?.() } catch {}
   }
-
-  self.postMessage({ type: 'decoded', inst, valid, tsMs }, [inst.buffer, valid.buffer])
 }

@@ -283,6 +283,7 @@ const _pollOnce = async () => {
     const blob = await _fetchBlob(gifUrl)
     const imageBitmap = await createImageBitmap(blob)
     worker.postMessage({ type: 'decode', imageBitmap, tsMs: targetMs }, [imageBitmap])
+    try { imageBitmap.close?.() } catch {}
     return
   }
 
@@ -305,6 +306,7 @@ const _pollOnce = async () => {
 
   const tsMs = Date.parse(latestTime.replaceAll('/', '-').replace(' ', 'T') + '+09:00')
   worker.postMessage({ type: 'decode', imageBitmap, tsMs }, [imageBitmap])
+  try { imageBitmap.close?.() } catch {}
 }
 
 const start = async () => {

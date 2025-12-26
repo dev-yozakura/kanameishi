@@ -191,6 +191,19 @@
                         </div>
                         <div class="w-full">
                             <div class="switch-full">
+                                <span>{{ $t('settings.seisNet.palert_net') }} ({{ $t('settings.seisNet.marker_count', { count: palertMarkerCountDisplay }) }})</span>
+                                <el-switch v-model="settingsStore.mainSettings.displaySeisNet.palertNet" />
+                            </div>
+                            <div class="switch-full pl-4">
+                                <span>{{ $t('settings.seisNet.palert_quantize_01deg') }}</span>
+                                <el-switch
+                                    v-model="settingsStore.mainSettings.displaySeisNet.palertQuantize01deg"
+                                    :disabled="!settingsStore.mainSettings.displaySeisNet.palertNet"
+                                />
+                            </div>
+                        </div>
+                        <div class="w-full">
+                            <div class="switch-full">
                                 <span>{{ $t('settings.seisNet.kma_net') }} ({{ $t('settings.seisNet.marker_count', { count: kmaMarkerCountDisplay }) }})</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.kmaNet" />
                             </div>
@@ -1318,11 +1331,13 @@ const statusStore = useStatusStore()
 
 const niedMarkerCount = inject('niedMarkerCount', ref(0))
 const tremMarkerCount = inject('tremMarkerCount', ref(0))
+const palertMarkerCount = inject('palertMarkerCount', ref(0))
 const kmaMarkerCount = inject('kmaMarkerCount', ref(0))
 const msilMarkerCount = inject('msilMarkerCount', ref(0))
 
 const niedMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.niedNet ? (Number(niedMarkerCount.value) || 0) : 0)
 const tremMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.tremNet ? (Number(tremMarkerCount.value) || 0) : 0)
+const palertMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.palertNet ? (Number(palertMarkerCount.value) || 0) : 0)
 const kmaMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.kmaNet ? (Number(kmaMarkerCount.value) || 0) : 0)
 const msilMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.msilNet ? (Number(msilMarkerCount.value) || 0) : 0)
 const replayDateTime = ref('')

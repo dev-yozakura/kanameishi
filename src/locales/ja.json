@@ -44,6 +44,8 @@
       "medium": "中",
       "high": "高",
       "trem_net": "TREM-Net・震度（台湾）",
+      "palert_net": "P-Alert・加速度（台湾）",
+      "palert_quantize_01deg": "観測点を緯度経度0.1°刻みで間引く",
       "api": "API",
       "kma_net": "KMA-PEWS・加速度（韓国）",
       "convert_to_mmi": "MMI震度階級に変換",
@@ -139,6 +141,7 @@
     "websocket_status": "WebSocketステータス:",
     "kyoshin_monitor": "強震モニタ:",
     "trem_net": "TREM-Net :",
+    "palert_net": "P-Alert :",
     "kma_pews": "KMA-PEWS:",
     "mock_eew_in_progress": "模擬警報中",
     "eew": {
@@ -178,7 +181,8 @@
       "trem_realtime": "TREM",
       "trem_period": "TREM期間",
       "kma_realtime": "KMA",
-      "kma_period": "KMA期間"
+      "kma_period": "KMA期間",
+      "palert_realtime": "P-Alert"
     }
   },
   "eqlist": {

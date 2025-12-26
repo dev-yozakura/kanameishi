@@ -43,6 +43,8 @@
       "medium": "中",
       "high": "高",
       "trem_net": "TREM-Net・震度（台湾）",
+      "palert_net": "P-Alert·加速度（台湾）",
+      "palert_quantize_01deg": "按经纬度0.1°间隔抽稀观测点",
       "api": "API",
       "kma_net": "KMA-PEWS・加速度（韩国）",
       "convert_to_mmi": "转换为烈度（MMI）",
@@ -139,6 +141,7 @@
     "websocket_status": "WebSocket状态:",
     "kyoshin_monitor": "強震モニタ:",
     "trem_net": "TREM-Net :",
+      "palert_net": "P-Alert :",
     "kma_pews": "KMA-PEWS:",
     "mock_eew_in_progress": "模拟预警中",
     "eew": {
@@ -178,7 +181,8 @@
       "trem_realtime": "TREM实时",
       "trem_period": "TREM区间",
       "kma_realtime": "KMA实时",
-      "kma_period": "KMA区间"
+      "kma_period": "KMA区间",
+      "palert_realtime": "P-Alert实时"
     }
   },
   "eqlist": {

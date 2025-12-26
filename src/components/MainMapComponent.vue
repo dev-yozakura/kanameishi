@@ -185,6 +185,17 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.palertNet">
+                            <div class="shindo-bar gray">{{ $t('mainMap.realtime.palert_realtime') }}</div>
+                            <div class="info">
+                                <div class="intensity" :class="setClassName(palertMaxShindo, true)">
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
+                                    <div :class="palertMaxShindo != '?'?'shindo':'csis'">
+                                        {{ palertMaxShindo }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.tremNet && settingsStore.mainSettings.displaySeisNet.displayTremShindo">
                             <div class="shindo-bar gray">{{ $t('mainMap.realtime.trem_realtime') }}</div>
                             <div class="info">
@@ -265,6 +276,9 @@
                     </div>
                     <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isTremDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.tremNet" @dblclick="resetSeisNetDelay">
                         {{ $t('mainMap.trem_net') }} {{ tremUpdateTime }} (UTC+8)
+                    </div>
+                    <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isPalertDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.palertNet" @dblclick="resetSeisNetDelay">
+                        {{ $t('mainMap.palert_net') }} {{ palertUpdateTime }} (UTC+8)
                     </div>
                     <div class="update-time" :class="isKmaDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.kmaNet" @dblclick="resetSeisNetDelay">
                         {{ $t('mainMap.kma_pews') }} {{ kmaUpdateTime }} (UTC+9)
@@ -381,7 +395,7 @@ const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
 let map, jpEewBaseMap, krEewBaseMap, cnEewBaseMap, jpTsunamiBaseMap, cnTsunamiBaseMap, labelLayer1, labelLayer2, terminatorLayer, terminatorFillLayer, cnFaultBaseMap
-let eewMarkerPane, eqlistMarkerPane, historyMarkerPane, wavePane, waveFillPane, niedGridPane, tremGridPane, kmaGridPane, msilNetPane, msilNetLayer, tremRtsLayer, eewBasePane, tsunamiBasePane, labelPane1, labelPane2
+let eewMarkerPane, eqlistMarkerPane, historyMarkerPane, wavePane, waveFillPane, niedGridPane, tremGridPane, palertGridPane, kmaGridPane, msilNetPane, msilNetLayer, tremRtsLayer, eewBasePane, tsunamiBasePane, labelPane1, labelPane2
 let msilWorker
 let userMarker
 let kanameishiMarker
@@ -1156,6 +1170,14 @@ provide('tremPeriodBarClass', tremPeriodBarClass)
 
 const tremMarkerCount = ref(0)
 provide('tremMarkerCount', tremMarkerCount)
+const palertUpdateTime = ref('1970-01-01 08:00:00')
+const palertMaxShindo = ref('?')
+const isPalertDelayed = ref(true)
+provide('palertUpdateTime', palertUpdateTime)
+provide('palertMaxShindo', palertMaxShindo)
+
+const palertMarkerCount = ref(0)
+provide('palertMarkerCount', palertMarkerCount)
 const kmaUpdateTime = ref('1970-01-01 09:00:00')
 const kmaMaxInt = ref('?')
 const kmaPeriodMaxInt = ref('?')
@@ -1296,6 +1318,8 @@ onMounted(() => {
         map.getPane(`niedStationPane${i}`).style.zIndex = i + 50
         map.createPane(`tremStationPane${i}`)
         map.getPane(`tremStationPane${i}`).style.zIndex = i + 50
+        map.createPane(`palertStationPane${i}`)
+        map.getPane(`palertStationPane${i}`).style.zIndex = i + 50
     }
     for(let i = -1; i <= 13; i++){
         map.createPane(`kmaStationPane${i}`)
@@ -1325,6 +1349,9 @@ onMounted(() => {
     map.createPane('tremGridPane')
     tremGridPane = map.getPane('tremGridPane')
     tremGridPane.style.zIndex = 140
+    map.createPane('palertGridPane')
+    palertGridPane = map.getPane('palertGridPane')
+    palertGridPane.style.zIndex = 140
     map.createPane('tremRtsPane')
     map.getPane('tremRtsPane').style.zIndex = 142;
     tremRtsLayer = L.layerGroup()
@@ -1557,6 +1584,7 @@ onMounted(() => {
         niedGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
         tremGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
         kmaGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0)
+        palertGridPane.style.opacity = 0.3
         msilNetPane.style.opacity = 0.3
     }
     else{
@@ -1566,11 +1594,13 @@ onMounted(() => {
         niedGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
         tremGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
         kmaGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0)
+        palertGridPane.style.opacity = 1
         msilNetPane.style.opacity = 1
     }
     tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
     isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
     isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
+    isPalertDelayed.value = !verifyUpToDate(palertUpdateTime.value, 8, 10000)
     isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
     isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
     wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
@@ -1611,6 +1641,7 @@ onMounted(() => {
         niedGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
         tremGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
         kmaGridPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
+        palertGridPane.style.opacity = 0.3
         msilNetPane.style.opacity = 0.3
     }
     else{
@@ -1620,11 +1651,13 @@ onMounted(() => {
         niedGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
         tremGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
         kmaGridPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
+        palertGridPane.style.opacity = 1
         msilNetPane.style.opacity = 1
     }
     tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
     isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
     isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
+    isPalertDelayed.value = !verifyUpToDate(palertUpdateTime.value, 8, 10000)
     isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
     isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
     wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
@@ -1969,11 +2002,13 @@ const intervalEvents = ()=>{
     eewMarkerPane.style.opacity = (blinkStatus.value ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
     niedGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
     tremGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
+    palertGridPane.style.opacity = (menuId.value == 'eqlists' ? 0.3 : 1)
     kmaGridPane.style.opacity = (blinkStatus.value && !statusStore.isActive.kmaEew ? 1 : 0) * (menuId.value == 'eqlists' ? 0.3 : 1)
     msilNetPane.style.opacity = (menuId.value == 'eqlists' ? 0.3 : 1)
     tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
     isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
     isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
+    isPalertDelayed.value = !verifyUpToDate(palertUpdateTime.value, 8, 10000)
     isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
     isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
     wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
@@ -2094,6 +2129,9 @@ const setView = () => {
                 shouldExtend = true
             }
             break
+                    case 'palertGridPane':
+                        shouldExtend = true
+                        break
           case 'kmaGridPane':
             if(!statusStore.isActive.kmaEew) {
                                 shouldExtend = true
@@ -3185,6 +3223,7 @@ const loadMsilNet = async () => {
                     if (msilWorker) {
                         msilWorker.postMessage({ imageBitmap, y, uid: unique_id }, [imageBitmap]);
                     }
+                    try { imageBitmap.close?.() } catch {}
                 } catch (e) {
                     console.error(`Failed to fetch or process MSIL tile ${url}`, e);
                 }
