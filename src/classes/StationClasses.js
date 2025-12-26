@@ -397,9 +397,10 @@ export class NiedStation {
     }
 }
 export class TremStation {
-    constructor(map, id, latLng, intensity, expireSeconds = 10){
+    constructor(map, id, latLng, intensity, expireSeconds = 10, layerGroup = null){
         if(!settingsStore) settingsStore = useSettingsStore()
         this.map = map
+        this.layerGroup = layerGroup
         this.id = id
         this.latLng = latLng
         this.defaultExpireSeconds = this.expireSeconds = expireSeconds
@@ -475,7 +476,10 @@ export class TremStation {
         }
         if(this.markerType == oldMarkerType && this.color == oldColor && this.radius == oldRadius) return
         if((this.markerType == 2) != (oldMarkerType == 2) || this.color != oldColor) {
-            if(this.marker && this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker)
+            if(this.marker) {
+                if(this.layerGroup) this.layerGroup.removeLayer(this.marker)
+                if(this.map && this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker)
+            }
             switch(this.markerType) {
                 case 2:
                     const iconZoom = Math.min(Math.max(zoom, 6), 10)
@@ -513,7 +517,8 @@ export class TremStation {
                     })
                     break
             }
-            this.marker.addTo(this.map)
+            if(this.layerGroup) this.layerGroup.addLayer(this.marker)
+            else this.marker.addTo(this.map)
         }
         else {
             switch(this.markerType) {
@@ -582,7 +587,10 @@ export class TremStation {
         }, 10500);
     }
     terminate(){
-        if(this.marker && this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker)
+        if(this.marker) {
+            if(this.layerGroup) this.layerGroup.removeLayer(this.marker)
+            if(this.map && this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker)
+        }
         this.map = null
         this.marker = null
         clearTimeout(this.activeTimer)

@@ -19,6 +19,8 @@
       "eqlist_title": "地震信息",
       "cenc_eqlist": "中国地震台网: 地震测定",
       "cwa_eqlist": "臺灣中央氣象署: 地震報告",
+      "cwa_opendata_eqlist": "臺灣中央氣象署(OpenData): 地震信息",
+      "cwa_opendata_key": "CWA OpenData API Key",
       "jma_eqlist": "日本気象庁: 地震情報",
       "kma_eqlist": "기상청: 지진 정보",
       "usgs_eqlist": "USGS: 地震测定",

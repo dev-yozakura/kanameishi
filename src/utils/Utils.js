@@ -60,7 +60,10 @@ export const stampToTime = (timeStamp, timeZone) => {
 export const calcPassedTime = (time, timeZone) => {
   if (!time || !timeZone) return;
   if (!timeStore) timeStore = useTimeStore();
-  let stamp1 = timeStore.getTimeStamp();
+  if (!settingsStore) settingsStore = useSettingsStore();
+  const delayMin = settingsStore?.mainSettings?.displaySeisNet?.delay;
+  const delayMs = Number.isFinite(delayMin) ? delayMin * 60000 : 0;
+  let stamp1 = timeStore.getTimeStamp() - Math.max(delayMs, 0);
   let stamp2 = timeToStamp(time, timeZone);
   return stamp1 - stamp2;
 };

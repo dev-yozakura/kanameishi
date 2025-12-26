@@ -73,6 +73,14 @@
                             <el-switch v-model="settingsStore.mainSettings.source.cwaEqlist" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
+                            <div>{{ $t('settings.dataSource.cwa_opendata_eqlist') }}</div>
+                            <el-switch v-model="settingsStore.mainSettings.source.cwaOpendataEqlist" @change="handleNeedReload" />
+                        </div>
+                        <div class="switch-full" v-if="settingsStore.mainSettings.source.cwaOpendataEqlist">
+                            <div>{{ $t('settings.dataSource.cwa_opendata_key') }}</div>
+                            <el-input v-model="settingsStore.advancedSettings.tokens.cwa_opendata" show-password @change="handleNeedReload" />
+                        </div>
+                        <div class="switch-full">
                             <div>{{ $t('settings.dataSource.jma_eqlist') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.jmaEqlist" @change="handleNeedReload" />
                         </div>
@@ -137,6 +145,20 @@
                             <div class="switch-full pl-4">
                                 <span>{{ $t('settings.seisNet.analysis_shindo') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.displayTremShindo" :disabled="!settingsStore.mainSettings.displaySeisNet.tremNet" />
+                            </div>
+                            <div class="switch-full pl-4">
+                                <span>{{ $t('settings.seisNet.sensitivity') }}</span>
+                                <el-select 
+                                    v-model="settingsStore.mainSettings.displaySeisNet.tremSensitivity"
+                                    size="small"
+                                    :disabled="!settingsStore.mainSettings.displaySeisNet.tremNet"
+                                    style="width: 48px;"
+                                >
+                                    <el-option :label="$t('settings.seisNet.off')" :value=0 />
+                                    <el-option :label="$t('settings.seisNet.low')" :value=1 />
+                                    <el-option :label="$t('settings.seisNet.medium')" :value=2 />
+                                    <el-option :label="$t('settings.seisNet.high')" :value=3 />
+                                </el-select>
                             </div>
                             <div class="switch-full pl-4">
                                 <span>{{ $t('settings.seisNet.api') }}</span>

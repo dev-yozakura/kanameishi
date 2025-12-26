@@ -354,21 +354,29 @@ import { useSettingsStore } from '@/stores/settings';
 import { useTimeStore } from '@/stores/time';
 import EqlistComponent from './EqlistComponent.vue';
 import SettingsComponent from './SettingsComponent.vue';
-import { verifyUpToDate, setClassName, getClassLevel, classNameArray, pointDistToCnArea, pointDistToKrArea, csisArray, shindoArray, calcCsisLevel, calcJmaShindoLevel, formatTimeZone, simplifyTopoJson, formatCsis, csisRomanArray, formatShindo, getLevelFromInstShindo, getShindoFromInstShindo, stampToTime, playSound, sendMyNotification, focusWindow } from '@/utils/Utils';
+import { verifyUpToDate, setClassName, getClassLevel, classNameArray, pointDistToCnArea, pointDistToKrArea, csisArray, shindoArray, calcCsisLevel, calcJmaShindoLevel, formatTimeZone, simplifyTopoJson, formatCsis, csisRomanArray, formatShindo, getLevelFromInstShindo, getShindoFromInstShindo, stampToTime, playSound, sendMyNotification, focusWindow, getShindoFromLevel } from '@/utils/Utils';
 import { topojsonUrls, iconUrls } from '@/utils/Urls';
 import { jmaSeisIntLoc } from '@/utils/JmaSeisIntLoc';
 import { isTauri } from '@tauri-apps/api/core';
 import { storeToRefs } from 'pinia';
-import { simpleIcon, computeNiedStyleColorRadius } from '@/classes/StationClasses';
+import { simpleIcon, computeNiedStyleColorRadius, TremStation } from '@/classes/StationClasses';
 import { feature } from 'topojson-client';
 import { cnCityLabels, cnProvinceLabels, jpPrefLabels } from '@/utils/Labels';
 import terminator from '@joergdietrich/leaflet.terminator';
 import StatusComponent from './StatusComponent.vue';
+import eqlistCross from '@/assets/icon/hypocenter/eqlistCross.svg';
 
 const style = window.getComputedStyle(document.body)
 const classNameColors = {}, tsunamiColors = {}
 classNameArray.forEach(color => classNameColors[color] = style.getPropertyValue(`--${color}`).trim())
 classNameArray.forEach(color => tsunamiColors[color] = style.getPropertyValue(`--tsunami-${color}`).trim())
+
+const _hypoIconRadius = 20
+const cwaLatestCrossIcon = L.icon({
+    iconUrl: eqlistCross,
+    iconSize: [_hypoIconRadius * 2, _hypoIconRadius * 2],
+    iconAnchor: [_hypoIconRadius, _hypoIconRadius]
+})
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
@@ -378,6 +386,7 @@ let msilWorker
 let userMarker
 let kanameishiMarker
 let jpSeedlinkStationsLayer
+let cwaLatestHypoMarker
 const jpStationWaveWindows = new Map()
 const kanameishiLatLng = [27.06, 142.208]
 const defaultLatLng = [38.1, 104.6]
@@ -700,9 +709,11 @@ const triggerShakeIfRising = (newVal, oldVal, flags) => {
         handleTempEqlists(0)
     }
     else{
-        flags.shake1Notified = false
-        flags.shake2Notified = false
-        flags.focused = false
+        if(newVal < 1){
+            flags.shake1Notified = false
+            flags.shake2Notified = false
+            flags.focused = false
+        }
     }
 }
 provide('handleTempEqlists', handleTempEqlists)
@@ -1366,23 +1377,76 @@ onMounted(() => {
         eqlistMarkerPane.style.display = historyList.length > 0 ? 'none' : 'block'
         historyMarkerPane.style.display = historyList.length > 0 ? 'block' : 'none'
     })
+
+    const updateCwaLatestHypoMarker = () => {
+        const isEnabled = !!settingsStore.mainSettings.source?.cwaOpendataEqlist
+        const latest = statusStore.history?.cwaOpendataEqlist?.[0]
+
+        if(!map || !isEnabled || !latest) {
+            if(cwaLatestHypoMarker && map?.hasLayer(cwaLatestHypoMarker)) map.removeLayer(cwaLatestHypoMarker)
+            cwaLatestHypoMarker = null
+            return
+        }
+
+        const lat = Number(latest.lat)
+        const lng = Number(latest.lng)
+        if(!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
+            if(cwaLatestHypoMarker && map?.hasLayer(cwaLatestHypoMarker)) map.removeLayer(cwaLatestHypoMarker)
+            cwaLatestHypoMarker = null
+            return
+        }
+
+        const latLng = [lat, lng]
+        if(!cwaLatestHypoMarker) {
+            cwaLatestHypoMarker = L.marker(latLng, {
+                icon: cwaLatestCrossIcon,
+                pane: 'eqlistMarkerPane',
+                interactive: false,
+            }).addTo(map)
+        }
+        else {
+            cwaLatestHypoMarker.setLatLng(latLng)
+        }
+    }
+
+    watch(
+        () => {
+            const latest = statusStore.history?.cwaOpendataEqlist?.[0]
+            return `${settingsStore.mainSettings.source?.cwaOpendataEqlist ? 1 : 0}|${latest?.id || ''}|${latest?.lat || ''}|${latest?.lng || ''}|${latest?.maxIntensity || ''}`
+        },
+        () => updateCwaLatestHypoMarker(),
+        { immediate: true }
+    )
     watchEffect(() => {
         if(activeEqlistList.value.length > 0) {
             if(settingsStore.mainSettings.cinemaMode && tempEqlists.value.endsWith('Eqlist')) {
                 eqlistList.forEach(event => {
                     event.hypoMarker?.setOpacity(tempEqlists.value == event.eqMessage.source ? 1 : 0.3)
                 })
+
+                if(cwaLatestHypoMarker) {
+                    cwaLatestHypoMarker.setOpacity(tempEqlists.value == 'cwaOpendataEqlist' ? 1 : 0.3)
+                }
             }
             else {
                 eqlistList.forEach(event => {
                     event.hypoMarker?.setOpacity(event.isActive ? 1 : 0.3)
                 })
+
+                if(cwaLatestHypoMarker) {
+                    // CWA最新は「常時最新表示」枠扱い（=非アクティブ相当）
+                    cwaLatestHypoMarker.setOpacity(0.3)
+                }
             }
         }
         else {
             eqlistList.forEach(event => {
                 event.hypoMarker?.setOpacity(1)
             })
+
+            if(cwaLatestHypoMarker) {
+                cwaLatestHypoMarker.setOpacity(1)
+            }
         }
     })
     labelLayer1 = L.layerGroup().addTo(map);
@@ -2477,6 +2541,11 @@ const tremStations = ref({});
 let tremStationInfo = {};
 let tremTimeout;
 
+let tremRtsZoomHandlerAttached = false
+let tremRtsGridDecimal = [0, 0]
+const tremRtsGridRects = {}
+let tremRtsPeriodMaxLevel = -1
+
 const tremStationProxyBase = computed(() => {
     const selected = settingsStore.mainSettings.displaySeisNet.tremApi;
     const isDev = import.meta.env.DEV
@@ -2503,16 +2572,139 @@ const tremRtsProxyBase = computed(() => {
 
 const tremRtsMaxInst = ref(null)
 const tremRtsCurrentBin = computed(() => instToShindoBin(tremRtsMaxInst.value))
+const tremRtsLatchedBin = ref(-1)
+const tremRtsLatchUntilMs = ref(0)
+const tremRtsLatchHoldMs = 10000
+
+const tremRtsMaxWindowMs = 60000
+let tremRtsFrameMaxHistory = []
+
+const _clearTremRtsMaxWindow = () => {
+    tremRtsFrameMaxHistory = []
+}
+
+const _updateTremRtsMaxWindow = (frameTimeMs, frameMaxInst) => {
+    const t = Number(frameTimeMs)
+    const timeMs = Number.isFinite(t) ? t : Date.now()
+    const v = Number(frameMaxInst)
+    tremRtsFrameMaxHistory.push({ t: timeMs, v: Number.isFinite(v) ? v : null })
+
+    const cutoff = timeMs - tremRtsMaxWindowMs
+    while (tremRtsFrameMaxHistory.length && tremRtsFrameMaxHistory[0].t < cutoff) {
+        tremRtsFrameMaxHistory.shift()
+    }
+
+    let max = null
+    for (const item of tremRtsFrameMaxHistory) {
+        if (item?.v === null || item?.v === undefined) continue
+        max = (max === null) ? item.v : Math.max(max, item.v)
+    }
+    tremRtsMaxInst.value = max
+}
+
+const tremRtsStationWindowMs = 60000
+const tremRtsStationWindowSize = 60
+let tremRtsStationWindows = {}
+
+const _clearTremRtsStationWindows = () => {
+    tremRtsStationWindows = {}
+}
+
+const _getTremRtsStationMax60s = (id, frameTimeMs, instValue) => {
+    const t = Number(frameTimeMs)
+    const timeMs = Number.isFinite(t) ? t : Date.now()
+
+    let w = tremRtsStationWindows[id]
+    if (!w) {
+        w = {
+            times: new Float64Array(tremRtsStationWindowSize),
+            vals: new Float64Array(tremRtsStationWindowSize),
+            idx: 0,
+        }
+        w.vals.fill(Number.NaN)
+        tremRtsStationWindows[id] = w
+    }
+
+    const v = Number(instValue)
+    w.times[w.idx] = timeMs
+    w.vals[w.idx] = Number.isFinite(v) ? v : Number.NaN
+    w.idx = (w.idx + 1) % tremRtsStationWindowSize
+
+    const cutoff = timeMs - tremRtsStationWindowMs
+    let max = Number.NaN
+    for (let i = 0; i < tremRtsStationWindowSize; i += 1) {
+        const tt = w.times[i]
+        if (tt >= cutoff) {
+            const vv = w.vals[i]
+            if (!Number.isNaN(vv)) max = Number.isNaN(max) ? vv : Math.max(max, vv)
+        }
+    }
+    return Number.isNaN(max) ? null : max
+}
+
+const _updateTremRtsLatchedBin = (rawBin) => {
+    const now = Date.now()
+    const current = Number.isFinite(rawBin) ? rawBin : -1
+    const prev = tremRtsLatchedBin.value
+
+    // If it rises, update immediately and extend the hold window.
+    if (current > prev) {
+        tremRtsLatchedBin.value = current
+        tremRtsLatchUntilMs.value = now + tremRtsLatchHoldMs
+        return
+    }
+
+    // If it's stable at >=1, keep extending the hold window (sliding).
+    if (current === prev && current >= 1) {
+        tremRtsLatchUntilMs.value = now + tremRtsLatchHoldMs
+        return
+    }
+
+    // If it drops, keep the previous value until the hold window expires.
+    if (current < prev && now < tremRtsLatchUntilMs.value) {
+        return
+    }
+
+    // Otherwise accept the new value (including drops after expiry).
+    tremRtsLatchedBin.value = current
+}
+
 const tremRtsShakeFlags = reactive({ shake1Notified: false, shake2Notified: false, focused: false })
 const tremRtsPrevBins = reactive({})
 const tremRtsRisingCount = ref(0)
-const tremRtsRisingCountThreshold = 3
+const tremRtsSensitivity = computed(() => settingsStore.mainSettings.displaySeisNet.tremSensitivity ?? 2)
+const tremRtsRisingCountThreshold = computed(() => {
+    switch (tremRtsSensitivity.value) {
+        case 0: return Infinity
+        case 1: return 5
+        case 2: return 3
+        case 3: return 2
+        default: return 3
+    }
+})
+
+const tremRtsActivateBinThreshold = computed(() => {
+    const display0 = !!settingsStore.mainSettings.displaySeisNet.displayShindo0
+    switch (tremRtsSensitivity.value) {
+        case 0: return Infinity
+        case 1: return 2
+        case 2: return 1
+        case 3: return display0 ? 0 : 1
+        default: return 1
+    }
+})
+
+const tremDelayMs = computed(() => settingsStore.mainSettings.displaySeisNet.delay * 60000)
 
 watch(
     () => settingsStore.mainSettings.displaySeisNet.tremNet,
     (newVal) => {
         if(!newVal) {
             tremRtsMaxInst.value = null
+            tremRtsLatchedBin.value = -1
+            tremRtsLatchUntilMs.value = 0
+            _clearTremRtsMaxWindow()
+            _clearTremRtsStationWindows()
             for(const k in tremRtsPrevBins) delete tremRtsPrevBins[k]
             tremRtsRisingCount.value = 0
             tremRtsShakeFlags.shake1Notified = false
@@ -2522,52 +2714,150 @@ watch(
     }
 )
 
+watch(tremRtsCurrentBin, (rawBin) => {
+    if(!settingsStore.mainSettings.displaySeisNet.tremNet) return
+    _updateTremRtsLatchedBin(rawBin)
+})
+
 const _getTremRtsNiedStyle = (instShindo) => {
     const zoom = map?.getZoom?.() ?? settingsStore.mainSettings.defaultZoom
     const level = getLevelFromInstShindo(Number.isFinite(instShindo) ? instShindo : -3.1)
     return computeNiedStyleColorRadius(level, zoom)
 }
 
-const updateTremMarkers = (data) => {
-    let max = null
-    let risingCount = 0
+const _clearTremRtsGridRects = () => {
+    for (const key in tremRtsGridRects) {
+        const item = tremRtsGridRects[key]
+        if (item?.layer && map?.hasLayer?.(item.layer)) map.removeLayer(item.layer)
+        delete tremRtsGridRects[key]
+    }
+}
+
+const _updateTremRtsGridRectsFromStations = () => {
+    if (!map) return
+
+    const active = []
     for (const id in tremStations.value) {
-        const station = tremStations.value[id];
-        const stationData = data[id];
-        if (station.marker && stationData) {
-            const shindo = stationData.i;
-            if (shindo !== null && shindo !== undefined) {
-                max = (max === null) ? shindo : Math.max(max, shindo)
-            }
-            const newBin = instToShindoBin(shindo)
-            const oldBin = (id in tremRtsPrevBins) ? tremRtsPrevBins[id] : -1
-            if (newBin > oldBin) risingCount += 1
-            tremRtsPrevBins[id] = newBin
-            const { color, radius } = _getTremRtsNiedStyle(shindo)
-            station.marker.setStyle({
-                color,
-                fillColor: color,
-                opacity: 1,
-                fillOpacity: 1,
-                weight: 0,
-            });
-            station.marker.setRadius(radius)
-        } else if (station.marker) {
-            const { color, radius } = _getTremRtsNiedStyle(null)
-            station.marker.setStyle({
-                color,
-                fillColor: color,
-                opacity: 1,
-                fillOpacity: 1,
-                weight: 0,
-            })
-            station.marker.setRadius(radius)
+        const st = tremStations.value[id]
+        if (st?.isActive) active.push(st)
+    }
+
+    // No active grids => clear.
+    if (active.length === 0) {
+        _clearTremRtsGridRects()
+        tremRtsPeriodMaxLevel = -1
+        tremPeriodMaxShindo.value = '?'
+        tremPeriodBarClass.value = 'gray'
+        statusStore.isActive.tremNet = false
+        return
+    }
+
+    // Build per-cell max level.
+    const grids = {}
+    for (const st of active) {
+        const latLng = st.latLng.map((l, index) => Math.round(l - tremRtsGridDecimal[index]) + tremRtsGridDecimal[index])
+        const level = Number.isFinite(st.tremGridLevel) ? st.tremGridLevel : st.level
+        const key = JSON.stringify(latLng)
+        if (key in grids) {
+            if (level > grids[key].level) grids[key].level = level
+        } else {
+            grids[key] = { latLng, level }
         }
     }
-    tremRtsMaxInst.value = max
+
+    let frameMaxLevel = -1
+    let frameMaxColor = 'gray'
+
+    for (const key in grids) {
+        const item = grids[key]
+        const color = item.level <= 7 ? 'green' : item.level <= 13 ? 'yellow' : 'red'
+        if (item.level > frameMaxLevel) {
+            frameMaxLevel = item.level
+            frameMaxColor = color
+        }
+
+        if (!(key in tremRtsGridRects)) {
+            const layer = L.rectangle(
+                [item.latLng.map((l) => l - 0.495), item.latLng.map((l) => l + 0.495)],
+                {
+                    color,
+                    weight: 2,
+                    fill: false,
+                    pane: 'tremGridPane',
+                    interactive: false,
+                }
+            ).addTo(map)
+
+            tremRtsGridRects[key] = { color, layer }
+        } else if (tremRtsGridRects[key].color !== color) {
+            tremRtsGridRects[key].color = color
+            tremRtsGridRects[key].layer.setStyle({ color })
+        }
+    }
+
+    for (const key in tremRtsGridRects) {
+        if (!(key in grids)) {
+            const layer = tremRtsGridRects[key]?.layer
+            if (layer && map.hasLayer(layer)) map.removeLayer(layer)
+            delete tremRtsGridRects[key]
+        }
+    }
+
+    if (frameMaxLevel > tremRtsPeriodMaxLevel) tremRtsPeriodMaxLevel = frameMaxLevel
+    tremPeriodMaxShindo.value = getShindoFromLevel(tremRtsPeriodMaxLevel)
+    tremPeriodBarClass.value = frameMaxColor
+    statusStore.isActive.tremNet = true
+}
+
+const updateTremMarkers = (data, frameTimeMs) => {
+    const render = document.visibilityState === 'visible'
+    let max = null
+    let risingCount = 0
+    const activateBinThres = tremRtsActivateBinThreshold.value
+
+    let firstActive = null
+
+    for (const id in tremStations.value) {
+        const station = tremStations.value[id]
+        const stationData = data?.[id]
+        const shindo = stationData?.i
+
+        // Per-station display value: rolling max of the last 60 seconds.
+        const stationMax60 = _getTremRtsStationMax60s(id, frameTimeMs, shindo)
+
+        // Grid / activity should remain instantaneous (pre-change behavior).
+        const instBin = instToShindoBin(shindo)
+        station.tremGridLevel = getLevelFromInstShindo(Number.isFinite(shindo) ? shindo : -3.1)
+
+        if (shindo !== null && shindo !== undefined) {
+            max = (max === null) ? shindo : Math.max(max, shindo)
+        }
+
+        const newBin = instBin
+        const oldBin = (id in tremRtsPrevBins) ? tremRtsPrevBins[id] : -1
+        if (newBin > oldBin) risingCount += 1
+        tremRtsPrevBins[id] = newBin
+
+        // Update marker style (includes number icons when enabled).
+        station.update(Number.isFinite(stationMax60) ? stationMax60 : -3.1, render)
+
+        // Mark station as active for grid squares (simple threshold).
+        if (instBin >= activateBinThres) {
+            station.setActive()
+            if (!firstActive || station.tremGridLevel > firstActive.tremGridLevel) firstActive = station
+        }
+    }
+
+    // Align grid to first active station (reduces grid jitter).
+    if (firstActive && Object.keys(tremRtsGridRects).length === 0) {
+        tremRtsGridDecimal = firstActive.latLng.map((val) => Math.round(((val + 180) % 1) * 10) / 10)
+    }
+
     tremRtsRisingCount.value = risingCount
-    tremMaxShindo.value = (max === null) ? '?' : getShindoFromInstShindo(max)
-};
+    return { frameMaxInst: max }
+
+    _updateTremRtsGridRectsFromStations()
+}
 
 const loadTremRts = async () => {
     clearTimeout(tremTimeout);
@@ -2581,22 +2871,21 @@ const loadTremRts = async () => {
             const stations = {};
             for (const id in tremStationInfo) {
                 const info = tremStationInfo[id].info[0];
-                const { color, radius } = _getTremRtsNiedStyle(null)
-                const marker = L.circleMarker([info.lat, info.lon], {
-                    radius,
-                    color,
-                    weight: 0,
-                    fillColor: color,
-                    opacity: 1,
-                    fillOpacity: 1,
-                    pane: 'tremRtsPane'
-                });
-                marker.bindPopup(`<b>${id}</b>`);
-                tremRtsLayer.addLayer(marker);
-                stations[id] = { marker, info };
+                const latLng = [info.lat, info.lon]
+                const station = reactive(new TremStation(map, id, latLng, -3.1, 10, tremRtsLayer))
+                stations[id] = station
             }
             tremStations.value = stations;
             console.log('TREM-RTS stations initialized.');
+
+            if (!tremRtsZoomHandlerAttached) {
+                tremRtsZoomHandlerAttached = true
+                map.on('zoomend', () => {
+                    for (const id in tremStations.value) {
+                        tremStations.value[id]?.render?.()
+                    }
+                })
+            }
         } catch (e) {
             console.error('Failed to load TREM-RTS station data:', e);
         }
@@ -2604,14 +2893,23 @@ const loadTremRts = async () => {
 
     if (settingsStore.mainSettings.displaySeisNet.tremNet) {
         try {
-            const res = await fetch(`${tremRtsProxyBase.value}/api/v1/trem/rts?_=${Date.now()}`);
-            const data = await res.json();
+            const targetTime = timeStore.getTimeStamp() - tremDelayMs.value
+            // NOTE: lb-* は /rts/<timestamp> を受けても最新を返す。
+            // 履歴（リプレイ）は api-1/api-2 を使う。
+            const url = tremDelayMs.value > 0
+                ? `${tremStationProxyBase.value}/api/v1/trem/rts/${Math.round(targetTime)}`
+                : `${tremRtsProxyBase.value}/api/v1/trem/rts?_=${Date.now()}`
+
+            const res = await fetch(url)
+            const data = await res.json()
             if (data && data.station) {
-                updateTremMarkers(data.station);
-                tremUpdateTime.value = stampToTime(data.time, 8);
+                const { frameMaxInst } = updateTremMarkers(data.station, data.time) || {}
+                _updateTremRtsMaxWindow(data.time, frameMaxInst)
+                tremMaxShindo.value = (tremRtsMaxInst.value === null) ? '?' : getShindoFromInstShindo(tremRtsMaxInst.value)
+                tremUpdateTime.value = stampToTime(data.time, 8)
             }
         } catch (e) {
-            console.error('Failed to load TREM-RTS data:', e);
+            console.error('Failed to load TREM-RTS data:', e)
         }
     }
 
@@ -2625,6 +2923,10 @@ watch(
         tremStationInfo = {}
         tremStations.value = {}
         tremRtsLayer?.clearLayers()
+        _clearTremRtsMaxWindow()
+        _clearTremRtsStationWindows()
+        tremRtsMaxInst.value = null
+        tremMaxShindo.value = '?'
         loadTremRts()
     }
 )
@@ -2732,13 +3034,18 @@ const updateMsilMarkers = (data) => {
     msilMaxShindo.value = (max === null) ? '?' : getShindoFromInstShindo(max);
 };
 
-watch(tremRtsCurrentBin, (newVal, oldVal) => {
+watch(tremRtsLatchedBin, (newVal, oldVal) => {
     if(!settingsStore.mainSettings.displaySeisNet.tremNet) return
-    if(newVal > oldVal && tremRtsRisingCount.value >= tremRtsRisingCountThreshold) {
-        triggerShakeIfRising(newVal, oldVal, tremRtsShakeFlags)
+    if(tremRtsSensitivity.value === 0) {
+        triggerShakeIfRising(newVal, newVal, tremRtsShakeFlags)
+        return
+    }
+    if(newVal > oldVal) {
+        const shouldTrigger = (newVal >= 4) || (tremRtsRisingCount.value >= tremRtsRisingCountThreshold.value)
+        if(shouldTrigger) triggerShakeIfRising(newVal, oldVal, tremRtsShakeFlags)
     }
     else {
-        triggerShakeIfRising(oldVal, oldVal, tremRtsShakeFlags)
+        triggerShakeIfRising(newVal, newVal, tremRtsShakeFlags)
     }
 })
 
@@ -2748,7 +3055,7 @@ watch(msilCurrentBin, (newVal, oldVal) => {
         triggerShakeIfRising(newVal, oldVal, msilShakeFlags)
     }
     else {
-        triggerShakeIfRising(oldVal, oldVal, msilShakeFlags)
+        triggerShakeIfRising(newVal, newVal, msilShakeFlags)
     }
 })
 
@@ -2859,6 +3166,7 @@ onBeforeUnmount(() => {
     document.removeEventListener('mousemove', resetDefaultMenuTimer)
     if(msilWorker) msilWorker.terminate()
     document.removeEventListener('keydown', handleKeydown)
+    if(map && cwaLatestHypoMarker && map.hasLayer(cwaLatestHypoMarker)) map.removeLayer(cwaLatestHypoMarker)
     activeEewList.length = 0
     eqlistList.length = 0
 })

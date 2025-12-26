@@ -9,8 +9,8 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, inject } fr
 import Http from '@/classes/Http';
 import { useStatusStore } from '@/stores/status';
 import { useSettingsStore } from '@/stores/settings';
-import { seisNetUrls, iconUrls } from '@/utils/Urls';
-import { playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromInstShindo, stampToTime, getShindoFromLevel } from '@/utils/Utils';
+import { seisNetUrls } from '@/utils/Urls';
+import { calcTimeDiff, getShindoFromInstShindo, stampToTime, getShindoFromLevel } from '@/utils/Utils';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { simpleIcon, TremStation } from '@/classes/StationClasses';
@@ -230,45 +230,6 @@ watch(()=>(statusStore.isActive.cwaEew || statusStore.isActive.tremNet), newVal=
     }
 }, { immediate: true })
 watch(() => Object.keys(grids.value).length, smartSetView)
-let shake1Notified = false, shake2Notified = false
-let focused = false
-watch(currentMaxShindo, (newVal, oldVal)=>{
-    if(newVal > oldVal){
-        if(settingsStore.mainSettings.onShake.sound){
-            const type = `shindo${newVal}`
-            playSound(type)
-        }
-        if(settingsStore.mainSettings.onShake.notification){
-            if(newVal >= 1 && newVal <= 3 && !shake1Notified){
-                sendMyNotification('檢測到震動', 
-                    '請注意搖晃。', 
-                    iconUrls.caution, 
-                    settingsStore.mainSettings.muteNotification)
-                shake1Notified = true
-            }
-            else if(newVal >= 4 && !shake2Notified){
-                sendMyNotification('檢測到強震動', 
-                    '請警戒強烈搖晃。', 
-                    iconUrls.warn, 
-                    settingsStore.mainSettings.muteNotification)
-                shake1Notified = true
-                shake2Notified = true
-            }
-        }
-        if(settingsStore.mainSettings.onShake.focus){
-            if(newVal >= 1 && !focused){
-                focusWindow()
-                focused = true
-            }
-        }
-        handleTempEqlists(0)
-    }
-    else{
-        shake1Notified = false
-        shake2Notified = false
-        focused = false
-    }
-})
 const stationDataUrl = computed(() => {
     const base = seisNetUrls?.trem?.stationData
     if(!base) return ''

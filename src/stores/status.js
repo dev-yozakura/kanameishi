@@ -171,6 +171,7 @@ export const sourceTypes = {
 const maxHistoryNumber = 100
 
 let usgsCache = null
+let cwaOpendataLastFetch = 0
 
 export const useStatusStore = defineStore('statusStore', {
     state: ()=>({
@@ -231,6 +232,7 @@ export const useStatusStore = defineStore('statusStore', {
         history: {
             jmaEqlist: [],
             cwaEqlist: [],
+            cwaOpendataEqlist: [],
             cencEqlist: [],
             usgsEqlist: [],
             fssnEqlist: [],
@@ -1143,6 +1145,81 @@ export const useStatusStore = defineStore('statusStore', {
                         }
                         break
                     }
+                    case 'cwaOpendataEqlist': {
+                        const record = data[i]
+                        const eqInfo = record?.EarthquakeInfo
+                        const epicenter = eqInfo?.Epicenter
+                        const magnitudeInfo = eqInfo?.EarthquakeMagnitude
+
+                        const originTime = eqInfo?.OriginTime || record?.OriginTime
+                        const lat = Number(epicenter?.EpicenterLatitude ?? record?.EpicenterLatitude)
+                        const lng = Number(epicenter?.EpicenterLongitude ?? record?.EpicenterLongitude)
+                        const depth = Number(eqInfo?.FocalDepth ?? record?.FocalDepth)
+                        const magnitude = Number(magnitudeInfo?.MagnitudeValue ?? record?.MagnitudeValue)
+
+                        const normalizeIntensity = (val) => {
+                            if(!val) return ''
+                            const s = String(val).trim()
+                            if(s.endsWith('級')) return s.slice(0, -1)
+                            return s
+                        }
+                        const intensityRank = (val) => {
+                            const s = normalizeIntensity(val)
+                            if(!s) return -1
+                            const base = Number.parseInt(s, 10)
+                            if(Number.isFinite(base)) {
+                                if(s.includes('強')) return base + 0.5
+                                if(s.includes('弱')) return base
+                                return base
+                            }
+                            return -1
+                        }
+
+                        const areas = record?.Intensity?.ShakingArea
+                        const areaCandidates = Array.isArray(areas)
+                            ? areas.map(a => a?.AreaIntensity).filter(Boolean)
+                            : []
+
+                        let maxIntensityRaw = ''
+                        if(areaCandidates.length) {
+                            maxIntensityRaw = areaCandidates.reduce((best, curr) => intensityRank(curr) > intensityRank(best) ? curr : best, areaCandidates[0])
+                        }
+                        const content = record?.ReportContent
+                        if(content) {
+                            const m = String(content).match(/最大震度.*?([0-9]+級|[0-9]+[弱強])/)
+                            if(m?.[1] && intensityRank(m[1]) > intensityRank(maxIntensityRaw)) {
+                                maxIntensityRaw = m[1]
+                            }
+                        }
+
+                        const maxIntensity = normalizeIntensity(maxIntensityRaw) || '不明'
+                        const className = setClassName(maxIntensity == '不明' ? '0' : maxIntensity, true)
+
+                        // NOTE: EqlistHistory は hypocenter を短い地名として表示するので、(位於...) があれば優先
+                        const locStr = epicenter?.Location || record?.Location || ''
+                        const locStart = locStr.indexOf('(位於')
+                        const locEnd = locStr.indexOf(')')
+                        const hypocenter = locStart !== -1 && locEnd !== -1 && locStart + 3 < locEnd
+                            ? locStr.slice(locStart + 3, locEnd)
+                            : (locStr || '震源 調査中')
+
+                        list[i] = {
+                            source: 'CWA',
+                            id: `od_${record?.EarthquakeNo ?? i}`,
+                            timeZone: 8,
+                            useShindo: true,
+                            originTime: originTime || '',
+                            lat: Number.isFinite(lat) ? lat : 0,
+                            lng: Number.isFinite(lng) ? lng : 0,
+                            hypocenter,
+                            depth: Number.isFinite(depth) ? depth : 0,
+                            magnitude: Number.isFinite(magnitude) ? magnitude : -1,
+                            maxIntensity,
+                            className,
+                            url: record?.Web || 'https://scweb.cwa.gov.tw/zh-tw/earthquake/data'
+                        }
+                        break
+                    }
                     case 'cencEqlist': {
                         const depth = Number(data[i].depth)
                         const magnitude = Number(data[i].magnitude)
@@ -1253,6 +1330,45 @@ export const useStatusStore = defineStore('statusStore', {
                             if(data && data.length > 0) {
                                 this.setEqMessage(source, data[0])
                                 this.setHistory(source, data)
+                            }
+                        }
+                        if(source == 'cwaOpendataEqlist' && status == 0) {
+                            const now = Date.now()
+                            if(now - cwaOpendataLastFetch >= 60_000) {
+                                const settingsStore = useSettingsStore()
+                                const key = (settingsStore.advancedSettings.tokens.cwa_opendata || '').trim()
+                                if(key) {
+                                    cwaOpendataLastFetch = now
+                                    const urls = [
+                                        'https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001',
+                                        'https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0016-001'
+                                    ]
+                                    const results = await Promise.all(urls.map(u => Http.get(`${u}?Authorization=${encodeURIComponent(key)}`)))
+                                    const extractRecordArray = (resp) => {
+                                        const records = resp?.records
+                                        if(!records) return []
+                                        if(Array.isArray(records)) return records
+                                        if(Array.isArray(records.Earthquake)) return records.Earthquake
+                                        if(typeof records === 'object') {
+                                            const values = Object.values(records)
+                                            const arr = values.find(v => Array.isArray(v))
+                                            if(arr) return arr
+                                        }
+                                        return []
+                                    }
+
+                                    const earthquakes = results
+                                        .filter(Boolean)
+                                        .flatMap(extractRecordArray)
+                                        .filter(Boolean)
+                                        .sort((a, b) => {
+                                            const at = Date.parse(a?.EarthquakeInfo?.OriginTime || a?.OriginTime || '')
+                                            const bt = Date.parse(b?.EarthquakeInfo?.OriginTime || b?.OriginTime || '')
+                                            if(Number.isFinite(at) && Number.isFinite(bt)) return bt - at
+                                            return 0
+                                        })
+                                    if(earthquakes.length > 0) this.setHistory(source, earthquakes)
+                                }
                             }
                         }
                         if(source == 'usgsEqlist' && status == 0) {

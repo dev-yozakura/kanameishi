@@ -17,6 +17,7 @@ export const useSettingsStore = defineStore('settingsStore', {
                 gqEew: false,
                 jmaEqlist: false,
                 cwaEqlist: false,
+                cwaOpendataEqlist: false,
                 cencEqlist: true,
                 kmaEqlist: false,
                 usgsEqlist: false,
@@ -34,6 +35,7 @@ export const useSettingsStore = defineStore('settingsStore', {
                 displayNiedShindo: false,
                 tremNet: false,
                 tremApi: 'lb-1',
+                tremSensitivity: 2,
                 displayTremShindo: false,
                 kmaNet: false,
                 kmaSensitivity: 2,
@@ -126,7 +128,8 @@ export const useSettingsStore = defineStore('settingsStore', {
             enableMockEew: false,
             provinceCeaEew: false,
             tokens: {
-                fan_dev: ''
+                fan_dev: '',
+                cwa_opendata: ''
             },
             multiApi: false,
             displayApiType: false,

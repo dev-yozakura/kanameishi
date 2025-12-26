@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "preview:host": "vite preview --host 0.0.0.0 --port 4173",
+    "serve:local": "node server/local-web.mjs",
+    "serve:local:build": "pnpm -s build && node server/local-web.mjs",
     "build:maps": "node scripts/build-admin-boundaries.mjs"
   },
   "dependencies": {
