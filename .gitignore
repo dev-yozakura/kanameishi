@@ -38,3 +38,9 @@ node_modules/
 
 # でも dist/ はコミットしたい → コメントアウト or 削除
 # dist/
+
+# slinktool (bundled under tools/)
+tools/slinktool/.venv/
+tools/slinktool/slwave/
+tools/slinktool/*.mseed
+tools/slinktool/__pycache__/
