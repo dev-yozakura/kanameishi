@@ -22,6 +22,7 @@ const kmaUpdateTime = inject('kmaUpdateTime')
 const kmaMaxInt = inject('kmaMaxInt')
 const kmaPeriodMaxInt = inject('kmaPeriodMaxInt')
 const kmaPeriodBarClass = inject('kmaPeriodBarClass')
+const kmaMarkerCount = inject('kmaMarkerCount')
 const handleTempEqlists = inject('handleTempEqlists')
 const smartSetView = inject('smartSetView')
 let periodMaxLevel = -1
@@ -209,6 +210,7 @@ watch(()=>statusStore.map, newVal=>{
                     const station = reactive(new KmaStation(map, index, latLng, -3, false))
                     stations.push(station)
                 })
+                if(kmaMarkerCount) kmaMarkerCount.value = stations.length
             }
         }, { immediate: true })
         unwatchGrids = watch(grids, (newVal)=>{
@@ -314,6 +316,7 @@ watch(currentMaxShindo, (newVal, oldVal)=>{
     }
 })
 onBeforeUnmount(()=>{
+    if(kmaMarkerCount) kmaMarkerCount.value = 0
     kmaSocket?.close()
     if(map !== null) map.off('zoomend', renderAll)
     if(unwatchGrids) unwatchGrids()

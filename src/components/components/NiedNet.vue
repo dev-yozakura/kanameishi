@@ -30,6 +30,7 @@ const niedMaxShindo = inject('niedMaxShindo')
 const niedUpdateTime = inject('niedUpdateTime')
 const niedPeriodMaxShindo = inject('niedPeriodMaxShindo')
 const niedPeriodBarClass = inject('niedPeriodBarClass')
+const niedMarkerCount = inject('niedMarkerCount')
 const handleTempEqlists = inject('handleTempEqlists')
 const smartSetView = inject('smartSetView')
 let periodMaxLevel = -1
@@ -216,6 +217,7 @@ const fetchStationList = async () => {
                     const station = reactive(new NiedStation(map, index, latLng, 'c', expireSeconds[index]))
                     stations.push(station)
                 })
+                if(niedMarkerCount) niedMarkerCount.value = stations.length
             }
         }
     } catch (err) {
@@ -393,6 +395,22 @@ watch(currentMaxShindo, (newVal, oldVal)=>{
     }
 })
 watch(()=>settingsStore.mainSettings.displaySeisNet.delay, newVal=>{
+    // リプレイ時刻を変えたら、揺れ検知/期間最大用の蓄積をリセット
+    periodMaxLevel = -1
+    niedPeriodMaxShindo.value = getShindoFromLevel(periodMaxLevel)
+    niedPeriodBarClass.value = 'gray'
+    statusStore.isActive.niedNet = false
+    shake1Notified = false
+    shake2Notified = false
+    focused = false
+    stations.forEach((station)=>{
+        if(!station) return
+        station.isActive = false
+        station.recentLevel = []
+        station.expireSeconds = station.defaultExpireSeconds
+        station.update('c', true)
+    })
+
     clearInterval(delayInterval)
     if(newVal > maxDelay / 60000){
         delay.value = newVal * 60000
@@ -406,6 +424,7 @@ watch(()=>settingsStore.mainSettings.displaySeisNet.delay, newVal=>{
     }
 }, { immediate: true })
 onBeforeUnmount(()=>{
+    if(niedMarkerCount) niedMarkerCount.value = 0
     clearInterval(fetchStationInterval)
     clearInterval(requestInterval)
     clearInterval(delayInterval)

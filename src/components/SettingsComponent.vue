@@ -115,8 +115,20 @@
                     <div class="switch-group">
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>{{ $t('settings.seisNet.nied_net') }}</span>
+                                <span>{{ $t('settings.seisNet.nied_net') }} ({{ $t('settings.seisNet.marker_count', { count: niedMarkerCountDisplay }) }})</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.niedNet" />
+                            </div>
+                            <div class="switch-full pl-4">
+                                <span>{{ $t('settings.seisNet.nied_mode') }}</span>
+                                <el-select
+                                    v-model="settingsStore.mainSettings.displaySeisNet.niedSource"
+                                    size="small"
+                                    :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet"
+                                    style="width: 156px;"
+                                >
+                                    <el-option :label="$t('settings.seisNet.nied_mode_yahoo')" value="yahoo" />
+                                    <el-option :label="$t('settings.seisNet.nied_mode_kmoni_image')" value="kmoni_image" />
+                                </el-select>
                             </div>
                             <div class="switch-full pl-4">
                                 <span>{{ $t('settings.seisNet.analysis_shindo') }}</span>
@@ -139,7 +151,7 @@
                         </div>
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>{{ $t('settings.seisNet.trem_net') }}</span>
+                                <span>{{ $t('settings.seisNet.trem_net') }} ({{ $t('settings.seisNet.marker_count', { count: tremMarkerCountDisplay }) }})</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.tremNet" />
                             </div>
                             <div class="switch-full pl-4">
@@ -179,7 +191,7 @@
                         </div>
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>{{ $t('settings.seisNet.kma_net') }}</span>
+                                <span>{{ $t('settings.seisNet.kma_net') }} ({{ $t('settings.seisNet.marker_count', { count: kmaMarkerCountDisplay }) }})</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.kmaNet" />
                             </div>
                             <div class="switch-full pl-4">
@@ -218,7 +230,7 @@
                         </div>
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>{{ $t('settings.seisNet.msil_net') }}</span>
+                                <span>{{ $t('settings.seisNet.msil_net') }} ({{ $t('settings.seisNet.marker_count', { count: msilMarkerCountDisplay }) }})</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.msilNet" />
                             </div>
 
@@ -1280,7 +1292,7 @@ import { chimeUrls, utilUrls } from '@/utils/Urls';
 import dayjs from 'dayjs';
 import { useI18n } from 'vue-i18n';
 import Http from '@/classes/Http';
-import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, watch, inject, computed } from 'vue'
 import { QuestionFilled } from '@element-plus/icons-vue';
 import { calcPassedTime, formatCsis, openUrl, playSound, setClassName, shindoScale, calcCsisLevel } from '@/utils/Utils';
 import { join, appDataDir } from "@tauri-apps/api/path";
@@ -1303,6 +1315,16 @@ const simplifyMarks = {
 }
 const settingsStore = useSettingsStore()
 const statusStore = useStatusStore()
+
+const niedMarkerCount = inject('niedMarkerCount', ref(0))
+const tremMarkerCount = inject('tremMarkerCount', ref(0))
+const kmaMarkerCount = inject('kmaMarkerCount', ref(0))
+const msilMarkerCount = inject('msilMarkerCount', ref(0))
+
+const niedMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.niedNet ? (Number(niedMarkerCount.value) || 0) : 0)
+const tremMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.tremNet ? (Number(tremMarkerCount.value) || 0) : 0)
+const kmaMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.kmaNet ? (Number(kmaMarkerCount.value) || 0) : 0)
+const msilMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.msilNet ? (Number(msilMarkerCount.value) || 0) : 0)
 const replayDateTime = ref('')
 const setReplayDateTime = () => {
     const passedTime = Math.max(Math.round(calcPassedTime(replayDateTime.value, 8) / 600) / 100, 0)

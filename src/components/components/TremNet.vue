@@ -30,6 +30,7 @@ const tremMaxShindo = inject('tremMaxShindo')
 const tremUpdateTime = inject('tremUpdateTime')
 const tremPeriodMaxShindo = inject('tremPeriodMaxShindo')
 const tremPeriodBarClass = inject('tremPeriodBarClass')
+const tremMarkerCount = inject('tremMarkerCount')
 const handleTempEqlists = inject('handleTempEqlists')
 const smartSetView = inject('smartSetView')
 let periodMaxLevel = -1
@@ -165,6 +166,7 @@ watch(()=>statusStore.map, newVal=>{
                     const station = reactive(new TremStation(map, id, latLng, -3.1, false))
                     stations[id] = station
                 })
+                if(tremMarkerCount) tremMarkerCount.value = Object.keys(stations).length
             }
         }, { immediate: true })
         unwatchGrids = watch(grids, (newVal)=>{
@@ -235,7 +237,24 @@ const stationDataUrl = computed(() => {
     if(!base) return ''
     return base.replace('api-2', settingsStore.mainSettings.displaySeisNet.tremApi)
 })
+
+watch(() => settingsStore.mainSettings.displaySeisNet.delay, () => {
+    // リプレイ時刻を変えたら、揺れ検知/期間最大用の蓄積をリセット
+    periodMaxLevel = -1
+    tremPeriodMaxShindo.value = getShindoFromLevel(periodMaxLevel)
+    tremPeriodBarClass.value = 'gray'
+    statusStore.isActive.tremNet = false
+    for(const id in stations) {
+        const st = stations[id]
+        if(!st) continue
+        st.isActive = false
+        st.recentLevel = []
+        st.expireSeconds = st.defaultExpireSeconds
+        st.update(-3.1, false, true)
+    }
+}, { immediate: true })
 onBeforeUnmount(()=>{
+    if(tremMarkerCount) tremMarkerCount.value = 0
     clearInterval(fetchStationInterval)
     clearInterval(requestInterval)
     if(map !== null) map.off('zoomend', renderAll)

@@ -3,6 +3,9 @@
     "title": "设置",
     "general": {
       "title": "通用",
+      "nied_mode": "显示方式",
+      "nied_mode_yahoo": "现有（Yahoo RealTimeData）",
+      "nied_mode_kmoni_image": "图像解析（kmoni GIF / Python兼容）",
       "language": "语言"
     },
     "dataSource": {
@@ -68,6 +71,7 @@
         "hint1": "以下所有条件关系为“与”。",
         "hint2": "从下一个事件开始生效。",
         "mag_threshold": "震级阈值",
+      "marker_count": "标记数: {count}",
         "mag_threshold_hint1": "地震预警事件中，仅在预估震级达到阈值时进行提醒。",
         "mag_threshold_hint2": "设置为“0”表示不作筛选。",
         "local_csis_threshold": "本地烈度阈值",

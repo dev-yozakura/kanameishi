@@ -31,6 +31,7 @@ export const useSettingsStore = defineStore('settingsStore', {
                 displayShindo0: false,
                 delay: 0,
                 niedNet: false,
+                niedSource: 'yahoo',
                 niedSensitivity: 2,
                 displayNiedShindo: false,
                 tremNet: false,

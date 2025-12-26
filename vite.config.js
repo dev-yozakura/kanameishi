@@ -24,6 +24,12 @@ export default defineConfig(({ command }) => {
     host: 'localhost',
     port: 5173,
     proxy: {
+      '/kmoni': {
+        target: 'http://www.kmoni.bosai.go.jp',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/kmoni/, ''),
+      },
       '/msil': {
         target: 'https://www.msil.go.jp',
         changeOrigin: true,

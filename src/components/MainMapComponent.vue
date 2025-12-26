@@ -1141,6 +1141,9 @@ provide('niedUpdateTime', niedUpdateTime)
 provide('niedMaxShindo', niedMaxShindo)
 provide('niedPeriodMaxShindo', niedPeriodMaxShindo)
 provide('niedPeriodBarClass', niedPeriodBarClass)
+
+const niedMarkerCount = ref(0)
+provide('niedMarkerCount', niedMarkerCount)
 const tremUpdateTime = ref('1970-01-01 08:00:00')
 const tremMaxShindo = ref('?')
 const tremPeriodMaxShindo = ref('?')
@@ -1150,6 +1153,9 @@ provide('tremUpdateTime', tremUpdateTime)
 provide('tremMaxShindo', tremMaxShindo)
 provide('tremPeriodMaxShindo', tremPeriodMaxShindo)
 provide('tremPeriodBarClass', tremPeriodBarClass)
+
+const tremMarkerCount = ref(0)
+provide('tremMarkerCount', tremMarkerCount)
 const kmaUpdateTime = ref('1970-01-01 09:00:00')
 const kmaMaxInt = ref('?')
 const kmaPeriodMaxInt = ref('?')
@@ -1159,6 +1165,9 @@ provide('kmaUpdateTime', kmaUpdateTime)
 provide('kmaMaxInt', kmaMaxInt)
 provide('kmaPeriodMaxInt', kmaPeriodMaxInt)
 provide('kmaPeriodBarClass', kmaPeriodBarClass)
+
+const kmaMarkerCount = ref(0)
+provide('kmaMarkerCount', kmaMarkerCount)
 const msilUpdateTime = ref('1970-01-01 09:00:00')
 const msilMaxShindo = ref('?')
 const msilPeriodMaxShindo = ref('?')
@@ -1168,6 +1177,9 @@ provide('msilUpdateTime', msilUpdateTime)
 provide('msilMaxShindo', msilMaxShindo)
 provide('msilPeriodMaxShindo', msilPeriodMaxShindo)
 provide('msilPeriodBarClass', msilPeriodBarClass)
+
+const msilMarkerCount = ref(0)
+provide('msilMarkerCount', msilMarkerCount)
 const isAutoZoom = ref(true)
 const activeEewList = reactive([])
 const eqlistList = reactive([])
@@ -2958,6 +2970,35 @@ watch(
     }
 )
 
+watch(
+    () => settingsStore.mainSettings.displaySeisNet.delay,
+    () => {
+        // リプレイ時刻を変えたら、揺れ検知/期間最大用の蓄積をリセット
+        // TREM-RTS
+        tremRtsMaxInst.value = null
+        tremRtsRisingCount.value = 0
+        tremRtsShakeFlags.shake1Notified = false
+        tremRtsShakeFlags.shake2Notified = false
+        tremRtsShakeFlags.focused = false
+        for(const k in tremRtsPrevBins) delete tremRtsPrevBins[k]
+        tremRtsLatchedBin.value = -1
+        _clearTremRtsMaxWindow()
+        _clearTremRtsStationWindows()
+
+        // MSIL
+        msilMaxInst.value = null
+        msilRisingCount.value = 0
+        msilShakeFlags.shake1Notified = false
+        msilShakeFlags.shake2Notified = false
+        msilShakeFlags.focused = false
+        for(const k in msilPrevBins) delete msilPrevBins[k]
+        for(const k in msil_latest) delete msil_latest[k]
+        for(const k in msilLatestByCode) delete msilLatestByCode[k]
+        msil_lastTime = ''
+    },
+    { immediate: true }
+)
+
 const _getMsilNiedStyle = (instShindo) => {
     const zoom = map?.getZoom?.() ?? settingsStore.mainSettings.defaultZoom
     const level = getLevelFromInstShindo(Number.isFinite(instShindo) ? instShindo : -3.1)
@@ -3097,6 +3138,7 @@ const loadMsilNet = async () => {
                 stations[code] = { marker };
             });
             msilStations.value = stations;
+            msilMarkerCount.value = Object.keys(stations).length
             refreshMsilMarkerStyleForZoom()
         } catch (e) {
             console.error('Failed to initialize MSIL stations:', e);
@@ -3115,7 +3157,8 @@ const loadMsilNet = async () => {
         const targetTimes = await targetTimesRes.json();
         if (!Array.isArray(targetTimes)) throw new Error('Invalid targetTimes format');
 
-        const nowKey = formatUtcToBasetime(timeStore.getTimeStamp());
+        const delayMs = settingsStore.mainSettings.displaySeisNet.delay * 60000
+        const nowKey = formatUtcToBasetime(timeStore.getTimeStamp() - delayMs);
         let basetime = '';
         targetTimes.forEach(elm => {
             const bt = String(elm.basetime || '');
@@ -3163,6 +3206,7 @@ onBeforeUnmount(() => {
     clearTimeout(tempEqlistsTimer)
     clearTimeout(tremTimeout)
     clearTimeout(msilTimeout)
+    msilMarkerCount.value = 0
     document.removeEventListener('mousemove', resetDefaultMenuTimer)
     if(msilWorker) msilWorker.terminate()
     document.removeEventListener('keydown', handleKeydown)
