@@ -1,5 +1,6 @@
 import net from "node:net";
 import http from "node:http"; // add
+import { spawn } from "node:child_process";
 import { WebSocketServer } from "ws";
 
 const WS_PORT = Number(process.env.SEEDLINK_WS_PORT || 8787);
@@ -88,6 +89,10 @@ function createSeedLinkConnection(sub, broadcast) {
 const wss = new WebSocketServer({ port: WS_PORT });
 const clients = new Set();
 
+wss.on("error", err => {
+  console.error("[seedlink-proxy] ws error:", err);
+});
+
 wss.on("connection", ws => {
   clients.add(ws);
   ws.on("close", () => clients.delete(ws));
@@ -126,6 +131,96 @@ function sendJson(res, status, obj) {
 const httpServer = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
+
+    // Server-Sent Events: stream GlobalQuake (port 38000) waveforms near Yuzhno-Sakhalinsk
+    // GET /gq/yuzhno/stream
+    if (req.method === "GET" && url.pathname === "/gq/yuzhno/stream") {
+      res.writeHead(200, {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-store",
+        "connection": "keep-alive",
+        "access-control-allow-origin": "*",
+      });
+
+      // Tell EventSource connection is open
+      res.write(`event: open\n`);
+      res.write(`data: {"type":"open","ts":${Date.now()}}\n\n`);
+
+      const outDir = process.env.GQAPI_OUT_DIR || "e:/work/GlobalQuake-develop/gqapi-out";
+      const host = process.env.GQ38000_HOST || "server-old.globalquake.net";
+      const port = process.env.GQ38000_PORT || "38000";
+
+      // Yuzhno-Sakhalinsk approx
+      const lat = process.env.GQ_YUZHNO_LAT || "46.959";
+      const lon = process.env.GQ_YUZHNO_LON || "142.738";
+
+      const child = spawn(
+        "java",
+        [
+          "-cp",
+          outDir,
+          "gqserver.api.tools.Port38000Stream",
+          "--host",
+          host,
+          "--port",
+          String(port),
+          "--nearest-lat",
+          String(lat),
+          "--nearest-lon",
+          String(lon),
+          "--nearest-k",
+          "1",
+          "--seconds",
+          "3600",
+          "--no-write",
+        ],
+        {
+          stdio: ["ignore", "pipe", "pipe"],
+        }
+      );
+
+      let buf = "";
+      function sendLine(line) {
+        // Each NDJSON line becomes one SSE message
+        res.write(`data: ${line}\n\n`);
+      }
+
+      child.stdout.on("data", chunk => {
+        buf += chunk.toString("utf8");
+        while (true) {
+          const idx = buf.indexOf("\n");
+          if (idx < 0) break;
+          const line = buf.slice(0, idx).trim();
+          buf = buf.slice(idx + 1);
+          if (!line) continue;
+          sendLine(line);
+        }
+      });
+
+      child.stderr.on("data", chunk => {
+        const msg = chunk.toString("utf8").trim();
+        if (msg) {
+          res.write(`event: stderr\n`);
+          res.write(`data: ${JSON.stringify({ type: "stderr", message: msg, ts: Date.now() })}\n\n`);
+        }
+      });
+
+      child.on("exit", code => {
+        res.write(`event: exit\n`);
+        res.write(`data: ${JSON.stringify({ type: "exit", code, ts: Date.now() })}\n\n`);
+        res.end();
+      });
+
+      req.on("close", () => {
+        try {
+          child.kill();
+        } catch {
+          // ignore
+        }
+      });
+
+      return;
+    }
 
     // GET /iris/stations?net=IU&level=station
     if (req.method === "GET" && url.pathname === "/iris/stations") {
@@ -174,3 +269,10 @@ const httpServer = http.createServer(async (req, res) => {
 httpServer.listen(HTTP_PORT, () => {
   console.log(`[seedlink-proxy] http://localhost:${HTTP_PORT} (iris stations proxy)`);
 });
+
+httpServer.on("error", err => {
+  console.error("[seedlink-proxy] http error:", err);
+});
+
+// Ensure the process stays alive even if upstream sockets are temporarily down.
+setInterval(() => {}, 60_000);
