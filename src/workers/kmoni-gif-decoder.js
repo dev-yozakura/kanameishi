@@ -52,6 +52,7 @@ self.onmessage = async (ev) => {
   if (msg.type !== 'decode') return
 
   const { imageBitmap, tsMs } = msg
+  const mode = (msg.mode === 'pga' || msg.mode === 'shindo') ? msg.mode : 'shindo'
   if (!imageBitmap || !points.length) return
 
   try {
@@ -107,12 +108,27 @@ self.onmessage = async (ev) => {
         continue
       }
 
-      const shindo = 10.0 * pos - 3.0
-      inst[i] = Math.round(shindo * 10) / 10
-      valid[i] = 1
+      if (mode === 'pga') {
+        const pga = Math.pow(10.0, 5.0 * pos - 2.0)
+        if (!Number.isFinite(pga) || pga < 0 || pga > 9999.9) {
+          inst[i] = 0.0
+          valid[i] = 0
+        } else {
+          inst[i] = Math.round(pga * 10) / 10
+          valid[i] = 1
+        }
+      } else {
+        const shindo = 10.0 * pos - 3.0
+        inst[i] = Math.round(shindo * 10) / 10
+        valid[i] = 1
+      }
     }
 
-    self.postMessage({ type: 'decoded', inst, valid, tsMs }, [inst.buffer, valid.buffer])
+    if (mode === 'pga') {
+      self.postMessage({ type: 'decoded', mode: 'pga', pga: inst, valid, tsMs }, [inst.buffer, valid.buffer])
+    } else {
+      self.postMessage({ type: 'decoded', mode: 'shindo', inst, valid, tsMs }, [inst.buffer, valid.buffer])
+    }
   } finally {
     try { imageBitmap.close?.() } catch {}
   }

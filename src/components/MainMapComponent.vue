@@ -171,6 +171,9 @@
                                     <div :class="niedMaxShindo != '?'?'shindo':'csis'">
                                         {{ niedMaxShindo }}
                                     </div>
+                                    <div class="nied-max-pga-corner" v-if="niedMaxPgaGal != '?'">
+                                        {{ niedMaxPgaGal }} gal
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -192,6 +195,20 @@
                                     <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
                                     <div :class="palertMaxShindo != '?'?'shindo':'csis'">
                                         {{ palertMaxShindo }}
+                                    </div>
+                                    <div class="palert-max-pga-corner" v-if="palertMaxPgaGal != '?'">
+                                        {{ palertMaxPgaGal }} gal
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.palertNet && palertPeriodMaxShindo != '?'">
+                            <div class="shindo-bar" :class="palertPeriodBarClass">{{ $t('mainMap.realtime.palert_period') }}</div>
+                            <div class="info">
+                                <div class="intensity" :class="setClassName(palertPeriodMaxShindo, true)">
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
+                                    <div :class="palertPeriodMaxShindo != '?'?'shindo':'csis'">
+                                        {{ palertPeriodMaxShindo }}
                                     </div>
                                 </div>
                             </div>
@@ -1148,11 +1165,13 @@ const p2pquakeUrlIndex = ref(0)
 const gqUrlIndex = ref(0)
 const niedUpdateTime = ref('1970-01-01 09:00:00')
 const niedMaxShindo = ref('?')
+const niedMaxPgaGal = ref('?')
 const niedPeriodMaxShindo = ref('?')
 const niedPeriodBarClass = ref('gray')
 const isNiedDelayed = ref(true)
 provide('niedUpdateTime', niedUpdateTime)
 provide('niedMaxShindo', niedMaxShindo)
+provide('niedMaxPgaGal', niedMaxPgaGal)
 provide('niedPeriodMaxShindo', niedPeriodMaxShindo)
 provide('niedPeriodBarClass', niedPeriodBarClass)
 
@@ -1172,9 +1191,15 @@ const tremMarkerCount = ref(0)
 provide('tremMarkerCount', tremMarkerCount)
 const palertUpdateTime = ref('1970-01-01 08:00:00')
 const palertMaxShindo = ref('?')
+const palertMaxPgaGal = ref('?')
+const palertPeriodMaxShindo = ref('?')
+const palertPeriodBarClass = ref('gray')
 const isPalertDelayed = ref(true)
 provide('palertUpdateTime', palertUpdateTime)
 provide('palertMaxShindo', palertMaxShindo)
+provide('palertMaxPgaGal', palertMaxPgaGal)
+provide('palertPeriodMaxShindo', palertPeriodMaxShindo)
+provide('palertPeriodBarClass', palertPeriodBarClass)
 
 const palertMarkerCount = ref(0)
 provide('palertMarkerCount', palertMarkerCount)
@@ -2590,8 +2615,14 @@ const eewInfoList = computed(()=>{
 const tremStations = ref({});
 let tremStationInfo = {};
 let tremTimeout;
-
+let tremRtsInFlight = false
+let tremRtsAbortController = null
 let tremRtsZoomHandlerAttached = false
+const tremRtsZoomHandler = () => {
+    for (const id in tremStations.value) {
+        tremStations.value[id]?.render?.()
+    }
+}
 let tremRtsGridDecimal = [0, 0]
 const tremRtsGridRects = {}
 let tremRtsPeriodMaxLevel = -1
@@ -2912,9 +2943,22 @@ const updateTremMarkers = (data, frameTimeMs) => {
 const loadTremRts = async () => {
     clearTimeout(tremTimeout);
 
+    // 長時間運用でのメモリ増大を抑える：pollの重なりを禁止 + 古いfetchを中断
+    if (tremRtsInFlight) {
+        tremTimeout = setTimeout(loadTremRts, 500)
+        return
+    }
+    tremRtsInFlight = true
+
+    try { tremRtsAbortController?.abort?.() } catch {}
+    tremRtsAbortController = new AbortController()
+    const tremSignal = tremRtsAbortController.signal
+
+    try {
+
     if (Object.keys(tremStationInfo).length === 0) {
         try {
-            const res = await fetch(`${tremStationProxyBase.value}/api/v1/trem/station?_=${Date.now()}`);
+            const res = await fetch(`${tremStationProxyBase.value}/api/v1/trem/station?_=${Date.now()}`, { signal: tremSignal });
             tremStationInfo = await res.json();
 
             tremRtsLayer.clearLayers();
@@ -2930,11 +2974,7 @@ const loadTremRts = async () => {
 
             if (!tremRtsZoomHandlerAttached) {
                 tremRtsZoomHandlerAttached = true
-                map.on('zoomend', () => {
-                    for (const id in tremStations.value) {
-                        tremStations.value[id]?.render?.()
-                    }
-                })
+                map.on('zoomend', tremRtsZoomHandler)
             }
         } catch (e) {
             console.error('Failed to load TREM-RTS station data:', e);
@@ -2950,7 +2990,7 @@ const loadTremRts = async () => {
                 ? `${tremStationProxyBase.value}/api/v1/trem/rts/${Math.round(targetTime)}`
                 : `${tremRtsProxyBase.value}/api/v1/trem/rts?_=${Date.now()}`
 
-            const res = await fetch(url)
+            const res = await fetch(url, { signal: tremSignal })
             const data = await res.json()
             if (data && data.station) {
                 const { frameMaxInst } = updateTremMarkers(data.station, data.time) || {}
@@ -2963,7 +3003,11 @@ const loadTremRts = async () => {
         }
     }
 
-    tremTimeout = setTimeout(loadTremRts, 1000);
+    }
+    finally {
+        tremRtsInFlight = false
+        tremTimeout = setTimeout(loadTremRts, 1000);
+    }
 };
 
 watch(
@@ -2986,6 +3030,8 @@ const msil_latest = {};
 const msilLatestByCode = {};
 let msil_lastTime = '';
 let msilTimeout;
+let msilInFlight = false
+let msilAbortController = null
 
 const msilMaxInst = ref(null)
 const msilCurrentBin = computed(() => instToShindoBin(msilMaxInst.value))
@@ -3150,10 +3196,23 @@ const handleMsilData = (data, y, uid) => {
 const loadMsilNet = async () => {
     clearTimeout(msilTimeout);
 
+    // 長時間運用でのメモリ増大を抑える：pollの重なりを禁止 + 古いfetchを中断
+    if (msilInFlight) {
+        msilTimeout = setTimeout(loadMsilNet, 500)
+        return
+    }
+    msilInFlight = true
+
+    try { msilAbortController?.abort?.() } catch {}
+    msilAbortController = new AbortController()
+    const msilSignal = msilAbortController.signal
+
+    try {
+
     // 観測点（マーカー）の初期化：msilNet のON/OFFに関係なく一度だけ生成
     if (Object.keys(msilStations.value).length === 0) {
         try {
-            const response = await fetch(`${import.meta.env.BASE_URL}resources/Snet_Points.json`);
+            const response = await fetch(`${import.meta.env.BASE_URL}resources/Snet_Points.json?_=${Date.now()}`, { cache: 'no-store', signal: msilSignal });
             const points = await response.json();
             msilNetLayer.clearLayers();
             const { color, radius } = _getMsilNiedStyle(null)
@@ -3191,7 +3250,7 @@ const loadMsilNet = async () => {
 
     try {
         const msilBase = import.meta.env.DEV ? '/msil' : 'https://www.msil.go.jp'
-        const targetTimesRes = await fetch(`${msilBase}/tiles/smoni/targetTimes.json?_=${Date.now()}`);
+        const targetTimesRes = await fetch(`${msilBase}/tiles/smoni/targetTimes.json?_=${Date.now()}`, { signal: msilSignal });
         const targetTimes = await targetTimesRes.json();
         if (!Array.isArray(targetTimes)) throw new Error('Invalid targetTimes format');
 
@@ -3215,9 +3274,10 @@ const loadMsilNet = async () => {
                 { url: `${msilBase}/tiles/smoni/${basetime}/${basetime}/5/28/12.png?_=${unique_id}`, y: 12 }
             ];
 
-            urls.forEach(async ({ url, y }) => {
+            // NOTE: forEach + async はawaitされず重なりの原因になるので Promise.all で待つ
+            await Promise.all(urls.map(async ({ url, y }) => {
                 try {
-                    const response = await fetch(url);
+                    const response = await fetch(url, { signal: msilSignal });
                     const blob = await response.blob();
                     const imageBitmap = await createImageBitmap(blob);
                     if (msilWorker) {
@@ -3227,13 +3287,17 @@ const loadMsilNet = async () => {
                 } catch (e) {
                     console.error(`Failed to fetch or process MSIL tile ${url}`, e);
                 }
-            });
+            }))
         }
     } catch (e) {
         console.error('Failed to load MSIL data:', e);
     }
 
-    msilTimeout = setTimeout(loadMsilNet, settingsStore.mainSettings.displaySeisNet.msilInterval * 1000);
+    }
+    finally {
+        msilInFlight = false
+        msilTimeout = setTimeout(loadMsilNet, settingsStore.mainSettings.displaySeisNet.msilInterval * 1000);
+    }
 };
 
 onBeforeUnmount(() => {
@@ -3245,9 +3309,12 @@ onBeforeUnmount(() => {
     clearTimeout(tempEqlistsTimer)
     clearTimeout(tremTimeout)
     clearTimeout(msilTimeout)
+    try { tremRtsAbortController?.abort?.() } catch {}
+    try { msilAbortController?.abort?.() } catch {}
     msilMarkerCount.value = 0
     document.removeEventListener('mousemove', resetDefaultMenuTimer)
     if(msilWorker) msilWorker.terminate()
+    try { map?.off?.('zoomend', tremRtsZoomHandler) } catch {}
     document.removeEventListener('keydown', handleKeydown)
     if(map && cwaLatestHypoMarker && map.hasLayer(cwaLatestHypoMarker)) map.removeLayer(cwaLatestHypoMarker)
     activeEewList.length = 0
@@ -3339,6 +3406,7 @@ onBeforeUnmount(() => {
                         * {
                             z-index: 1;
                         }
+
                         .background {
                             position: absolute;
                             width: 100%;
@@ -3382,6 +3450,19 @@ onBeforeUnmount(() => {
                             }
                             .csis{
                                 font-size: 80px;
+                            }
+
+                            .palert-max-pga-corner,
+                            .nied-max-pga-corner{
+                                position: absolute;
+                                right: 6px;
+                                bottom: 6px;
+                                font-size: 12px;
+                                line-height: 1;
+                                font-weight: 700;
+                                letter-spacing: 0;
+                                padding-right: 0;
+                                color: var(--white);
                             }
                         }
                         .right{

@@ -74,9 +74,13 @@ const grids = computed(()=>{
     return grids
 })
 let pendingRender = false
+let tremMaxInstHeld = -3.1
+let tremMaxHoldUntil = 0
+const TREM_MAX_HOLD_MS = 15000
 const update = ()=>{
     const render = document.visibilityState === 'visible'
     if(!render) pendingRender = true
+    const now = Date.now()
     let maxInst = -3.1
     let first = null
     Object.keys(stations).forEach(id=>{
@@ -89,10 +93,20 @@ const update = ()=>{
             }
             if(intensity > maxInst) maxInst = intensity
         }
-        else stations[id].update(-3.1, false)
+        else stations[id].update(-3.1, false, render)
     })
     if(first) decimal = first.latLng.map(val => Math.round((val + 180) % 1 * 10) / 10)
-    tremMaxShindo.value = getShindoFromInstShindo(maxInst)
+
+    // 最大震度の表示ホールド（低下方向のみ保持）
+    if (Number.isFinite(maxInst)) {
+        if (maxInst > tremMaxInstHeld) {
+            tremMaxInstHeld = maxInst
+            tremMaxHoldUntil = now + TREM_MAX_HOLD_MS
+        } else if (maxInst < tremMaxInstHeld && now >= tremMaxHoldUntil) {
+            tremMaxInstHeld = maxInst
+        }
+    }
+    tremMaxShindo.value = getShindoFromInstShindo(tremMaxInstHeld)
 }
 const renderAll = ()=>{
     Object.keys(stations).forEach(id=>{
@@ -163,7 +177,7 @@ watch(()=>statusStore.map, newVal=>{
                     const info = newVal[id]?.info?.slice?.(-1)?.[0]
                     if(!info) return
                     const latLng = [info.lat, info.lon]
-                    const station = reactive(new TremStation(map, id, latLng, -3.1, false))
+                    const station = reactive(new TremStation(map, id, latLng, -3.1))
                     stations[id] = station
                 })
                 if(tremMarkerCount) tremMarkerCount.value = Object.keys(stations).length

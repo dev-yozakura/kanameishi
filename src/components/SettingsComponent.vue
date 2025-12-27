@@ -195,11 +195,21 @@
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.palertNet" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>{{ $t('settings.seisNet.palert_quantize_01deg') }}</span>
-                                <el-switch
-                                    v-model="settingsStore.mainSettings.displaySeisNet.palertQuantize01deg"
+                                <span>{{ $t('settings.seisNet.palert_quantize_deg') }}</span>
+                                <el-select
+                                    v-model="settingsStore.mainSettings.displaySeisNet.palertQuantizeDeg"
+                                    size="small"
                                     :disabled="!settingsStore.mainSettings.displaySeisNet.palertNet"
-                                />
+                                    style="width: 120px;"
+                                >
+                                    <el-option :label="$t('settings.seisNet.off')" :value="0" />
+                                    <el-option label="0.1°" :value="0.1" />
+                                    <el-option label="0.2°" :value="0.2" />
+                                </el-select>
+                            </div>
+                            <div class="switch-full pl-4">
+                                <span>{{ $t('settings.seisNet.palert_color_by') }}</span>
+                                <span class="opacity-60">NIED</span>
                             </div>
                         </div>
                         <div class="w-full">

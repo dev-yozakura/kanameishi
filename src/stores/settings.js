@@ -36,7 +36,8 @@ export const useSettingsStore = defineStore('settingsStore', {
                 displayNiedShindo: false,
                 tremNet: false,
                 palertNet: false,
-                palertQuantize01deg: true,
+                palertQuantizeDeg: 0.1,
+                palertColorBy: 'shindo',
                 tremApi: 'lb-1',
                 tremSensitivity: 2,
                 displayTremShindo: false,
@@ -173,6 +174,18 @@ export const useSettingsStore = defineStore('settingsStore', {
         setMainSettings(jsonString){
             if(jsonString){
                 merge(this.mainSettings, JSON.parse(jsonString))
+
+                // Backward-compat: 旧設定(palertQuantize01deg: boolean) -> 新設定(palertQuantizeDeg: number)
+                const ds = this.mainSettings?.displaySeisNet
+                if (ds) {
+                    if (typeof ds.palertQuantizeDeg !== 'number') {
+                        if (typeof ds.palertQuantize01deg === 'boolean') {
+                            ds.palertQuantizeDeg = ds.palertQuantize01deg ? 0.1 : 0
+                        } else {
+                            ds.palertQuantizeDeg = 0.1
+                        }
+                    }
+                }
             }
         },
         setAdvancedSettings(jsonString){

@@ -46,6 +46,9 @@
       "trem_net": "TREM-Net・震度（台湾）",
       "palert_net": "P-Alert・加速度（台湾）",
       "palert_quantize_01deg": "観測点を緯度経度0.1°刻みで間引く",
+      "palert_color_by": "カラーリング",
+      "palert_color_by_shindo": "震度",
+      "palert_color_by_pga": "PGA",
       "api": "API",
       "kma_net": "KMA-PEWS・加速度（韓国）",
       "convert_to_mmi": "MMI震度階級に変換",
@@ -143,10 +146,12 @@
     "trem_net": "TREM-Net :",
     "palert_net": "P-Alert :",
     "kma_pews": "KMA-PEWS:",
+    "palert_quantize_deg": "観測点を間引く間隔",
     "mock_eew_in_progress": "模擬警報中",
     "eew": {
       "max_intensity": "最大震度",
       "max_csis": "最大震度階級",
+      "max_pga": "最大PGA",
       "location": "震源地",
       "magnitude": "M",
       "depth": "深さ",
@@ -182,7 +187,8 @@
       "trem_period": "TREM期間",
       "kma_realtime": "KMA",
       "kma_period": "KMA期間",
-      "palert_realtime": "P-Alert"
+      "palert_realtime": "P-Alert",
+      "palert_period": "P-Alert期間"
     }
   },
   "eqlist": {

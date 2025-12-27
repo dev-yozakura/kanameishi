@@ -8,7 +8,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import Http from '@/classes/Http'
-import { computeNiedStyleColorRadius } from '@/classes/StationClasses'
+import { computeNiedStyleColorRadius, getShindoLeafletIcon } from '@/classes/StationClasses'
 import { useStatusStore } from '@/stores/status'
 import { useSettingsStore } from '@/stores/settings'
 import { useTimeStore } from '@/stores/time'
@@ -47,8 +47,20 @@ const REALTIME_PGA_QUERY = `query ($recordTime: Float!, $type: Int!) {
 
 const delayMs = computed(() => settingsStore.mainSettings.displaySeisNet.delay * 60000)
 
+// ユーザー要望: 配色を震度基準へ戻す
+watch(
+    () => settingsStore.mainSettings.displaySeisNet.palertNet,
+    (enabled) => {
+        if (enabled) settingsStore.mainSettings.displaySeisNet.palertColorBy = 'shindo'
+    },
+    { immediate: true }
+)
+
 const palertUpdateTime = inject('palertUpdateTime', ref('1970-01-01 08:00:00'))
 const palertMaxShindo = inject('palertMaxShindo', ref('?'))
+const palertMaxPgaGal = inject('palertMaxPgaGal', ref('?'))
+const palertPeriodMaxShindo = inject('palertPeriodMaxShindo', ref('?'))
+const palertPeriodBarClass = inject('palertPeriodBarClass', ref('gray'))
 const palertMarkerCount = inject('palertMarkerCount', ref(0))
 const handleTempEqlists = inject('handleTempEqlists', null)
 const smartSetView = inject('smartSetView', null)
@@ -76,7 +88,11 @@ let stationListInterval = null
 let pendingRender = false
 
 const shouldShowShindoTooltip = (level, zoom) => {
-    if (!settingsStore.mainSettings.displaySeisNet.displayTremShindo) return false
+    const enabled = !!(
+        settingsStore.mainSettings.displaySeisNet.displayTremShindo ||
+        settingsStore.mainSettings.displaySeisNet.displayNiedShindo
+    )
+    if (!enabled) return false
     if (zoom < 7) return false
     const minLevel = settingsStore.mainSettings.displaySeisNet.displayShindo0 ? 6 : 8
     return level >= minLevel
@@ -84,6 +100,15 @@ const shouldShowShindoTooltip = (level, zoom) => {
 
 const syncMarkerTooltip = (markerObj, zoom) => {
     if (!markerObj?.marker) return
+    if (markerObj.markerType === 'icon') {
+        if (markerObj.tooltipBound) {
+            try {
+                markerObj.marker.unbindTooltip()
+            } catch {}
+            markerObj.tooltipBound = false
+        }
+        return
+    }
     const want = shouldShowShindoTooltip(markerObj.level, zoom)
     if (want) {
         if (!markerObj.tooltipBound) {
@@ -107,6 +132,17 @@ const syncMarkerTooltip = (markerObj, zoom) => {
         } catch {}
         markerObj.tooltipBound = false
     }
+}
+
+const shouldUseShindoIconMarker = (level, zoom) => {
+    const enabled = !!(
+        settingsStore.mainSettings.displaySeisNet.displayTremShindo ||
+        settingsStore.mainSettings.displaySeisNet.displayNiedShindo
+    )
+    if (!enabled) return false
+    if (zoom < 4) return false
+    const minLevel = settingsStore.mainSettings.displaySeisNet.displayShindo0 ? 6 : 8
+    return level >= minLevel
 }
 
 const clearStations = () => {
@@ -133,15 +169,100 @@ const clearStations = () => {
     for (const k of Object.keys(expireSeconds)) delete expireSeconds[k]
     palertMarkerCount.value = 0
     palertMaxShindo.value = '?'
+    palertMaxPgaGal.value = '?'
+    periodMaxLevel = -1
+    palertPeriodMaxShindo.value = '?'
+    palertPeriodBarClass.value = 'gray'
     statusStore.isActive.palertNet = false
 }
 
-const pgaToInstShindo = (pga) => {
-    const v = Number(pga)
-    if (!Number.isFinite(v) || v <= 0) return -3.1
-    // MSIL 側の逆変換: pga = 10 ** (5 * ((shindo + 3) / 10) - 2)
-    // => shindo = 2*log10(pga) + 1
-    return 2 * Math.log10(v) + 1
+const normalizePgaToGal = (pga) => {
+    let v = Number(pga)
+    if (!Number.isFinite(v) || v <= 0) return 0
+    // P-AlertのPGAがmGalスケールで返る場合があるため、明らかに大きい値は1/1000してGal扱い
+    // (例) 50000 mGal -> 50 Gal
+    if (v >= 5000) v = v / 1000
+    return v
+}
+
+const pgaLogColorStops = [
+    { x: 0, rgb: [0, 0, 255] },
+    { x: 1, rgb: [0, 255, 255] },
+    { x: 2, rgb: [0, 255, 0] },
+    { x: 3, rgb: [255, 255, 0] },
+    { x: 4, rgb: [255, 0, 0] },
+]
+
+const clamp01 = (v) => Math.min(1, Math.max(0, v))
+const lerp = (a, b, t) => a + (b - a) * t
+const rgbToHex = (rgb) => {
+    const to2 = (n) => Math.round(n).toString(16).padStart(2, '0')
+    return `#${to2(rgb[0])}${to2(rgb[1])}${to2(rgb[2])}`
+}
+
+const pgaGalToColor = (pgaGal) => {
+    const v = Number(pgaGal)
+    if (!Number.isFinite(v) || v <= 0) {
+        return settingsStore.mainSettings.displaySeisNet.hideNoData ? '#cfcfcf00' : '#cfcfcf'
+    }
+    const lx = Math.log10(v)
+    const x = Math.min(4, Math.max(0, lx))
+
+    let i = 0
+    while (i + 1 < pgaLogColorStops.length && x > pgaLogColorStops[i + 1].x) i++
+    const a = pgaLogColorStops[i]
+    const b = pgaLogColorStops[Math.min(i + 1, pgaLogColorStops.length - 1)]
+    const t = (b.x === a.x) ? 0 : clamp01((x - a.x) / (b.x - a.x))
+    return rgbToHex([
+        lerp(a.rgb[0], b.rgb[0], t),
+        lerp(a.rgb[1], b.rgb[1], t),
+        lerp(a.rgb[2], b.rgb[2], t),
+    ])
+}
+
+const calcRecentPgaRms = (pgaGalSeries) => {
+    const N = 3
+    const recent = Array.isArray(pgaGalSeries) ? pgaGalSeries.slice(0, N) : []
+    // 0(揺れなし/微小)も窓に含めて平均し、単発スパイクの過大評価を抑える
+    // (※ 不正値/負値だけ除外)
+    const vals = recent
+        .map((x) => Number(x))
+        .filter((x) => Number.isFinite(x) && x >= 0)
+
+    if (vals.length === 0) return 0
+
+    // サンプルが少ない時も平滑が効くように0でパディング
+    while (vals.length < N) vals.push(0)
+
+    const meanSq = vals.reduce((s, x) => s + x * x, 0) / N
+    const rms = Math.sqrt(meanSq)
+    return Number.isFinite(rms) ? rms : 0
+}
+
+// 台湾(2020年以前の旧制度)の近似: I = 2*log10(PGA[gal]) + 0.70 を四捨五入して震度階級(0..7)
+// 1秒統計値しか無いので、直近数秒のRMSでスパイクを抑えてから換算する。
+const pgaSeriesToTaiwanIntensityClass = (pgaGalSeries) => {
+    const pgaEff = calcRecentPgaRms(pgaGalSeries)
+    if (!Number.isFinite(pgaEff) || pgaEff <= 0) return -1
+
+    const iFloat = 2.0 * Math.log10(pgaEff) + 0.70
+    const iClass = Math.round(iFloat)
+    return Math.max(0, Math.min(7, iClass))
+}
+
+// 内部描画は既存の0..20 level系(色/半径/揺れ検知が依存)なので、台湾の0..7を近いlevelに写像する
+const taiwanClassToLevel = (iClass) => {
+    switch (iClass) {
+        case 0: return 0
+        case 1: return 8
+        case 2: return 10
+        case 3: return 12
+        case 4: return 14
+        case 5: return 16
+        case 6: return 18
+        case 7: return 20
+        default: return -1
+    }
 }
 
 const pad2 = (n) => String(n).padStart(2, '0')
@@ -171,7 +292,12 @@ const postGraphql = async (query, variables) => {
     return res
 }
 
-const quantize01 = (v) => Math.round(Number(v) * 10) / 10
+const quantizeByStep = (v, step) => {
+    const x = Number(v)
+    const s = Number(step)
+    if (!Number.isFinite(x) || !Number.isFinite(s) || s <= 0) return x
+    return Math.round(x / s) * s
+}
 
 const computeDecimalFromLatLng = (latLng) => {
     const vals = Array.isArray(latLng) ? latLng : null
@@ -198,10 +324,11 @@ const fetchStationList = async () => {
     for (const k of Object.keys(expireSeconds)) delete expireSeconds[k]
     distMatrix.length = 0
 
-    const quantizeEnabled = !!settingsStore.mainSettings.displaySeisNet.palertQuantize01deg
+    const qStep = Number(settingsStore.mainSettings.displaySeisNet.palertQuantizeDeg)
+    const quantizeEnabled = Number.isFinite(qStep) && qStep > 0
 
     if (quantizeEnabled) {
-        // 緯度経度を0.1°刻みに丸めて代表点1つ
+        // 緯度経度を指定刻みに丸めて代表点1つ
         const reps = new Map() // key -> { station, lat, lon, dist2 }
         for (const info of infos) {
             const station = info?.station
@@ -209,9 +336,9 @@ const fetchStationList = async () => {
             const lon = info?.lon
             if (!station || typeof lat !== 'number' || typeof lon !== 'number') continue
 
-            const qLat = quantize01(lat)
-            const qLon = quantize01(lon)
-            const key = `${qLat.toFixed(1)},${qLon.toFixed(1)}`
+            const qLat = quantizeByStep(lat, qStep)
+            const qLon = quantizeByStep(lon, qStep)
+            const key = `${qLat.toFixed(2)},${qLon.toFixed(2)}`
             const dist2 = (lat - qLat) ** 2 + (lon - qLon) ** 2
             const prev = reps.get(key)
             if (!prev || dist2 < prev.dist2) reps.set(key, { station, lat, lon, dist2 })
@@ -301,9 +428,12 @@ const fetchStationList = async () => {
                 level: -1,
                 ascend: 0,
                 recentLevel: [],
+                recentPga: [],
+                pgaEff: 0,
                 activity: 0,
                 isActive: false,
                 activeUntil: 0,
+                levelHoldUntil: 0,
             })
         }
     }
@@ -315,17 +445,8 @@ const renderAll = () => {
     for (const [id, obj] of markers.entries()) {
         const state = stations[id]
         if (!state) continue
-        const { color, radius } = computeNiedStyleColorRadius(obj.level, zoom)
-        try {
-            obj.marker.setStyle({
-                opacity: 1,
-                fillOpacity: 1,
-                color,
-                fillColor: color,
-                weight: 0,
-            }).setRadius(radius)
-        } catch {}
-
+        // SVGアイコン/円マーカーの切替もここで同期
+        ensureMarker(id, obj.level, true)
         syncMarkerTooltip(obj, zoom)
     }
 }
@@ -350,11 +471,28 @@ const calcActivity = (level, ascend, isActive) => {
     return levelActivity + ascendActivity
 }
 
+const PALERT_LEVEL_HOLD_MS = 15000
+
 const updateStationState = (state, newLevel) => {
+    const now = Date.now()
     const originLevel = newLevel
-    const level = originLevel === -1
-        ? (state.recentLevel.slice(0, 4).find((v) => v !== -1) ?? -1)
+    let level = originLevel === -1
+        ? (state.recentLevel.slice(0, 10).find((v) => v !== -1) ?? -1)
         : originLevel
+
+    // レベルが下がるのが速すぎるのを抑えるため、低下方向は一定時間ホールドする
+    const holdUntil = state.levelHoldUntil ?? 0
+    if (state.level !== -1 && level !== -1) {
+        if (level < state.level && now < holdUntil) {
+            level = state.level
+        } else if (level > state.level) {
+            state.levelHoldUntil = now + PALERT_LEVEL_HOLD_MS
+        }
+    } else if (state.level !== -1 && level === -1 && now < holdUntil) {
+        level = state.level
+    } else if (state.level === -1 && level !== -1) {
+        state.levelHoldUntil = now + PALERT_LEVEL_HOLD_MS
+    }
 
     if (level > state.level && state.level !== -1) state.expireSeconds = Math.min(state.expireSeconds + 2, state.maxExpireSeconds)
     else if (level < state.level || level === -1) state.expireSeconds = state.defaultExpireSeconds
@@ -465,10 +603,24 @@ const ensureMarker = (id, level, forceUpdate = false) => {
     if (!latLng || !map) return
 
     const existing = markers.get(id)
-    if (!existing) {
-        const zoom = map.getZoom()
+
+    const zoom = map.getZoom()
+    const wantIcon = shouldUseShindoIconMarker(level, zoom)
+
+    const createIconMarker = () => {
+        const shindo = getShindoFromLevel(level)
+        const icon = getShindoLeafletIcon(shindo, zoom)
+        if (!icon) return null
+        return L.marker(latLng, {
+            icon,
+            pane: 'palertStationPane0',
+            interactive: false,
+        })
+    }
+
+    const createCircleMarker = () => {
         const { color, radius } = computeNiedStyleColorRadius(level, zoom)
-        const marker = L.circleMarker(latLng, {
+        return L.circleMarker(latLng, {
             radius,
             opacity: 1,
             fillOpacity: 1,
@@ -478,28 +630,79 @@ const ensureMarker = (id, level, forceUpdate = false) => {
             pane: 'palertStationPane0',
             renderer: palertRenderer ?? undefined,
             interactive: false,
-        }).addTo(map)
+        })
+    }
 
-        const obj = { level, marker, tooltipBound: false }
+    const replaceMarker = (markerType, newMarker) => {
+        if (!newMarker) return
+        if (existing?.marker) {
+            try {
+                if (map.hasLayer(existing.marker)) map.removeLayer(existing.marker)
+            } catch {}
+        }
+        const obj = existing ?? { level: -1, marker: null, tooltipBound: false }
+        obj.level = level
+        obj.marker = newMarker
+        obj.markerType = markerType
+        obj.tooltipBound = false
         markers.set(id, obj)
+        try {
+            newMarker.addTo(map)
+        } catch {}
         syncMarkerTooltip(obj, zoom)
+    }
+
+    // create
+    if (!existing) {
+        if (wantIcon) {
+            const m = createIconMarker()
+            if (m) {
+                replaceMarker('icon', m)
+                return
+            }
+        }
+        replaceMarker('circle', createCircleMarker())
         return
     }
 
-    if (!forceUpdate && existing.level === level) return
+    // no-op
+    if (!forceUpdate && existing.level === level && ((existing.markerType === 'icon') === wantIcon)) return
 
+    // switch type
+    if ((existing.markerType === 'icon') !== wantIcon) {
+        if (wantIcon) {
+            const m = createIconMarker()
+            if (m) {
+                replaceMarker('icon', m)
+                return
+            }
+            replaceMarker('circle', createCircleMarker())
+            return
+        }
+        replaceMarker('circle', createCircleMarker())
+        return
+    }
+
+    // update same type
     existing.level = level
-    const zoom = map.getZoom()
-    const { color, radius } = computeNiedStyleColorRadius(level, zoom)
-    try {
-        existing.marker.setStyle({
-            opacity: 1,
-            fillOpacity: 1,
-            color,
-            fillColor: color,
-            weight: 0,
-        }).setRadius(radius)
-    } catch {}
+    if (existing.markerType === 'icon') {
+        try {
+            const shindo = getShindoFromLevel(level)
+            const icon = getShindoLeafletIcon(shindo, zoom)
+            if (icon) existing.marker.setIcon(icon)
+        } catch {}
+    } else {
+        const { color, radius } = computeNiedStyleColorRadius(level, zoom)
+        try {
+            existing.marker.setStyle({
+                opacity: 1,
+                fillOpacity: 1,
+                color,
+                fillColor: color,
+                weight: 0,
+            }).setRadius(radius)
+        } catch {}
+    }
 
     syncMarkerTooltip(existing, zoom)
 }
@@ -530,6 +733,8 @@ const currentMaxShindo = computed(() => {
     if (currentMaxLevel <= 19) return 6
     return 7
 })
+
+let periodMaxLevel = -1
 
 let shake1Notified = false
 let shake2Notified = false
@@ -582,6 +787,7 @@ const applyRealtimePga = (dataVals) => {
 
     // Update per-station level/activity
     let maxLevel = -1
+    let maxPgaGal = 0
     for (const id of stationIds) {
         const st = stations[id]
         if (!st) continue
@@ -592,16 +798,23 @@ const applyRealtimePga = (dataVals) => {
         }
 
         const pga = dataVals?.[id]
-        const instRaw = pgaToInstShindo(pga)
-        // 震度0(瞬間震度<0.5)はNIED同様に“青帯”へ寄せる。
-        // 欠測(-3.0未満)はそのまま欠測扱い。
-        const inst = (instRaw > -3.0 && instRaw < 0.5) ? -3.0 : instRaw
-        const level = getLevelFromInstShindo(inst)
+        const pgaGal = normalizePgaToGal(pga)
+
+        if (pgaGal > maxPgaGal) maxPgaGal = pgaGal
+
+        st.recentPga.unshift(pgaGal)
+        st.recentPga.splice(10)
+
+        st.pgaEff = calcRecentPgaRms(st.recentPga)
+
+        const iClass = pgaSeriesToTaiwanIntensityClass(st.recentPga)
+        const level = taiwanClassToLevel(iClass)
         updateStationState(st, level)
         if (st.level > maxLevel) maxLevel = st.level
     }
 
     palertMaxShindo.value = getShindoFromLevel(maxLevel)
+    palertMaxPgaGal.value = maxPgaGal > 0 ? maxPgaGal.toFixed(1) : '?'
 
     // Detect shake (NIED互換)
     const activeIds = computeActiveStations()
@@ -615,6 +828,26 @@ const applyRealtimePga = (dataVals) => {
     }
 
     statusStore.isActive.palertNet = activeIds.size > 0
+
+    // 期間最大（揺れ検知中）: NIEDと同様に、揺れが継続している間は最大を保持
+    if (statusStore.isActive.palertNet) {
+        let maxActiveLevel = -1
+        for (const id of activeIds) {
+            const st = stations[id]
+            if (!st) continue
+            if ((st.level ?? -1) > maxActiveLevel) maxActiveLevel = st.level
+        }
+        if (maxActiveLevel < 0) maxActiveLevel = 0
+        if (maxActiveLevel > periodMaxLevel) periodMaxLevel = maxActiveLevel
+        palertPeriodMaxShindo.value = getShindoFromLevel(periodMaxLevel)
+
+        const color = periodMaxLevel <= 7 ? 'green' : periodMaxLevel <= 13 ? 'yellow' : 'red'
+        palertPeriodBarClass.value = color
+    } else {
+        periodMaxLevel = -1
+        palertPeriodMaxShindo.value = '?'
+        palertPeriodBarClass.value = 'gray'
+    }
     if (smartSetView) smartSetView()
 
     // マーカーは全て表示（設定で間引きした集合に対して）
@@ -778,6 +1011,7 @@ watch(() => settingsStore.mainSettings.displaySeisNet.delay, () => {
         st.isActive = false
         st.activeUntil = 0
         st.recentLevel = []
+        st.recentPga = []
         st.expireSeconds = st.defaultExpireSeconds
         st.level = -1
         st.ascend = 0
@@ -795,15 +1029,23 @@ watch(() => settingsStore.mainSettings.displaySeisNet.delay, () => {
     gridDecimalInitialized = false
     gridDecimal = [0, 0]
 
+    periodMaxLevel = -1
+    palertPeriodMaxShindo.value = '?'
+    palertPeriodBarClass.value = 'gray'
+
     palertMarkerCount.value = 0
+    palertMaxPgaGal.value = '?'
     statusStore.isActive.palertNet = false
 }, { immediate: true })
 
 watch(
-    () => settingsStore.mainSettings.displaySeisNet.palertQuantize01deg,
+    () => settingsStore.mainSettings.displaySeisNet.palertQuantizeDeg,
     () => {
         // 間引き設定を変えたら、観測点集合を作り直す
         clearStations()
+        periodMaxLevel = -1
+        palertPeriodMaxShindo.value = '?'
+        palertPeriodBarClass.value = 'gray'
         fetchStationList().catch((e) => console.log(e))
     }
 )
@@ -811,8 +1053,10 @@ watch(
 watch(
     () => `${settingsStore.mainSettings.displaySeisNet.style}
     |${settingsStore.mainSettings.displaySeisNet.displayTremShindo}
+    |${settingsStore.mainSettings.displaySeisNet.displayNiedShindo}
     |${settingsStore.mainSettings.displaySeisNet.hideNoData}
-    |${settingsStore.mainSettings.displaySeisNet.displayShindo0}`,
+    |${settingsStore.mainSettings.displaySeisNet.displayShindo0}
+    |${settingsStore.mainSettings.displaySeisNet.palertColorBy}`,
     () => renderAll()
 )
 

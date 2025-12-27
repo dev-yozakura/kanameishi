@@ -23,6 +23,7 @@ const niedMaxShindo = inject('niedMaxShindo')
 const niedUpdateTime = inject('niedUpdateTime')
 const niedPeriodMaxShindo = inject('niedPeriodMaxShindo')
 const niedPeriodBarClass = inject('niedPeriodBarClass')
+const niedMaxPgaGal = inject('niedMaxPgaGal')
 const niedMarkerCount = inject('niedMarkerCount')
 const handleTempEqlists = inject('handleTempEqlists')
 const smartSetView = inject('smartSetView')
@@ -36,6 +37,9 @@ const stations = reactive([]) // NiedStation[]
 let map = null
 let worker = null
 let timer = null
+
+let pollInFlight = false
+let lastAbortController = null
 
 const proxyBase = computed(() => (import.meta.env.DEV ? '/kmoni' : 'http://www.kmoni.bosai.go.jp'))
 const delayMs = computed(() => settingsStore.mainSettings.displaySeisNet.delay * 60000)
@@ -53,6 +57,12 @@ const _formatJstKey = (ms) => {
 }
 
 let pendingRender = false
+const _onVisibilityChange = () => {
+  if (document.visibilityState === 'visible' && pendingRender) {
+    pendingRender = false
+    renderAll()
+  }
+}
 const nearbyLength = 6
 const activityThresArr = [Infinity, 9, 12, 14, 15, 16, 16]
 let adjStationIds = {}
@@ -185,23 +195,23 @@ const renderAll = () => {
   stations.forEach((station) => station?.render?.())
 }
 
-const _fetchJson = async (url) => {
+const _fetchJson = async (url, signal) => {
   // TauriではCORS回避のため plugin-http を使う
   if (typeof window !== 'undefined' && window.__TAURI__) {
     return await Http.tauriGet(url)
   }
-  const res = await fetch(url, { cache: 'no-store' })
+  const res = await fetch(url, { cache: 'no-store', signal })
   if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`)
   return await res.json()
 }
 
-const _fetchBlob = async (url) => {
+const _fetchBlob = async (url, signal) => {
   if (typeof window !== 'undefined' && window.__TAURI__) {
     const res = await tauriFetch(url, { method: 'GET', connectTimeout: 15000 })
     const ab = await res.arrayBuffer()
     return new Blob([ab])
   }
-  const res = await fetch(url, { cache: 'no-store' })
+  const res = await fetch(url, { cache: 'no-store', signal })
   if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`)
   return await res.blob()
 }
@@ -212,8 +222,12 @@ const _ensureWorker = () => {
   worker.onmessage = (ev) => {
     const { type } = ev.data || {}
     if (type === 'decoded') {
-      const { inst, valid, tsMs } = ev.data
-      handleDecoded(inst, valid, tsMs)
+      const { mode, inst, pga, valid, tsMs } = ev.data
+      if (mode === 'pga') {
+        handleDecodedPga(pga, valid, tsMs)
+      } else {
+        handleDecoded(inst, valid, tsMs)
+      }
     }
   }
   worker.postMessage({
@@ -272,24 +286,63 @@ const handleDecoded = (instArr, validArr, tsMs) => {
   update()
 }
 
+const handleDecodedPga = (pgaArr, validArr) => {
+  if (!niedMaxPgaGal) return
+  if (!pgaArr || !validArr) {
+    niedMaxPgaGal.value = '?'
+    return
+  }
+
+  let maxPga = -Infinity
+  for (let i = 0; i < pgaArr.length; i += 1) {
+    if (!validArr[i]) continue
+    const v = Number(pgaArr[i])
+    if (!Number.isFinite(v) || v < 0) continue
+    if (v > maxPga) maxPga = v
+  }
+
+  if (!Number.isFinite(maxPga) || maxPga === -Infinity) {
+    niedMaxPgaGal.value = '?'
+  } else {
+    niedMaxPgaGal.value = (Math.round(maxPga * 10) / 10).toFixed(1)
+  }
+}
+
 const _pollOnce = async () => {
   if (!worker || !points.value.length || !stations.length) return
+
+  // 長時間運用でのメモリ増大を抑えるため、pollの重なりを禁止する
+  if (pollInFlight) return
+  pollInFlight = true
+
+  // Web版は古いfetchを中断できるようにする（Tauriはplugin側制約で無効）
+  const canAbort = !(typeof window !== 'undefined' && window.__TAURI__)
+  if (canAbort) {
+    try { lastAbortController?.abort?.() } catch {}
+    lastAbortController = new AbortController()
+  }
+  const signal = canAbort ? lastAbortController.signal : undefined
+
+  try {
 
   // リプレイ: displaySeisNet.delay (分) が >0 のときは、ターゲット時刻の画像を引く
   if (delayMs.value > 0) {
     const targetMs = Math.floor((timeStore.getTimeStamp() - delayMs.value) / 1000) * 1000
     const { yyyymmdd, yyyymmddhhmmss } = _formatJstKey(targetMs)
-    const gifUrl = `${proxyBase.value}/data/map_img/RealTimeImg/jma_s/${yyyymmdd}/${yyyymmddhhmmss}.jma_s.gif?_=${Date.now()}`
-    const blob = await _fetchBlob(gifUrl)
-    const imageBitmap = await createImageBitmap(blob)
-    worker.postMessage({ type: 'decode', imageBitmap, tsMs: targetMs }, [imageBitmap])
-    try { imageBitmap.close?.() } catch {}
+    const shindoUrl = `${proxyBase.value}/data/map_img/RealTimeImg/jma_s/${yyyymmdd}/${yyyymmddhhmmss}.jma_s.gif?_=${Date.now()}`
+    const pgaUrl = `${proxyBase.value}/data/map_img/RealTimeImg/acmap_s/${yyyymmdd}/${yyyymmddhhmmss}.acmap_s.gif?_=${Date.now()}`
+    const [shindoBlob, pgaBlob] = await Promise.all([_fetchBlob(shindoUrl, signal), _fetchBlob(pgaUrl, signal)])
+    const [shindoBitmap, pgaBitmap] = await Promise.all([createImageBitmap(shindoBlob), createImageBitmap(pgaBlob)])
+    worker.postMessage({ type: 'decode', mode: 'shindo', imageBitmap: shindoBitmap, tsMs: targetMs }, [shindoBitmap])
+    worker.postMessage({ type: 'decode', mode: 'pga', imageBitmap: pgaBitmap, tsMs: targetMs }, [pgaBitmap])
+    try { shindoBitmap.close?.() } catch {}
+    try { pgaBitmap.close?.() } catch {}
     return
   }
 
   // 通常: latest.json で最新フレームの時刻を取得
   const latestUrl = `${proxyBase.value}/webservice/server/pros/latest.json?_=${Date.now()}`
-  const latest = await _fetchJson(latestUrl)
+  const latest = await _fetchJson(latestUrl, signal)
   const latestTime = String(latest?.latest_time || '')
   if (!latestTime) return
 
@@ -300,13 +353,20 @@ const _pollOnce = async () => {
   if (yyyymmdd.length !== 8 || hhmmss.length !== 6) return
   const yyyymmddhhmmss = `${yyyymmdd}${hhmmss}`
 
-  const gifUrl = `${proxyBase.value}/data/map_img/RealTimeImg/jma_s/${yyyymmdd}/${yyyymmddhhmmss}.jma_s.gif?_=${Date.now()}`
-  const blob = await _fetchBlob(gifUrl)
-  const imageBitmap = await createImageBitmap(blob)
+  const shindoUrl = `${proxyBase.value}/data/map_img/RealTimeImg/jma_s/${yyyymmdd}/${yyyymmddhhmmss}.jma_s.gif?_=${Date.now()}`
+  const pgaUrl = `${proxyBase.value}/data/map_img/RealTimeImg/acmap_s/${yyyymmdd}/${yyyymmddhhmmss}.acmap_s.gif?_=${Date.now()}`
+  const [shindoBlob, pgaBlob] = await Promise.all([_fetchBlob(shindoUrl, signal), _fetchBlob(pgaUrl, signal)])
+  const [shindoBitmap, pgaBitmap] = await Promise.all([createImageBitmap(shindoBlob), createImageBitmap(pgaBlob)])
 
   const tsMs = Date.parse(latestTime.replaceAll('/', '-').replace(' ', 'T') + '+09:00')
-  worker.postMessage({ type: 'decode', imageBitmap, tsMs }, [imageBitmap])
-  try { imageBitmap.close?.() } catch {}
+  worker.postMessage({ type: 'decode', mode: 'shindo', imageBitmap: shindoBitmap, tsMs }, [shindoBitmap])
+  worker.postMessage({ type: 'decode', mode: 'pga', imageBitmap: pgaBitmap, tsMs }, [pgaBitmap])
+  try { shindoBitmap.close?.() } catch {}
+  try { pgaBitmap.close?.() } catch {}
+  }
+  finally {
+    pollInFlight = false
+  }
 }
 
 const start = async () => {
@@ -354,6 +414,7 @@ const start = async () => {
   // reset
   periodMaxLevel = -1
   niedMaxShindo.value = getShindoFromLevel(-1)
+  if (niedMaxPgaGal) niedMaxPgaGal.value = '?'
   niedPeriodMaxShindo.value = getShindoFromLevel(-1)
   niedPeriodBarClass.value = 'gray'
   lastFrameTimeStr = null
@@ -372,12 +433,7 @@ const start = async () => {
 }
 
 onMounted(() => {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && pendingRender) {
-      pendingRender = false
-      renderAll()
-    }
-  })
+  document.addEventListener('visibilitychange', _onVisibilityChange)
 })
 
 let unwatchMap = null
@@ -507,6 +563,8 @@ watch(
     niedPeriodBarClass.value = 'gray'
     statusStore.isActive.niedNet = false
 
+    if (niedMaxPgaGal) niedMaxPgaGal.value = '?'
+
     shake1Notified = false
     shake2Notified = false
     focused = false
@@ -524,6 +582,8 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  try { lastAbortController?.abort?.() } catch {}
+  try { document.removeEventListener('visibilitychange', _onVisibilityChange) } catch {}
   if (unwatchMap) unwatchMap()
   if (unwatchGrids) unwatchGrids()
   if (unwatchRender) unwatchRender()

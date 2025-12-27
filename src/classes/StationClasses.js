@@ -195,6 +195,11 @@ for(let zoom = 6; zoom <= 10; zoom ++) {
     intIcons[zoom] = icons
 }
 
+export const getShindoLeafletIcon = (shindo, zoom) => {
+    const z = Math.min(Math.max(Number(zoom) || 6, 6), 10)
+    return shindoIcons[z]?.[shindo]
+}
+
 let settingsStore
 
 export class NiedStation {
@@ -413,12 +418,50 @@ export class TremStation {
         this.recentLevel = []
         this.activity = 0
         this.isActive = false
+        this.activeUntil = 0
+        this.levelHoldUntil = 0
         this.markerType = null
         this.render()
     }
-    update(intensity, render = true){
+    update(intensity, alertOrRender = false, renderMaybe = true){
+        // 互換: 旧シグネチャ update(intensity, render)
+        let alert = false
+        let render = true
+        if (typeof renderMaybe === 'boolean') {
+            // 新シグネチャ update(intensity, alert, render)
+            alert = !!alertOrRender
+            render = renderMaybe
+        } else {
+            // 旧シグネチャ update(intensity, render)
+            alert = false
+            render = !!alertOrRender
+        }
+
+        const now = Date.now()
+        if (alert) {
+            this.isActive = true
+            this.activeUntil = now + 10500
+        } else if (this.isActive && this.activeUntil && now > this.activeUntil) {
+            this.isActive = false
+        }
+
         const originLevel = getLevelFromInstShindo(intensity)
-        const level = originLevel == -1 ? this.recentLevel.slice(0, 4).find(val => val != -1) ?? -1 : originLevel
+        let level = originLevel == -1 ? this.recentLevel.slice(0, 4).find(val => val != -1) ?? -1 : originLevel
+
+        // レベル低下を一定時間ホールド（P-Alert同様: 15秒）
+        const HOLD_MS = 15000
+        const holdUntil = this.levelHoldUntil || 0
+        if (this.level !== -1 && level !== -1) {
+            if (level < this.level && now < holdUntil) {
+                level = this.level
+            } else if (level > this.level) {
+                this.levelHoldUntil = now + HOLD_MS
+            }
+        } else if (this.level !== -1 && level === -1 && now < holdUntil) {
+            level = this.level
+        } else if (this.level === -1 && level !== -1) {
+            this.levelHoldUntil = now + HOLD_MS
+        }
         if(level > this.level && this.level != -1) this.expireSeconds = Math.min(this.expireSeconds + 2, this.maxExpireSeconds)
         else if(level < this.level || level == -1) this.expireSeconds = this.defaultExpireSeconds
         if(level != this.level){
