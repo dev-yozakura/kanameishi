@@ -2,6 +2,7 @@ import net from "node:net";
 import http from "node:http"; // add
 import { spawn } from "node:child_process";
 import { WebSocketServer } from "ws";
+import { parseSingleDataRecord } from "seisplotjs-miniseed";
 
 const WS_PORT = Number(process.env.SEEDLINK_WS_PORT || 8787);
 const HTTP_PORT = Number(process.env.SEEDLINK_HTTP_PORT || 8788); // add
@@ -128,6 +129,32 @@ function sendJson(res, status, obj) {
   res.end(body);
 }
 
+function computePeakCountsFromMseedBase64(dataB64) {
+  try {
+    const buf = Buffer.from(String(dataB64 || ""), "base64");
+    if (!buf.length) return null;
+    const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    const dr = parseSingleDataRecord(new DataView(ab));
+    const samples = dr.decompress();
+    let peak = 0;
+    for (const s of samples) {
+      const a = Math.abs(s);
+      if (a > peak) peak = a;
+    }
+    return {
+      peakCounts: peak,
+      sampleRate: dr.header.sampleRate,
+      net: dr.header.netCode,
+      sta: dr.header.staCode,
+      loc: dr.header.locCode,
+      chan: dr.header.chanCode,
+      numSamples: samples.length,
+    };
+  } catch {
+    return null;
+  }
+}
+
 const httpServer = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
@@ -173,6 +200,7 @@ const httpServer = http.createServer(async (req, res) => {
           "--seconds",
           "3600",
           "--no-write",
+          "--emit-data-b64",
         ],
         {
           stdio: ["ignore", "pipe", "pipe"],
@@ -181,8 +209,19 @@ const httpServer = http.createServer(async (req, res) => {
 
       let buf = "";
       function sendLine(line) {
-        // Each NDJSON line becomes one SSE message
-        res.write(`data: ${line}\n\n`);
+        // Each NDJSON line becomes one SSE message.
+        // For waveform events, compute peakCounts server-side and strip the raw base64 payload.
+        try {
+          const obj = JSON.parse(line);
+          if (obj && typeof obj === "object" && obj.type === "waveform" && obj.dataB64) {
+            const peak = computePeakCountsFromMseedBase64(obj.dataB64);
+            if (peak) Object.assign(obj, peak);
+            delete obj.dataB64;
+          }
+          res.write(`data: ${JSON.stringify(obj)}\n\n`);
+        } catch {
+          res.write(`data: ${line}\n\n`);
+        }
       }
 
       child.stdout.on("data", chunk => {

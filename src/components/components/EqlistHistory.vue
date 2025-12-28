@@ -59,7 +59,11 @@ const smartSetView = inject('smartSetView')
 const historyList = inject('historyList')
 
 const maxHistoryNumber = 100
-const flatted = computed(() => Object.values(statusStore.history).flat())
+const enabledHistoryKeys = computed(() => {
+    const src = settingsStore.mainSettings?.source || {}
+    return Object.keys(statusStore.history || {}).filter(k => !!src[k])
+})
+const flatted = computed(() => enabledHistoryKeys.value.flatMap(k => statusStore.history?.[k] || []))
 const sorted = computed(() => flatted.value.sort((a, b) => calcTimeDiff(b.originTime, b.timeZone, a.originTime, a.timeZone)))
 const eqlists = computed(() => sorted.value.filter(item => settingsStore.mainSettings.historyMagThres == 0 || item.magnitude >= settingsStore.mainSettings.historyMagThres).slice(0, maxHistoryNumber))
 const handleReplay = (item) => {

@@ -81,7 +81,9 @@ watch(eqMessage, (newVal)=>{
             }
             if(i == activeEewList.length){
                 if(statusStore.map){
-                    if(time > 0 && (settingsStore.actionWhiteListArr.some(key => newVal.hypocenter.includes(key)) || props.source != 'gqEew' 
+                    if(time > 0 && (
+                        settingsStore.actionWhiteListArr.some(key => newVal.hypocenter.includes(key))
+                        || props.source !== 'gqEew'
                         || (settingsStore.mainSettings.gqActionMag == 0 || newVal.magnitude >= settingsStore.mainSettings.gqActionMag)
                     )) {
                         const newEvent = reactive(new EewEvent(statusStore.map, Object.assign({}, newVal), activeEewList, handleTempEqlists, smartSetView))

@@ -61,6 +61,10 @@
                             <div>{{ $t('settings.dataSource.gq_eew') }}</div>
                             <el-switch v-model="settingsStore.mainSettings.source.gqEew" @change="handleNeedReload" />
                         </div>
+                        <div class="switch-full">
+                            <div>{{ $t('settings.dataSource.gq_detected_eew') }}</div>
+                            <el-switch v-model="settingsStore.mainSettings.source.gqDetectedEew" @change="handleNeedReload" />
+                        </div>
                     </div>
                     <div class="switch-group">
                         <span class="font-bold w-full">{{ $t('settings.dataSource.eqlist_title') }}</span>

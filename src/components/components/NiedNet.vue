@@ -6,15 +6,17 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, inject } from 'vue';
-import Http from '@/classes/Http';
-import axios from 'axios';
 import { useStatusStore } from '@/stores/status';
 import { useSettingsStore } from '@/stores/settings';
 import { seisNetUrls, iconUrls } from '@/utils/Urls';
-import { getTimeNumberString, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel } from '@/utils/Utils';
+import { getTimeNumberString, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel, stampToTime, calcWaveDistance } from '@/utils/Utils';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { getTjma2001TravelTime } from '@/utils/Tjma2001'
+import { locateHypocenterGeiger } from '@/utils/HypocenterGeiger'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { NiedStation, simpleIcon } from '@/classes/StationClasses';
+import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
 
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
@@ -23,6 +25,137 @@ const stationData = ref([])
 const stations = reactive([])
 const siteConfigId = ref('')
 let map
+const yahooBase = computed(() => (import.meta.env.DEV ? '/yahoo' : 'https://weather-kyoshin.east.edge.storage-yahoo.jp'))
+
+const iconRadius = 20
+const niedHypoIcon = L.icon({
+    iconUrl: eewCross,
+    iconSize: [iconRadius * 2, iconRadius * 2],
+    iconAnchor: [iconRadius, iconRadius]
+})
+
+const firstDetectMsByStationId = new Map()
+let niedHypoMarker = null
+let niedPWave = null
+let niedSWave = null
+let niedSWaveFill = null
+let lastHypo = null
+let lastHypoEstimateAtMs = 0
+let _tjma2001 = null
+let _niedHypoTooltipKey = ''
+
+const _getTravelTime = () => {
+    if(_tjma2001) return _tjma2001
+    _tjma2001 = getTjma2001TravelTime()
+    return _tjma2001
+}
+
+const _clearNiedHypoLayers = ()=>{
+    if(!map) return
+    if(niedHypoMarker && map.hasLayer(niedHypoMarker)) map.removeLayer(niedHypoMarker)
+    if(niedPWave && map.hasLayer(niedPWave)) map.removeLayer(niedPWave)
+    if(niedSWave && map.hasLayer(niedSWave)) map.removeLayer(niedSWave)
+    if(niedSWaveFill && map.hasLayer(niedSWaveFill)) map.removeLayer(niedSWaveFill)
+    niedHypoMarker = null
+    niedPWave = null
+    niedSWave = null
+    niedSWaveFill = null
+    _niedHypoTooltipKey = ''
+}
+
+const _resetNiedHypo = ()=>{
+    firstDetectMsByStationId.clear()
+    lastHypo = null
+    lastHypoEstimateAtMs = 0
+    _clearNiedHypoLayers()
+}
+
+const _updateHypoLayers = (hypo, frameMs)=>{
+    if(!map || !hypo) return
+    const travelTime = _getTravelTime()
+    const latLng = [hypo.lat, hypo.lon]
+    const passedSec = Math.max(0, (frameMs - hypo.originMs) / 1000)
+    const pInfo = calcWaveDistance(travelTime, true, hypo.depthKm, passedSec)
+    const sInfo = calcWaveDistance(travelTime, false, hypo.depthKm, passedSec)
+    const pRadiusKm = pInfo?.radius || 0
+    const sRadiusKm = sInfo?.radius || 0
+
+    if(!niedHypoMarker){
+        niedHypoMarker = L.marker(latLng, { icon: niedHypoIcon, pane: 'eewMarkerPane' }).addTo(map)
+    }
+    else {
+        niedHypoMarker.setLatLng(latLng)
+    }
+
+    const originStr = Number.isFinite(hypo.originMs) ? stampToTime(hypo.originMs, 9) : ''
+    const tooltipKey = `${hypo.depthKm}|${originStr}`
+    if(tooltipKey !== _niedHypoTooltipKey){
+        _niedHypoTooltipKey = tooltipKey
+        niedHypoMarker.bindTooltip(
+            `<strong>NIED(推定)</strong><br>Depth ${hypo.depthKm}km<br>Origin ${originStr}`,
+            { permanent: false, direction: 'top', className: 'custom-tooltip' }
+        )
+    }
+
+    if(pRadiusKm > 0){
+        if(!niedPWave){
+            niedPWave = L.circle(latLng, { color: 'white', opacity: 1, weight: 2, fill: false, radius: pRadiusKm * 1000, pane: 'wavePane', interactive: false }).addTo(map)
+        }
+        else {
+            niedPWave.setLatLng(latLng)
+            niedPWave.setRadius(pRadiusKm * 1000)
+        }
+    }
+    else if(niedPWave && map.hasLayer(niedPWave)){
+        map.removeLayer(niedPWave)
+        niedPWave = null
+    }
+
+    const sColor = 'var(--swave-orange)'
+    if(sRadiusKm > 0){
+        if(!niedSWave){
+            niedSWave = L.circle(latLng, { color: sColor, opacity: 1, weight: 2, fill: false, radius: sRadiusKm * 1000, pane: 'wavePane', interactive: false }).addTo(map)
+        }
+        else {
+            niedSWave.setLatLng(latLng)
+            niedSWave.setRadius(sRadiusKm * 1000)
+        }
+        if(!niedSWaveFill){
+            niedSWaveFill = L.circle(latLng, { fillColor: sColor, fillOpacity: 0.2, stroke: false, radius: sRadiusKm * 1000, pane: 'waveFillPane', interactive: false }).addTo(map)
+        }
+        else {
+            niedSWaveFill.setLatLng(latLng)
+            niedSWaveFill.setRadius(sRadiusKm * 1000)
+        }
+    }
+    else {
+        if(niedSWave && map.hasLayer(niedSWave)) map.removeLayer(niedSWave)
+        if(niedSWaveFill && map.hasLayer(niedSWaveFill)) map.removeLayer(niedSWaveFill)
+        niedSWave = null
+        niedSWaveFill = null
+    }
+}
+
+const _fetchJson = async (url)=>{
+    // TauriではCORS回避のためplugin-httpで取得する
+    if(typeof window !== 'undefined' && window.__TAURI__){
+        const res = await tauriFetch(url, {
+            method: 'GET',
+            connectTimeout: 10000,
+            headers: {
+                'Referer': 'https://weather.yahoo.co.jp/',
+                'Origin': 'https://weather.yahoo.co.jp'
+            }
+        })
+        const data = await res.json()
+        return { status: res.status, data }
+    }
+    const res = await fetch(url, { cache: 'no-store' })
+    const status = res.status
+    let data = null
+    try { data = await res.json() } catch {}
+    return { status, data }
+}
 const defaultDelay = 1200
 const maxDelay = 3000
 const delay = ref(defaultDelay)
@@ -78,11 +211,14 @@ const grids = computed(()=>{
 })
 const getData = async (url)=>{
     try {
-        const res = await axios.get(url, { timeout: 10000 })
+        const res = await _fetchJson(url)
+        if(res?.status && res.status >= 400 && delay.value <= maxDelay - 100) {
+            delay.value += 100
+        }
         return res
     }
     catch (e) {
-        if(e.code == "ERR_BAD_REQUEST" && delay.value <= maxDelay - 100) {
+        if(delay.value <= maxDelay - 100) {
             delay.value += 100
         }
     }
@@ -90,10 +226,11 @@ const getData = async (url)=>{
 let pendingRender = false
 const nearbyLength = 6
 const activityThresArr = [Infinity, 9, 12, 14, 15, 16, 16]
-const update = ()=>{
+const update = (frameMs)=>{
     if(stationList.length == stations.length && stations.length == stationData.value.length){
         const render = document.visibilityState === 'visible'
         if(!render) pendingRender = true
+        const nowMs = Number.isFinite(frameMs) ? frameMs : Date.now()
         let maxLevel = -1
         for(let i = 0; i < stationList.length; i++){
             stations[i].update(stationData.value[i], render)
@@ -101,12 +238,12 @@ const update = ()=>{
         }
         niedMaxShindo.value = getShindoFromLevel(maxLevel)
         const possibleStations = stations.filter(station=>station.activity > 0)
-        const activeStations = new Set()
+        const activeStationsSet = new Set()
         const checkedStations = new Set()
         possibleStations.forEach(station=>{
             if(!checkedStations.has(station)){
                 if(station.isActive && station.ascend > 0) {
-                    chainActivate(station, activeStations, checkedStations)
+                    chainActivate(station, activeStationsSet, checkedStations)
                     return
                 }
                 const nearbyStations = adjStationIds[station.id].map(id=>stations[id]).filter(station=>station.level > -1)
@@ -137,23 +274,104 @@ const update = ()=>{
                         : sum + nearbyStation.activity, 0
                     ) + numActivity
                     if (nearbyActivity >= activityThres) {
-                        chainActivate(station, activeStations, checkedStations)
+                        chainActivate(station, activeStationsSet, checkedStations)
                     }
                 }
             }
         })
         if(!statusStore.isActive.niedNet) {
             let first = null
-            activeStations.forEach(station=>{
+            activeStationsSet.forEach(station=>{
                 if(!first || station.level > first.level) {
                     first = station
                 }
             })
             if(first) decimal = first.latLng.map(val => Math.round((val + 180) % 1 * 10) / 10)
         }
-        activeStations.forEach(station=>{
+        activeStationsSet.forEach(station=>{
+            if(Number.isFinite(nowMs) && !firstDetectMsByStationId.has(station.id)) {
+                firstDetectMsByStationId.set(station.id, nowMs)
+            }
             station.setActive()
         })
+
+        if(map && Number.isFinite(nowMs) && activeStationsSet.size > 0){
+            if(nowMs - lastHypoEstimateAtMs >= 1000){
+                const picks = []
+                activeStationsSet.forEach(station=>{
+                    const tMs = firstDetectMsByStationId.get(station.id)
+                    if(!Number.isFinite(tMs)) return
+                    const lat = station.latLng[0]
+                    const lon = station.latLng[1]
+                    picks.push({
+                        id: station.id,
+                        tObsSec: tMs / 1000,
+                        ll: L.latLng(station.latLng),
+                        lat,
+                        lon,
+                        level: station.level
+                    })
+                })
+                picks.sort((a,b)=>a.tObsSec-b.tObsSec)
+                const used = picks.slice(0, 40)
+
+                let solved = false
+                if(used.length >= 4){
+                    const first = used[0]
+                    const hypo0 = L.latLng(first.lat, first.lon)
+                    const observations = used.map(o=>{
+                        const distKm = hypo0.distanceTo(o.ll) / 1000
+                        const distW = 1 / Math.pow(1 + distKm / 200, 2)
+                        const levelW = 1 + Math.max(0, o.level) / 10
+                        return {
+                            lat: o.lat,
+                            lon: o.lon,
+                            ll: o.ll,
+                            tObsSec: o.tObsSec,
+                            weight: distW * levelW
+                        }
+                    })
+
+                    const est = locateHypocenterGeiger({
+                        travelTime: _getTravelTime(),
+                        observations,
+                        initial: {
+                            lat: first.lat,
+                            lon: first.lon,
+                            depthKm: 10,
+                            originSec: first.tObsSec - 2.0
+                        },
+                        maxIter: 8
+                    })
+                    if(est){
+                        lastHypo = {
+                            lat: est.lat,
+                            lon: est.lon,
+                            depthKm: est.depthKm,
+                            originMs: est.originSec * 1000,
+                            rmsSec: est.rmsSec,
+                            converged: est.converged
+                        }
+                        lastHypoEstimateAtMs = nowMs
+                        solved = true
+                    }
+                }
+
+                if(!solved && used.length >= 1 && !lastHypo){
+                    const first = used[0]
+                    lastHypo = {
+                        lat: first.lat,
+                        lon: first.lon,
+                        depthKm: 10,
+                        originMs: (first.tObsSec - 2.0) * 1000,
+                        rmsSec: Infinity,
+                        converged: false
+                    }
+                    lastHypoEstimateAtMs = nowMs
+                }
+            }
+            if(lastHypo) _updateHypoLayers(lastHypo, nowMs)
+        }
     }
 }
 const chainActivate = (station, activeStations, checkedStations)=>{
@@ -179,11 +397,12 @@ const renderAll = ()=>{
 let fetchStationInterval, requestInterval, delayInterval
 const fetchStationList = async () => {
     try {
-        const res = await Http.get(seisNetUrls.nied.stationList + `?time=${Date.now()}`)
-        if(res && res.siteConfigId) {
+        const res = await getData(`${yahooBase.value}/SiteList/sitelist.json?time=${Date.now()}`)
+        const data = res?.data
+        if(data && data.siteConfigId) {
             clearInterval(fetchStationInterval)
-            stationList = res.items
-            siteConfigId.value = res.siteConfigId
+            stationList = data.items
+            siteConfigId.value = data.siteConfigId
             if(stationList.length > 0){
                 let latLngs = []
                 for(let i = 0; i < stationList.length; i++){
@@ -231,7 +450,7 @@ onMounted(()=>{
         try {
             const time = getTimeNumberString(9, -delay.value)
             const date = time.slice(0, 8)
-            const res = await getData(`${seisNetUrls.nied.stationData}/${date}/${time}.json`)
+            const res = await getData(`${yahooBase.value}/RealTimeData/${date}/${time}.json`)
             if(res?.status == 200) {
                 const data = res.data
                 if(data.realTimeData.siteConfigId == siteConfigId.value) {
@@ -261,7 +480,8 @@ onMounted(()=>{
                     }
                     if(delay.value > maxDelay && timeDiff < 0 || timeDiff > 0) {
                         niedUpdateTime.value = data.realTimeData.dataTime.slice(0, -6).replace('T', ' ')
-                        update()
+                        const frameMs = Date.parse(data.realTimeData.dataTime)
+                        update(Number.isFinite(frameMs) ? frameMs : Date.now())
                     }
                 }
                 else if(siteConfigId.value){
@@ -330,7 +550,9 @@ watch(()=>statusStore.map, newVal=>{
             }
             niedPeriodMaxShindo.value = getShindoFromLevel(periodMaxLevel)
             niedPeriodBarClass.value = maxColor
-            statusStore.isActive.niedNet = Object.keys(newVal).length > 0
+            const nextActive = Object.keys(newVal).length > 0
+            if(!nextActive) _resetNiedHypo()
+            statusStore.isActive.niedNet = nextActive
         }, { immediate: true })
         unwatchRender = watch(
             ()=>`${settingsStore.mainSettings.displaySeisNet.style}
@@ -410,6 +632,7 @@ watch(()=>settingsStore.mainSettings.displaySeisNet.delay, newVal=>{
         station.expireSeconds = station.defaultExpireSeconds
         station.update('c', true)
     })
+    _resetNiedHypo()
 
     clearInterval(delayInterval)
     if(newVal > maxDelay / 60000){
@@ -424,6 +647,7 @@ watch(()=>settingsStore.mainSettings.displaySeisNet.delay, newVal=>{
     }
 }, { immediate: true })
 onBeforeUnmount(()=>{
+    _resetNiedHypo()
     if(niedMarkerCount) niedMarkerCount.value = 0
     clearInterval(fetchStationInterval)
     clearInterval(requestInterval)

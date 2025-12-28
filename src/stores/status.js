@@ -57,8 +57,8 @@ export const defaultTsunamiMessage = {
     className: ''
 }
 
-export const eewSources = ['jmaEew', 'cwaEew', 'ceaEew', 'iclEew', 'scEew', 'fjEew', 'kmaEew', 'gqEew']
-export const eqlistSources = ['jmaEqlist', 'cwaEqlist', 'cencEqlist', 'kmaEqlist', 'usgsEqlist', 'fssnEqlist']
+export const eewSources = ['jmaEew', 'cwaEew', 'ceaEew', 'iclEew', 'scEew', 'fjEew', 'kmaEew', 'gqEew', 'gqDetectedEew']
+export const eqlistSources = ['jmaEqlist', 'cwaEqlist', 'cencEqlist', 'kmaEqlist', 'usgsEqlist', 'fssnEqlist', 'gqEqlist']
 export const tsunamiSources = ['jmaTsunami', 'nmefcTsunami']
 export const seisNetSources = ['niedNet', 'tremNet', 'kmaNet']
 
@@ -140,6 +140,9 @@ export const sourceTypes = {
         5: 'E',
         6: 'F'
     },
+    gqDetectedEew: {
+        0: 'DETECT'
+    },
     mockEew: {
         0: 'MOCK'
     },
@@ -195,6 +198,7 @@ export const useStatusStore = defineStore('statusStore', {
             fjEew: Object.assign({}, defaultEqMessage),
             kmaEew: Object.assign({}, defaultEqMessage),
             gqEew: Object.assign({}, defaultEqMessage),
+            gqDetectedEew: Object.assign({}, defaultEqMessage),
             mockEew: Object.assign({}, defaultEqMessage),
             jmaEqlist: Object.assign({}, defaultEqMessage),
             cwaEqlist: Object.assign({}, defaultEqMessage),
@@ -202,6 +206,7 @@ export const useStatusStore = defineStore('statusStore', {
             kmaEqlist: Object.assign({}, defaultEqMessage),
             usgsEqlist: Object.assign({}, defaultEqMessage),
             fssnEqlist: Object.assign({}, defaultEqMessage),
+            gqEqlist: Object.assign({}, defaultEqMessage),
         },
         tsunamiMessage: {
             jmaTsunami: Object.assign({}, defaultTsunamiMessage),
@@ -216,6 +221,7 @@ export const useStatusStore = defineStore('statusStore', {
             fjEew: false,
             kmaEew: false,
             gqEew: false,
+            gqDetectedEew: false,
             mockEew: false,
             jmaEqlist: false,
             cwaEqlist: false,
@@ -223,6 +229,7 @@ export const useStatusStore = defineStore('statusStore', {
             kmaEqlist: false,
             usgsEqlist: false,
             fssnEqlist: false,
+            gqEqlist: false,
             jmaTsunami: false,
             nmefcTsunami: false,
             niedNet: false,
@@ -237,6 +244,7 @@ export const useStatusStore = defineStore('statusStore', {
             cencEqlist: [],
             usgsEqlist: [],
             fssnEqlist: [],
+            gqEqlist: [],
         }
     }),
     getters: {

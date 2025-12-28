@@ -418,6 +418,14 @@ let userMarker
 let kanameishiMarker
 let jpSeedlinkStationsLayer
 let cwaLatestHypoMarker
+let gqYuzhnoMarker
+let gqYuzhnoEventSource
+let gqYuzhnoIdentifier = ''
+let gqYuzhnoWaveformPackets = 0
+let gqYuzhnoLastWaveform = ''
+let gqYuzhnoLastPeakCounts = null
+let gqYuzhnoMaxPeakCounts = null
+let gqYuzhnoLastPgaGal = null
 const jpStationWaveWindows = new Map()
 const kanameishiLatLng = [27.06, 142.208]
 const defaultLatLng = [38.1, 104.6]
@@ -454,6 +462,64 @@ const applyEstimatedShindoToMarker = (marker, shindoLabel) => {
         opacity: 0.8,
         fillOpacity: 0.4,
         weight: 1,
+    })
+}
+
+const applyGqPeakCountsToMarker = (marker, peakCounts) => {
+    if (!marker || typeof marker.setStyle !== 'function') return
+    const v = Number(peakCounts)
+    let className = 'dark-gray'
+    if (Number.isFinite(v) && v > 0) {
+        const log = Math.log10(v)
+        // Use existing palette (roughly similar to GlobalQuake's visual severity ramp)
+        if (log < 1.5) className = 'gray'          // ~ < 32
+        else if (log < 2.2) className = 'blue'     // ~ < 160
+        else if (log < 2.7) className = 'green'    // ~ < 500
+        else if (log < 3.1) className = 'yellow'   // ~ < 1250
+        else if (log < 3.5) className = 'orange'   // ~ < 3200
+        else if (log < 3.9) className = 'dark-orange' // ~ < 8000
+        else if (log < 4.5) className = 'red'      // ~ < 31600
+        else if (log < 5.1) className = 'dark-red' // ~ < 125k
+        else className = 'purple'
+    }
+    const cssColor = classNameColors[className] || classNameColors['dark-gray']
+    marker.setStyle({
+        color: cssColor,
+        fillColor: cssColor,
+        opacity: 0.9,
+        fillOpacity: 0.35,
+        weight: 2,
+    })
+}
+
+const applyGlobalQuakeMmiToMarker = (marker, pgaGal) => {
+    if (!marker || typeof marker.setStyle !== 'function') return
+    const v = Number(pgaGal)
+    if (!Number.isFinite(v) || v < 0) return
+
+    // GlobalQuake default palette (MMIIntensityScale) keyed by PGA (gal)
+    // levels are in ascending PGA order
+    let rgb = [170, 170, 170] // I
+    if (v >= 0.5) rgb = [170, 170, 170] // I
+    if (v >= 1.0) rgb = [200, 190, 240] // II
+    if (v >= 2.1) rgb = [132, 162, 232] // III
+    if (v >= 5.0) rgb = [130, 214, 255] // IV
+    if (v >= 11.0) rgb = [85, 242, 15] // V
+    if (v >= 26.0) rgb = [255, 255, 0] // VI
+    if (v >= 60.0) rgb = [255, 200, 0] // VII
+    if (v >= 140.0) rgb = [255, 120, 0] // VIII
+    if (v >= 321.8) rgb = [255, 0, 0] // IX
+    if (v >= 740.0) rgb = [190, 0, 0] // X
+    if (v >= 1702.0) rgb = [130, 0, 0] // XI
+    if (v >= 3000.0) rgb = [65, 0, 0] // XII
+
+    const cssColor = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`
+    marker.setStyle({
+        color: cssColor,
+        fillColor: cssColor,
+        opacity: 0.9,
+        fillOpacity: 0.35,
+        weight: 2,
     })
 }
 
@@ -1351,21 +1417,163 @@ onMounted(() => {
         map.getPane(`kmaStationPane${i}`).style.zIndex = i + 50
     }
 
-    map.createPane('jpSeedlinkPane')
-    map.getPane('jpSeedlinkPane').style.zIndex = 95
-    jpSeedlinkStationsLayer = L.layerGroup().addTo(map)
+    // JP SeedLink station markers disabled
+    jpSeedlinkStationsLayer = null
+
+    // GlobalQuake (port 38000) test: Yuzhno-Sakhalinsk nearest station marker via SSE proxy
+    map.createPane('gqYuzhnoPane')
+    map.getPane('gqYuzhnoPane').style.zIndex = 96
+    try {
+        const sseUrl = 'http://localhost:8788/gq/yuzhno/stream'
+        gqYuzhnoEventSource = new EventSource(sseUrl)
+
+        const updateGqPopup = () => {
+            if(!gqYuzhnoMarker) return
+            const parts = [
+                'GQ: ユジノサハリンスク',
+                gqYuzhnoIdentifier ? `Station: ${gqYuzhnoIdentifier}` : 'Station: -',
+                (gqYuzhnoLastPeakCounts != null) ? `Peak counts: ${Number(gqYuzhnoLastPeakCounts)}` : 'Peak counts: -',
+                (gqYuzhnoMaxPeakCounts != null) ? `Peak max: ${Number(gqYuzhnoMaxPeakCounts)}` : 'Peak max: -',
+                `Wave packets: ${gqYuzhnoWaveformPackets}`,
+                gqYuzhnoLastWaveform ? `Last: ${gqYuzhnoLastWaveform}` : 'Last: -',
+            ]
+            gqYuzhnoMarker.bindPopup(parts.join('<br/>'))
+        }
+
+        gqYuzhnoEventSource.onmessage = (ev) => {
+            const line = String(ev?.data || '').trim()
+            if(!line) return
+            let obj
+            try { obj = JSON.parse(line) } catch { return }
+            if(!obj || typeof obj !== 'object') return
+
+            if(obj.type === 'nearest') {
+                const lat = Number(obj.lat)
+                const lon = Number(obj.lon)
+                if(Number.isFinite(lat) && Number.isFinite(lon)) {
+                    gqYuzhnoIdentifier = String(obj.identifier || '')
+                    const color = classNameColors['dark-gray'] || '#333'
+                    if(!gqYuzhnoMarker) {
+                        gqYuzhnoMarker = L.circleMarker([lat, lon], {
+                            radius: 8,
+                            weight: 2,
+                            color,
+                            fillColor: color,
+                            opacity: 0.9,
+                            fillOpacity: 0.35,
+                            pane: 'gqYuzhnoPane',
+                            interactive: true,
+                        }).addTo(map)
+                        gqYuzhnoMarker.bindTooltip('GQ: ユジノサハリンスク', { direction: 'top', className: 'custom-tooltip' })
+                    }
+                    else {
+                        gqYuzhnoMarker.setLatLng([lat, lon])
+                    }
+                    updateGqPopup()
+                }
+            }
+
+            if(obj.type === 'waveform') {
+                gqYuzhnoWaveformPackets++
+                gqYuzhnoLastWaveform = `${obj.bytes || ''}B ${obj.time || ''}`.trim()
+
+                const peakCounts = Number(obj.peakCounts)
+                if(Number.isFinite(peakCounts)) {
+                    gqYuzhnoLastPeakCounts = peakCounts
+                    gqYuzhnoMaxPeakCounts = Math.max(Number(gqYuzhnoMaxPeakCounts || 0), peakCounts)
+                    // fallback coloring until station_intensity arrives
+                    if (gqYuzhnoLastPgaGal == null) applyGqPeakCountsToMarker(gqYuzhnoMarker, peakCounts)
+                }
+                updateGqPopup()
+            }
+
+            if(obj.type === 'station_intensity') {
+                if(gqYuzhnoIdentifier && String(obj.identifier || '') !== gqYuzhnoIdentifier) return
+                const pgaGal = Number(obj.maxIntensity)
+                if(Number.isFinite(pgaGal)) {
+                    gqYuzhnoLastPgaGal = pgaGal
+                    applyGlobalQuakeMmiToMarker(gqYuzhnoMarker, pgaGal)
+                }
+            }
+
+            if(obj.type === 'hypocenter') {
+                // Treat GlobalQuake detected earthquakes like EEW (same handling as emergency alerts)
+                if(!settingsStore.mainSettings.source?.gqDetectedEew) return
+
+                const originMs = Number(obj.origin)
+                const lat = Number(obj.lat)
+                const lng = Number(obj.lon)
+                const depth = Number(obj.depth)
+                const magnitude = Number(obj.mag)
+                const revision = Number(obj.rev)
+                if(!Number.isFinite(originMs)) return
+
+                const originTime = stampToTime(originMs, 8)
+                const maxIntensity = (Number.isFinite(magnitude) && Number.isFinite(depth))
+                    ? calcCsisLevel(magnitude, depth)
+                    : '不明'
+                const isCanceled = false
+
+                const uuid = String(obj.uuid || '')
+                const id = uuid ? `gqdet_${uuid}` : `gqdet_${originMs}`
+                const hypoName = String(obj.region || '') || 'GlobalQuake'
+                const magVal = Number.isFinite(magnitude) ? magnitude : 0
+                const depthVal = Number.isFinite(depth) ? depth : 0
+                const isWarn = magVal >= 6.0
+
+                const reportNum = Number.isFinite(revision) ? Math.max(1, Math.trunc(revision)) : 1
+
+                const msg = statusStore.eqMessage.gqDetectedEew
+                // Ignore out-of-order older revisions
+                if (Number.isFinite(msg?.reportNum) && msg.id === id && msg.reportNum > reportNum) return
+                Object.assign(msg, {
+                    source: 'gqDetectedEew',
+                    type: 0,
+                    id,
+                    isEew: true,
+                    timeZone: 8,
+                    reportNum,
+                    reportNumText: reportNum > 0 ? `第${reportNum}報` : '',
+                    reportTime: originTime,
+                    isAssumption: false,
+                    isWarn,
+                    isFinal: false,
+                    isCanceled,
+                    title: 'GlobalQuake detected',
+                    titleText: 'GlobalQuake 検知',
+                    hypocenter: hypoName,
+                    hypocenterText: hypoName,
+                    lat: Number.isFinite(lat) ? lat : 0,
+                    lng: Number.isFinite(lng) ? lng : 0,
+                    depth: depthVal,
+                    depthText: `${depthVal.toFixed(0)} km`,
+                    originTime,
+                    originTimeText: originTime,
+                    magnitude: magVal,
+                    magnitudeText: `M${magVal.toFixed(1)}`,
+                    useShindo: false,
+                    maxIntensity,
+                    maxIntensityText: `推定最大烈度 ${maxIntensity}`,
+                    warnArea: '[]',
+                    className: setClassName(maxIntensity, false, isCanceled),
+                })
+                statusStore.isActive.gqDetectedEew = true
+            }
+        }
+
+        gqYuzhnoEventSource.onerror = () => {
+            // Keep the app running even if proxy is down.
+        }
+    } catch {
+        // ignore SSE setup errors
+    }
 
     map.createPane('userPane')
     map.getPane('userPane').style.zIndex = 100
-    kanameishiMarker = L.circleMarker(kanameishiLatLng, {
-        radius: 6,
-        pane: 'userPane',
-        interactive: true
-    }).addTo(map)
-    kanameishiMarker.on('click', openKanameishiWindow)
+    // Ogasawara (kanameishi) marker disabled
+    kanameishiMarker = null
 
-    // JP network (SeedLink/IRIS) station markers (except JCJ)
-    loadJpSeedlinkStations()
+    // JP network (SeedLink/IRIS) station markers disabled
     map.createPane('terminatorPane')
     map.getPane('terminatorPane').style.zIndex = 130
     map.createPane('niedGridPane')
@@ -1933,7 +2141,7 @@ const loadMaps = async (retries = 0) => {
                         newCsisList[maxInt].push(layerName)
                     }
                 })
-                cnEwBaseMap?.setStyle(feature => {
+                cnEewBaseMap?.setStyle(feature => {
                     const className = cnAreaClass[feature.properties.name]
                     return ({
                         color: className ? '#bbbbbb' : '#bbbbbb00',
@@ -3317,6 +3525,8 @@ onBeforeUnmount(() => {
     try { map?.off?.('zoomend', tremRtsZoomHandler) } catch {}
     document.removeEventListener('keydown', handleKeydown)
     if(map && cwaLatestHypoMarker && map.hasLayer(cwaLatestHypoMarker)) map.removeLayer(cwaLatestHypoMarker)
+    try { gqYuzhnoEventSource?.close?.() } catch {}
+    try { if(map && gqYuzhnoMarker && map.hasLayer(gqYuzhnoMarker)) map.removeLayer(gqYuzhnoMarker) } catch {}
     activeEewList.length = 0
     eqlistList.length = 0
 })

@@ -16,6 +16,7 @@
       "cwa_eew": "台湾中央気象署: 強震即時警報",
       "jma_eew": "日本気象庁: 緊急地震速報",
       "gq_eew": "GlobalQuake: 地震警報",
+      "gq_detected_eew": "GlobalQuake(38000): 検知地震（EEW扱い）",
       "eqlist_title": "地震情報",
       "cenc_eqlist": "中国地震台ネットワーク: 地震測定",
       "cwa_eqlist": "台湾中央気象署: 地震報告",
@@ -25,6 +26,7 @@
       "kma_eqlist": "気象庁: 地震情報",
       "usgs_eqlist": "USGS: 地震測定",
       "fssn_eqlist": "FSSN: 地震測定",
+      "gq_eqlist": "GlobalQuake(38000): 検知地震",
       "tsunami_title": "津波情報",
       "jma_tsunami": "日本気象庁: 津波情報",
       "nmefc_tsunami": "自然資源部: 津波警報"
@@ -45,6 +47,7 @@
       "high": "高",
       "trem_net": "TREM-Net・震度（台湾）",
       "palert_net": "P-Alert・加速度（台湾）",
+      "palert_quantize_deg": "観測点を間引く間隔",
       "palert_quantize_01deg": "観測点を緯度経度0.1°刻みで間引く",
       "palert_color_by": "カラーリング",
       "palert_color_by_shindo": "震度",

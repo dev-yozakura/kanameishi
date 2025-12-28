@@ -30,6 +30,19 @@ export default defineConfig(({ command }) => {
         secure: false,
         rewrite: (path) => path.replace(/^\/kmoni/, ''),
       },
+      '/yahoo': {
+        target: 'https://weather-kyoshin.east.edge.storage-yahoo.jp',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/yahoo/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            // Yahoo側の参照元チェック回避用（必要になることがある）
+            proxyReq.setHeader('Origin', 'https://weather.yahoo.co.jp')
+            proxyReq.setHeader('Referer', 'https://weather.yahoo.co.jp/')
+          })
+        },
+      },
       '/msil': {
         target: 'https://www.msil.go.jp',
         changeOrigin: true,

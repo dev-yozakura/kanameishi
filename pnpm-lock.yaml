@@ -74,6 +74,12 @@ importers:
       pinia:
         specifier: ^2.1.7
         version: 2.3.1(vue@3.5.18)
+      seisplotjs-miniseed:
+        specifier: ^1.2.1
+        version: 1.2.1
+      seisplotjs-seedcodec:
+        specifier: ^1.0.3
+        version: 1.0.3
       topojson-client:
         specifier: ^3.1.0
         version: 3.1.0
@@ -2336,6 +2342,12 @@ packages:
   mlly@1.7.4:
     resolution: {integrity: sha512-qmdSIPC4bDJXgZTCR7XosJiNKySV7O215tsPtDN9iEO/7q/76b/ijtgRu/+epFXSJhijtTCCGp3DWS549P3xKw==}
 
+  moment-timezone@0.5.48:
+    resolution: {integrity: sha512-f22b8LV1gbTO2ms2j2z13MuPogNoh5UzxL3nzNAYKGraILnbGc9NEE6dyiiiLv46DGRb8A4kg8UKWLjPthxBHw==}
+
+  moment@2.30.1:
+    resolution: {integrity: sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==}
+
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
@@ -2564,6 +2576,18 @@ packages:
 
   scule@1.3.0:
     resolution: {integrity: sha512-6FtHJEvt+pVMIB9IBY+IcCJ6Z5f1iQnytgyfKMhDKgmzYG+TeH/wx1y3l27rshSbLiSanrR9ffZDrEsmjlQF2g==}
+
+  seisplotjs-miniseed@1.2.1:
+    resolution: {integrity: sha512-b4SFR+NFz4Ec72Kbbc2yjm06tgYGFkX7zDWUhDoTUUyxNlI8i5YybsL43X+pMPVP5f1NKrXf5N9lVUWB5riaqg==}
+    deprecated: 'Warning: this package has been move into seisplotjs@2.0. Please install using seisplotjs instaed.'
+
+  seisplotjs-model@1.2.0:
+    resolution: {integrity: sha512-kAfJdTQpHf8vcuXshbDJCxjkhI26tijWszaiYjbZPH9Vnds4HUWfcrA6R9rc8HEdEELiJiFRV+XAVppYRTc7xA==}
+    deprecated: 'Warning: this package has been move into seisplotjs@2.0. Please install using seisplotjs instaed.'
+
+  seisplotjs-seedcodec@1.0.3:
+    resolution: {integrity: sha512-HR0a0lfhb7ALhQPUYlPJSv0jJUALIXneAoFi4MCboQiksCTpkXBSFrf/nQgFYyah9P0JwviAUOdw0+Z/fxQG3A==}
+    deprecated: 'Warning: this package has been move into seisplotjs@2.0. Please install using seisplotjs instaed.'
 
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
@@ -6128,6 +6152,12 @@ snapshots:
       pkg-types: 1.3.1
       ufo: 1.6.1
 
+  moment-timezone@0.5.48:
+    dependencies:
+      moment: 2.30.1
+
+  moment@2.30.1: {}
+
   ms@2.1.3: {}
 
   nanoid@3.3.11: {}
@@ -6378,6 +6408,18 @@ snapshots:
       '@parcel/watcher': 2.5.1
 
   scule@1.3.0: {}
+
+  seisplotjs-miniseed@1.2.1:
+    dependencies:
+      seisplotjs-model: 1.2.0
+      seisplotjs-seedcodec: 1.0.3
+
+  seisplotjs-model@1.2.0:
+    dependencies:
+      moment: 2.30.1
+      moment-timezone: 0.5.48
+
+  seisplotjs-seedcodec@1.0.3: {}
 
   semver@6.3.1: {}
 

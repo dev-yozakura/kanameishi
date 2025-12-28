@@ -12,8 +12,11 @@ import { useStatusStore } from '@/stores/status'
 import { useSettingsStore } from '@/stores/settings'
 import { useTimeStore } from '@/stores/time'
 import { iconUrls } from '@/utils/Urls'
-import { getLevelFromInstShindo, stampToTime, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel } from '@/utils/Utils'
+import { getLevelFromInstShindo, stampToTime, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel, calcWaveDistance } from '@/utils/Utils'
+import { getTjma2001TravelTime } from '@/utils/Tjma2001'
+import { locateHypocenterGeiger } from '@/utils/HypocenterGeiger'
 import { NiedStation, simpleIcon } from '@/classes/StationClasses'
+import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
 
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
@@ -37,6 +40,166 @@ const stations = reactive([]) // NiedStation[]
 let map = null
 let worker = null
 let timer = null
+
+const iconRadius = 20
+const niedHypoIcon = L.icon({
+  iconUrl: eewCross,
+  iconSize: [iconRadius * 2, iconRadius * 2],
+  iconAnchor: [iconRadius, iconRadius],
+})
+
+const kmoniFirstDetectMsByStationId = new Map() // stationId -> first detect frame ts (ms)
+
+let niedHypoMarker = null
+let niedPWave = null
+let niedSWave = null
+let niedSWaveFill = null
+let _niedHypoTooltipKey = ''
+
+let lastHypoEstimateAtMs = 0
+let lastHypo = null // { lat, lon, depthKm, originMs, score }
+
+let _tjma2001 = null
+const _getTravelTime = () => {
+  if (_tjma2001) return _tjma2001
+  _tjma2001 = getTjma2001TravelTime()
+  return _tjma2001
+}
+
+const _clearNiedHypoLayers = () => {
+  if (!map) return
+  if (niedHypoMarker && map.hasLayer(niedHypoMarker)) map.removeLayer(niedHypoMarker)
+  if (niedPWave && map.hasLayer(niedPWave)) map.removeLayer(niedPWave)
+  if (niedSWave && map.hasLayer(niedSWave)) map.removeLayer(niedSWave)
+  if (niedSWaveFill && map.hasLayer(niedSWaveFill)) map.removeLayer(niedSWaveFill)
+  niedHypoMarker = null
+  niedPWave = null
+  niedSWave = null
+  niedSWaveFill = null
+  _niedHypoTooltipKey = ''
+}
+
+const _resetNiedHypo = () => {
+  kmoniFirstDetectMsByStationId.clear()
+  lastHypoEstimateAtMs = 0
+  lastHypo = null
+  _clearNiedHypoLayers()
+}
+
+const _buildGeigerObservations = (used) => {
+  if (!used?.length) return null
+
+  // 初期値: 最初に検知した観測点
+  const first = used[0]
+  const initial = {
+    lat: first.lat,
+    lon: first.lon,
+    depthKm: 10,
+    originSec: first.tObsSec - 2.0,
+  }
+
+  // 重み: レベル(強い揺れほど↑) + 距離(遠いほど↓)
+  const hypo0 = L.latLng(initial.lat, initial.lon)
+  const observations = used.map((o) => {
+    const distKm = hypo0.distanceTo(o.ll) / 1000
+    const distW = 1 / Math.pow(1 + distKm / 200, 2)
+    const levelW = 1 + Math.max(0, o.level) / 10
+    return {
+      lat: o.lat,
+      lon: o.lon,
+      ll: o.ll,
+      tObsSec: o.tObsSec,
+      weight: distW * levelW,
+    }
+  })
+
+  return { observations, initial }
+}
+
+const _updateNiedHypoLayers = (hypo, frameMs) => {
+  if (!map || !hypo) return
+  const travelTime = _getTravelTime()
+  const latLng = [hypo.lat, hypo.lon]
+  const passedSec = Math.max(0, (frameMs - hypo.originMs) / 1000)
+
+  const pInfo = calcWaveDistance(travelTime, true, hypo.depthKm, passedSec)
+  const sInfo = calcWaveDistance(travelTime, false, hypo.depthKm, passedSec)
+  const pRadiusKm = pInfo?.radius || 0
+  const sRadiusKm = sInfo?.radius || 0
+
+  if (!niedHypoMarker) {
+    niedHypoMarker = L.marker(latLng, { icon: niedHypoIcon, pane: 'eewMarkerPane' })
+    niedHypoMarker.addTo(map)
+  } else {
+    niedHypoMarker.setLatLng(latLng)
+  }
+
+  const originStr = Number.isFinite(hypo.originMs) ? stampToTime(hypo.originMs, 9) : ''
+  const tooltipKey = `${hypo.depthKm}|${originStr}`
+  if (tooltipKey !== _niedHypoTooltipKey) {
+    _niedHypoTooltipKey = tooltipKey
+    niedHypoMarker.bindTooltip(
+      `<strong>NIED(推定)</strong><br>Depth ${hypo.depthKm}km<br>Origin ${originStr}`,
+      { permanent: false, direction: 'top', className: 'custom-tooltip' }
+    )
+  }
+
+  if (pRadiusKm > 0) {
+    if (!niedPWave) {
+      niedPWave = L.circle(latLng, {
+        color: 'white',
+        opacity: 1,
+        weight: 2,
+        fill: false,
+        radius: pRadiusKm * 1000,
+        pane: 'wavePane',
+        interactive: false,
+      }).addTo(map)
+    } else {
+      niedPWave.setLatLng(latLng)
+      niedPWave.setRadius(pRadiusKm * 1000)
+    }
+  } else if (niedPWave && map.hasLayer(niedPWave)) {
+    map.removeLayer(niedPWave)
+    niedPWave = null
+  }
+
+  const sColor = 'var(--swave-orange)'
+  if (sRadiusKm > 0) {
+    if (!niedSWave) {
+      niedSWave = L.circle(latLng, {
+        color: sColor,
+        opacity: 1,
+        weight: 2,
+        fill: false,
+        radius: sRadiusKm * 1000,
+        pane: 'wavePane',
+        interactive: false,
+      }).addTo(map)
+    } else {
+      niedSWave.setLatLng(latLng)
+      niedSWave.setRadius(sRadiusKm * 1000)
+    }
+    if (!niedSWaveFill) {
+      niedSWaveFill = L.circle(latLng, {
+        fillColor: sColor,
+        fillOpacity: 0.2,
+        stroke: false,
+        radius: sRadiusKm * 1000,
+        pane: 'waveFillPane',
+        interactive: false,
+      }).addTo(map)
+    } else {
+      niedSWaveFill.setLatLng(latLng)
+      niedSWaveFill.setRadius(sRadiusKm * 1000)
+    }
+  } else {
+    if (niedSWave && map.hasLayer(niedSWave)) map.removeLayer(niedSWave)
+    if (niedSWaveFill && map.hasLayer(niedSWaveFill)) map.removeLayer(niedSWaveFill)
+    niedSWave = null
+    niedSWaveFill = null
+  }
+}
 
 let pollInFlight = false
 let lastAbortController = null
@@ -124,10 +287,11 @@ const chainActivate = (station, activeSet, checkedSet) => {
   }
 }
 
-const update = () => {
+const update = (frameMs) => {
   if (stationList.length === stations.length && stations.length === stationData.value.length) {
     const render = document.visibilityState === 'visible'
     if (!render) pendingRender = true
+    const nowMs = Number.isFinite(frameMs) ? frameMs : timeStore.getTimeStamp()
     let maxLevel = -1
     for (let i = 0; i < stationList.length; i += 1) {
       stations[i].update(stationData.value[i], render)
@@ -187,7 +351,80 @@ const update = () => {
       })
       if (first) decimal = first.latLng.map((val) => Math.round(((val + 180) % 1) * 10) / 10)
     }
+
+    if (Number.isFinite(nowMs)) {
+      activeSet.forEach((station) => {
+        // 既にアクティブになっている局でも、初回検知時刻が未記録なら補完する
+        if (!kmoniFirstDetectMsByStationId.has(station.id)) {
+          kmoniFirstDetectMsByStationId.set(station.id, nowMs)
+        }
+      })
+    }
+
     activeSet.forEach((station) => station.setActive())
+
+    if (map && Number.isFinite(nowMs) && activeSet.size > 0 && nowMs - lastHypoEstimateAtMs >= 1000) {
+      const picks = []
+      activeSet.forEach((station) => {
+        const tMs = kmoniFirstDetectMsByStationId.get(station.id)
+        if (!Number.isFinite(tMs)) return
+        picks.push({
+          id: station.id,
+          tObsSec: tMs / 1000,
+          ll: L.latLng(station.latLng),
+          lat: station.latLng[0],
+          lon: station.latLng[1],
+          level: station.level,
+        })
+      })
+      picks.sort((a, b) => a.tObsSec - b.tObsSec)
+      const used = picks.slice(0, 40)
+
+      const travelTime = _getTravelTime()
+      const built = _buildGeigerObservations(used)
+      let solved = false
+      if (built && used.length >= 4) {
+        const est = locateHypocenterGeiger({
+          travelTime,
+          observations: built.observations,
+          initial: built.initial,
+          maxIter: 8,
+        })
+        if (est) {
+          lastHypo = {
+            lat: est.lat,
+            lon: est.lon,
+            depthKm: est.depthKm,
+            originMs: est.originSec * 1000,
+            rmsSec: est.rmsSec,
+            converged: est.converged,
+          }
+          lastHypoEstimateAtMs = nowMs
+          solved = true
+          _updateNiedHypoLayers(lastHypo, nowMs)
+        }
+      }
+
+      // まだ解けない段階でも、暫定的に「最初に検知した点」を震源として表示する
+      if (!solved && used.length >= 1 && !lastHypo) {
+        const first = used[0]
+        lastHypo = {
+          lat: first.lat,
+          lon: first.lon,
+          depthKm: 10,
+          originMs: (first.tObsSec - 2.0) * 1000,
+          rmsSec: Infinity,
+          converged: false,
+        }
+        lastHypoEstimateAtMs = nowMs
+        _updateNiedHypoLayers(lastHypo, nowMs)
+      }
+    }
+
+    // 推定済みであれば、推定更新がなくても円を毎フレーム更新する
+    if (map && lastHypo && Number.isFinite(nowMs)) {
+      _updateNiedHypoLayers(lastHypo, nowMs)
+    }
   }
 }
 
@@ -283,7 +520,7 @@ const handleDecoded = (instArr, validArr, tsMs) => {
     niedUpdateTime.value = newTimeStr
   }
 
-  update()
+  update(tsMs)
 }
 
 const handleDecodedPga = (pgaArr, validArr) => {
@@ -487,7 +724,9 @@ unwatchMap = watch(
         }
         niedPeriodMaxShindo.value = getShindoFromLevel(periodMaxLevel)
         niedPeriodBarClass.value = maxColor
-        statusStore.isActive.niedNet = Object.keys(newGrids).length > 0
+        const nextActive = Object.keys(newGrids).length > 0
+        if (!nextActive) _resetNiedHypo()
+        statusStore.isActive.niedNet = nextActive
       },
       { immediate: true }
     )
@@ -569,6 +808,7 @@ watch(
     shake2Notified = false
     focused = false
     lastFrameTimeStr = null
+    _resetNiedHypo()
 
     stations.forEach((station) => {
       if (!station) return
@@ -601,6 +841,7 @@ onBeforeUnmount(() => {
       }
     })
   }
+  _resetNiedHypo()
   if (niedMarkerCount) niedMarkerCount.value = 0
   if (worker) worker.terminate()
   worker = null
