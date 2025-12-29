@@ -162,6 +162,53 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="event" v-if="settingsStore.mainSettings.displaySeisNet.niedNet && niedDetectActive">
+                        <div class="eew" v-show="menuId != 'eqlists'">
+                            <div class="bar gray">
+                                <div>
+                                    <WarnTriangleFilled style="width: 1em; height: 1em; margin-right: 0.25em;" />
+                                    {{ settingsStore.mainSettings.displaySeisNet.niedSource === 'kmoni_image'
+                                        ? $t('mainMap.shake.niedkmoni_title')
+                                        : $t('mainMap.shake.nied_title') }}
+                                </div>
+                            </div>
+                            <div class="info">
+                                <div class="background gray"></div>
+                                <div class="right">
+                                    <div class="location">{{ niedEpicenterName }}</div>
+                                    <div class="time">{{ niedDetectOriginTime }} (UTC+9)</div>
+                                    <div class="bottom">
+                                        <div class="depth">{{ $t('mainMap.shake.depth') }}{{ Number.isFinite(niedDetectDepthKm) ? `${Math.round(niedDetectDepthKm)}km` : '-' }}</div>
+                                        <div class="type">{{ $t('mainMap.shake.obs_count', { count: niedDetectObsCount }) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="event" v-if="settingsStore.mainSettings.displaySeisNet.palertNet && palertDetectActive">
+                        <div class="eew" v-show="menuId != 'eqlists'">
+                            <div class="bar gray">
+                                <div>
+                                    <WarnTriangleFilled style="width: 1em; height: 1em; margin-right: 0.25em;" />
+                                    {{ $t('mainMap.shake.palert_title') }}
+                                </div>
+                            </div>
+                            <div class="info">
+                                <div class="background gray"></div>
+                                <div class="right">
+                                    <div class="location">{{ palertDetectEpicenterName }}</div>
+                                    <div class="time">{{ palertDetectOriginTime }} (UTC+8)</div>
+                                    <div class="bottom">
+                                        <div class="depth">{{ $t('mainMap.shake.depth') }}{{ Number.isFinite(palertDetectDepthKm) ? `${Math.round(palertDetectDepthKm)}km` : '-' }}</div>
+                                        <div class="type">{{ $t('mainMap.shake.obs_count', { count: palertDetectObsCount }) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="event">
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.niedNet && settingsStore.mainSettings.displaySeisNet.displayNiedShindo">
                             <div class="shindo-bar gray">{{ $t('mainMap.realtime.nied_realtime') }}</div>
@@ -1235,11 +1282,21 @@ const niedMaxPgaGal = ref('?')
 const niedPeriodMaxShindo = ref('?')
 const niedPeriodBarClass = ref('gray')
 const isNiedDelayed = ref(true)
+const niedEpicenterName = ref('')
+const niedDetectActive = ref(false)
+const niedDetectOriginTime = ref('')
+const niedDetectDepthKm = ref(NaN)
+const niedDetectObsCount = ref(0)
 provide('niedUpdateTime', niedUpdateTime)
 provide('niedMaxShindo', niedMaxShindo)
 provide('niedMaxPgaGal', niedMaxPgaGal)
 provide('niedPeriodMaxShindo', niedPeriodMaxShindo)
 provide('niedPeriodBarClass', niedPeriodBarClass)
+provide('niedEpicenterName', niedEpicenterName)
+provide('niedDetectActive', niedDetectActive)
+provide('niedDetectOriginTime', niedDetectOriginTime)
+provide('niedDetectDepthKm', niedDetectDepthKm)
+provide('niedDetectObsCount', niedDetectObsCount)
 
 const niedMarkerCount = ref(0)
 provide('niedMarkerCount', niedMarkerCount)
@@ -1261,11 +1318,21 @@ const palertMaxPgaGal = ref('?')
 const palertPeriodMaxShindo = ref('?')
 const palertPeriodBarClass = ref('gray')
 const isPalertDelayed = ref(true)
+const palertDetectActive = ref(false)
+const palertDetectOriginTime = ref('')
+const palertDetectDepthKm = ref(NaN)
+const palertDetectObsCount = ref(0)
+const palertDetectEpicenterName = ref('')
 provide('palertUpdateTime', palertUpdateTime)
 provide('palertMaxShindo', palertMaxShindo)
 provide('palertMaxPgaGal', palertMaxPgaGal)
 provide('palertPeriodMaxShindo', palertPeriodMaxShindo)
 provide('palertPeriodBarClass', palertPeriodBarClass)
+provide('palertDetectActive', palertDetectActive)
+provide('palertDetectOriginTime', palertDetectOriginTime)
+provide('palertDetectDepthKm', palertDetectDepthKm)
+provide('palertDetectObsCount', palertDetectObsCount)
+provide('palertDetectEpicenterName', palertDetectEpicenterName)
 
 const palertMarkerCount = ref(0)
 provide('palertMarkerCount', palertMarkerCount)

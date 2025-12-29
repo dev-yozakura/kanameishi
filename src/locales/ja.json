@@ -192,6 +192,13 @@
       "kma_period": "KMA期間",
       "palert_realtime": "P-Alert",
       "palert_period": "P-Alert期間"
+    },
+    "shake": {
+      "nied_title": "NIED 揺れ検知",
+      "niedkmoni_title": "NIEDkmoni 揺れ検知",
+      "palert_title": "P-Alert 揺れ検知",
+      "depth": "深さ ",
+      "obs_count": "観測地点数 {count}"
     }
   },
   "eqlist": {

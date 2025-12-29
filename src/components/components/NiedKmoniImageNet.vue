@@ -15,6 +15,7 @@ import { iconUrls } from '@/utils/Urls'
 import { getLevelFromInstShindo, stampToTime, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel, calcWaveDistance } from '@/utils/Utils'
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
 import { locateHypocenterGeiger } from '@/utils/HypocenterGeiger'
+import { getNearestEpiName } from '@/utils/EpiName'
 import { NiedStation, simpleIcon } from '@/classes/StationClasses'
 import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
 
@@ -28,6 +29,11 @@ const niedPeriodMaxShindo = inject('niedPeriodMaxShindo')
 const niedPeriodBarClass = inject('niedPeriodBarClass')
 const niedMaxPgaGal = inject('niedMaxPgaGal')
 const niedMarkerCount = inject('niedMarkerCount')
+const niedEpicenterName = inject('niedEpicenterName')
+const niedDetectActive = inject('niedDetectActive')
+const niedDetectOriginTime = inject('niedDetectOriginTime')
+const niedDetectDepthKm = inject('niedDetectDepthKm')
+const niedDetectObsCount = inject('niedDetectObsCount')
 const handleTempEqlists = inject('handleTempEqlists')
 const smartSetView = inject('smartSetView')
 
@@ -58,6 +64,16 @@ let _niedHypoTooltipKey = ''
 
 let lastHypoEstimateAtMs = 0
 let lastHypo = null // { lat, lon, depthKm, originMs, score }
+let _niedEpiName = ''
+let _niedEpiReqId = 0
+
+const _escapeHtml = (s) =>
+  String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 
 let _tjma2001 = null
 const _getTravelTime = () => {
@@ -83,7 +99,30 @@ const _resetNiedHypo = () => {
   kmoniFirstDetectMsByStationId.clear()
   lastHypoEstimateAtMs = 0
   lastHypo = null
+  _niedEpiName = ''
+  if (niedEpicenterName) niedEpicenterName.value = ''
+  if (niedDetectActive) niedDetectActive.value = false
+  if (niedDetectOriginTime) niedDetectOriginTime.value = ''
+  if (niedDetectDepthKm) niedDetectDepthKm.value = NaN
+  if (niedDetectObsCount) niedDetectObsCount.value = 0
   _clearNiedHypoLayers()
+}
+
+const _resolveEpicenterName = async (hypo) => {
+  if (!hypo || !niedEpicenterName) return
+  const reqId = ++_niedEpiReqId
+  try {
+    const name = await getNearestEpiName(hypo.lat, hypo.lon)
+    if (reqId !== _niedEpiReqId) return
+    _niedEpiName = name || ''
+    niedEpicenterName.value = _niedEpiName
+    _niedHypoTooltipKey = ''
+  } catch {
+    if (reqId !== _niedEpiReqId) return
+    _niedEpiName = ''
+    niedEpicenterName.value = ''
+    _niedHypoTooltipKey = ''
+  }
 }
 
 const _buildGeigerObservations = (used) => {
@@ -110,6 +149,7 @@ const _buildGeigerObservations = (used) => {
       ll: o.ll,
       tObsSec: o.tObsSec,
       weight: distW * levelW,
+      elevM: Number.isFinite(o?.elevM) ? o.elevM : 0,
     }
   })
 
@@ -135,11 +175,12 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
   }
 
   const originStr = Number.isFinite(hypo.originMs) ? stampToTime(hypo.originMs, 9) : ''
-  const tooltipKey = `${hypo.depthKm}|${originStr}`
+  const tooltipKey = `${hypo.depthKm}|${originStr}|${_niedEpiName}`
   if (tooltipKey !== _niedHypoTooltipKey) {
     _niedHypoTooltipKey = tooltipKey
+    const nameLine = _niedEpiName ? `<br>Name ${_escapeHtml(_niedEpiName)}` : ''
     niedHypoMarker.bindTooltip(
-      `<strong>NIED(推定)</strong><br>Depth ${hypo.depthKm}km<br>Origin ${originStr}`,
+      `<strong>NIED(推定)</strong><br>Depth ${hypo.depthKm}km<br>Origin ${originStr}${nameLine}`,
       { permanent: false, direction: 'top', className: 'custom-tooltip' }
     )
   }
@@ -147,7 +188,7 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
   if (pRadiusKm > 0) {
     if (!niedPWave) {
       niedPWave = L.circle(latLng, {
-        color: 'white',
+        color: 'var(--swave-blue)',
         opacity: 1,
         weight: 2,
         fill: false,
@@ -164,7 +205,7 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
     niedPWave = null
   }
 
-  const sColor = 'var(--swave-orange)'
+  const sColor = 'var(--swave-green)'
   if (sRadiusKm > 0) {
     if (!niedSWave) {
       niedSWave = L.circle(latLng, {
@@ -368,6 +409,7 @@ const update = (frameMs) => {
       activeSet.forEach((station) => {
         const tMs = kmoniFirstDetectMsByStationId.get(station.id)
         if (!Number.isFinite(tMs)) return
+        const elevM = Number(points.value?.[station.id]?.elevation)
         picks.push({
           id: station.id,
           tObsSec: tMs / 1000,
@@ -375,6 +417,7 @@ const update = (frameMs) => {
           lat: station.latLng[0],
           lon: station.latLng[1],
           level: station.level,
+          elevM: Number.isFinite(elevM) ? elevM : 0,
         })
       })
       picks.sort((a, b) => a.tObsSec - b.tObsSec)
@@ -401,6 +444,7 @@ const update = (frameMs) => {
           }
           lastHypoEstimateAtMs = nowMs
           solved = true
+          _resolveEpicenterName(lastHypo)
           _updateNiedHypoLayers(lastHypo, nowMs)
         }
       }
@@ -417,6 +461,7 @@ const update = (frameMs) => {
           converged: false,
         }
         lastHypoEstimateAtMs = nowMs
+        _resolveEpicenterName(lastHypo)
         _updateNiedHypoLayers(lastHypo, nowMs)
       }
     }
@@ -424,6 +469,13 @@ const update = (frameMs) => {
     // 推定済みであれば、推定更新がなくても円を毎フレーム更新する
     if (map && lastHypo && Number.isFinite(nowMs)) {
       _updateNiedHypoLayers(lastHypo, nowMs)
+    }
+
+    if (niedDetectObsCount) niedDetectObsCount.value = activeSet.size
+    if (lastHypo) {
+      if (niedDetectActive) niedDetectActive.value = true
+      if (niedDetectOriginTime) niedDetectOriginTime.value = stampToTime(lastHypo.originMs, 9)
+      if (niedDetectDepthKm) niedDetectDepthKm.value = lastHypo.depthKm
     }
   }
 }

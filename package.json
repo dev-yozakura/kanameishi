@@ -10,7 +10,8 @@
     "preview:host": "vite preview --host 0.0.0.0 --port 4173",
     "serve:local": "node server/local-web.mjs",
     "serve:local:build": "pnpm -s build && node server/local-web.mjs",
-    "build:maps": "node scripts/build-admin-boundaries.mjs"
+    "build:maps": "node scripts/build-admin-boundaries.mjs",
+    "merge:kmoni-elevation": "node scripts/merge-kmoni-points-elevation.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

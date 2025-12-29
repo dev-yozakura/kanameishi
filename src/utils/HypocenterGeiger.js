@@ -80,7 +80,12 @@ const computeResiduals = (travelTime, lat, lon, depthKm, originSec, obs) => {
   const dists = []
   for (const o of obs) {
     const distKm = hypo.distanceTo(o.ll) / 1000
-    const tp = travelTimeSec(travelTime, depthKm, distKm)
+    // 観測点の標高(m)を簡易的に考慮: 震源深さ(海面基準)に対して、
+    // 観測点が高いほど実効的な深さ差が増えるとみなす（depthKm + elevKm）。
+    // 観測側に elevM がない場合は 0m として扱う。
+    const elevKm = Number.isFinite(o?.elevM) ? o.elevM / 1000 : 0
+    const effDepthKm = clamp(depthKm + elevKm, 0, 700)
+    const tp = travelTimeSec(travelTime, effDepthKm, distKm)
     if (!Number.isFinite(tp)) return null
     const pred = originSec + tp
     res.push(o.tObsSec - pred)
@@ -97,7 +102,7 @@ export const locateHypocenterGeiger = ({
   dxKm = 1.0,
   dzKm = 2.0,
 }) => {
-  // observations: [{ lat, lon, tObsSec, ll, weight }]
+  // observations: [{ lat, lon, tObsSec, ll, weight, elevM? }]
   if (!travelTime) return null
   const obs = observations?.filter((o) => Number.isFinite(o?.tObsSec) && o?.ll)
   if (!obs || obs.length < 4) return null

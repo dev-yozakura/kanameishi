@@ -208,6 +208,7 @@
                                 >
                                     <el-option :label="$t('settings.seisNet.off')" :value="0" />
                                     <el-option label="0.1°" :value="0.1" />
+                                    <el-option label="0.15°" :value="0.15" />
                                     <el-option label="0.2°" :value="0.2" />
                                 </el-select>
                             </div>

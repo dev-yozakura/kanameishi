@@ -12,9 +12,13 @@ import { computeNiedStyleColorRadius, getShindoLeafletIcon } from '@/classes/Sta
 import { useStatusStore } from '@/stores/status'
 import { useSettingsStore } from '@/stores/settings'
 import { useTimeStore } from '@/stores/time'
-import { focusWindow, getLevelFromInstShindo, getShindoFromLevel, playSound, sendMyNotification } from '@/utils/Utils'
+import { calcWaveDistance, focusWindow, getLevelFromInstShindo, getShindoFromLevel, playSound, sendMyNotification, stampToTime } from '@/utils/Utils'
 import { iconUrls } from '@/utils/Urls'
 import { isTauri as getIsTauri } from '@tauri-apps/api/core'
+import { getTjma2001TravelTime } from '@/utils/Tjma2001'
+import { locateHypocenterGeiger } from '@/utils/HypocenterGeiger'
+import { getNearestEpiName } from '@/utils/EpiName'
+import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
 
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
@@ -62,6 +66,11 @@ const palertMaxPgaGal = inject('palertMaxPgaGal', ref('?'))
 const palertPeriodMaxShindo = inject('palertPeriodMaxShindo', ref('?'))
 const palertPeriodBarClass = inject('palertPeriodBarClass', ref('gray'))
 const palertMarkerCount = inject('palertMarkerCount', ref(0))
+const palertDetectActive = inject('palertDetectActive', ref(false))
+const palertDetectOriginTime = inject('palertDetectOriginTime', ref(''))
+const palertDetectDepthKm = inject('palertDetectDepthKm', ref(NaN))
+const palertDetectObsCount = inject('palertDetectObsCount', ref(0))
+const palertDetectEpicenterName = inject('palertDetectEpicenterName', ref(''))
 const handleTempEqlists = inject('handleTempEqlists', null)
 const smartSetView = inject('smartSetView', null)
 
@@ -86,6 +95,175 @@ let palertRenderer = null
 let requestInterval = null
 let stationListInterval = null
 let pendingRender = false
+
+// 揺れ検知由来の予報円はEEWと別色にする
+const shakePColor = 'var(--swave-blue)'
+const shakeSColor = 'var(--swave-green)'
+
+const hypoIconRadius = 20
+const palertHypoIcon = L.icon({
+    iconUrl: eewCross,
+    iconSize: [hypoIconRadius * 2, hypoIconRadius * 2],
+    iconAnchor: [hypoIconRadius, hypoIconRadius]
+})
+
+const firstDetectMsByStationId = new Map() // stationId -> first detect frame ts (ms)
+let palertHypoMarker = null
+let palertPWave = null
+let palertSWave = null
+let palertSWaveFill = null
+let lastHypo = null // { lat, lon, depthKm, originMs, rmsSec, converged }
+let lastHypoEstimateAtMs = 0
+let _tjma2001 = null
+
+let gridBlinkTimer = null
+let gridBlinkOn = true
+
+const _applyGridBlinkStyle = () => {
+    if (!map) return
+    const opacity = gridBlinkOn ? 1 : 0.15
+    for (const obj of gridRects.values()) {
+        try {
+            obj?.layer?.setStyle({ opacity })
+        } catch {}
+    }
+}
+
+const _stopGridBlinking = () => {
+    if (gridBlinkTimer) clearInterval(gridBlinkTimer)
+    gridBlinkTimer = null
+    gridBlinkOn = true
+    // restore
+    for (const obj of gridRects.values()) {
+        try {
+            obj?.layer?.setStyle({ opacity: 1 })
+        } catch {}
+    }
+}
+
+const _startGridBlinking = () => {
+    if (gridBlinkTimer) return
+    gridBlinkOn = true
+    _applyGridBlinkStyle()
+    gridBlinkTimer = setInterval(() => {
+        gridBlinkOn = !gridBlinkOn
+        _applyGridBlinkStyle()
+    }, 450)
+}
+
+const _getTravelTime = () => {
+    if (_tjma2001) return _tjma2001
+    _tjma2001 = getTjma2001TravelTime()
+    return _tjma2001
+}
+
+const _clearPalertHypoLayers = () => {
+    if (!map) return
+    if (palertHypoMarker && map.hasLayer(palertHypoMarker)) map.removeLayer(palertHypoMarker)
+    if (palertPWave && map.hasLayer(palertPWave)) map.removeLayer(palertPWave)
+    if (palertSWave && map.hasLayer(palertSWave)) map.removeLayer(palertSWave)
+    if (palertSWaveFill && map.hasLayer(palertSWaveFill)) map.removeLayer(palertSWaveFill)
+    palertHypoMarker = null
+    palertPWave = null
+    palertSWave = null
+    palertSWaveFill = null
+}
+
+const _resetPalertHypo = () => {
+    firstDetectMsByStationId.clear()
+    lastHypo = null
+    lastHypoEstimateAtMs = 0
+    _clearPalertHypoLayers()
+
+    palertDetectActive.value = false
+    palertDetectOriginTime.value = ''
+    palertDetectDepthKm.value = NaN
+    palertDetectObsCount.value = 0
+    palertDetectEpicenterName.value = ''
+}
+
+const _updateHypoLayers = (hypo, frameMs) => {
+    if (!map || !hypo) return
+
+    const travelTime = _getTravelTime()
+    const latLng = [hypo.lat, hypo.lon]
+    const passedSec = Math.max(0, (frameMs - hypo.originMs) / 1000)
+
+    const pInfo = calcWaveDistance(travelTime, true, hypo.depthKm, passedSec)
+    const sInfo = calcWaveDistance(travelTime, false, hypo.depthKm, passedSec)
+    const pRadiusKm = pInfo?.radius || 0
+    const sRadiusKm = sInfo?.radius || 0
+
+    if (!palertHypoMarker) {
+        palertHypoMarker = L.marker(latLng, { icon: palertHypoIcon, pane: 'eewMarkerPane' }).addTo(map)
+    } else {
+        palertHypoMarker.setLatLng(latLng)
+    }
+
+    const originStr = Number.isFinite(hypo.originMs) ? stampToTime(hypo.originMs, 8) : ''
+    try {
+        palertHypoMarker.bindTooltip(
+            `<strong>P-Alert(推定)</strong><br>Depth ${Math.round(hypo.depthKm)}km<br>Origin ${originStr}`,
+            { permanent: false, direction: 'top', className: 'custom-tooltip' }
+        )
+    } catch {}
+
+    if (pRadiusKm > 0) {
+        if (!palertPWave) {
+            palertPWave = L.circle(latLng, {
+                color: shakePColor,
+                opacity: 1,
+                weight: 2,
+                fill: false,
+                radius: pRadiusKm * 1000,
+                pane: 'wavePane',
+                interactive: false,
+            }).addTo(map)
+        } else {
+            palertPWave.setLatLng(latLng)
+            palertPWave.setRadius(pRadiusKm * 1000)
+        }
+    } else if (palertPWave && map.hasLayer(palertPWave)) {
+        map.removeLayer(palertPWave)
+        palertPWave = null
+    }
+
+    if (sRadiusKm > 0) {
+        if (!palertSWave) {
+            palertSWave = L.circle(latLng, {
+                color: shakeSColor,
+                opacity: 1,
+                weight: 2,
+                fill: false,
+                radius: sRadiusKm * 1000,
+                pane: 'wavePane',
+                interactive: false,
+            }).addTo(map)
+        } else {
+            palertSWave.setLatLng(latLng)
+            palertSWave.setRadius(sRadiusKm * 1000)
+        }
+
+        if (!palertSWaveFill) {
+            palertSWaveFill = L.circle(latLng, {
+                fillColor: shakeSColor,
+                fillOpacity: 0.2,
+                stroke: false,
+                radius: sRadiusKm * 1000,
+                pane: 'waveFillPane',
+                interactive: false,
+            }).addTo(map)
+        } else {
+            palertSWaveFill.setLatLng(latLng)
+            palertSWaveFill.setRadius(sRadiusKm * 1000)
+        }
+    } else {
+        if (palertSWave && map.hasLayer(palertSWave)) map.removeLayer(palertSWave)
+        if (palertSWaveFill && map.hasLayer(palertSWaveFill)) map.removeLayer(palertSWaveFill)
+        palertSWave = null
+        palertSWaveFill = null
+    }
+}
 
 const shouldShowShindoTooltip = (level, zoom) => {
     const enabled = !!(
@@ -778,12 +956,12 @@ watch(currentMaxShindo, (newVal, oldVal) => {
     }
 })
 
-const applyRealtimePga = (dataVals) => {
+const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
     if (!map) return
     const render = document.visibilityState === 'visible'
     if (!render) pendingRender = true
 
-    const now = Date.now()
+    const now = Number.isFinite(frameMs) ? frameMs : Date.now()
 
     // Update per-station level/activity
     let maxLevel = -1
@@ -824,7 +1002,123 @@ const applyRealtimePga = (dataVals) => {
             if (!st) continue
             st.isActive = true
             st.activeUntil = now + 10500
+
+            if (!firstDetectMsByStationId.has(id)) {
+                firstDetectMsByStationId.set(id, now)
+            }
         }
+    }
+
+    const activeStationIds = []
+    for (const id of stationIds) {
+        const st = stations[id]
+        if (!st?.isActive) continue
+        activeStationIds.push(id)
+    }
+
+    palertDetectActive.value = activeStationIds.length > 0
+    palertDetectObsCount.value = activeStationIds.length
+
+    // 震源推定 + 予報円描画（揺れ検知由来）
+    if (map && Number.isFinite(now) && activeStationIds.length > 0) {
+        if (now - lastHypoEstimateAtMs >= 1000) {
+            const picks = []
+            for (const id of activeStationIds) {
+                const tMs = firstDetectMsByStationId.get(id)
+                const ll = stationIndex.get(id)
+                const st = stations[id]
+                if (!Number.isFinite(tMs) || !ll || !st) continue
+                picks.push({
+                    id,
+                    tObsSec: tMs / 1000,
+                    ll: L.latLng(ll[0], ll[1]),
+                    lat: ll[0],
+                    lon: ll[1],
+                    level: st.level ?? -1,
+                })
+            }
+            picks.sort((a, b) => a.tObsSec - b.tObsSec)
+            const used = picks.slice(0, 40)
+
+            let solved = false
+            if (used.length >= 4) {
+                const first = used[0]
+                const hypo0 = L.latLng(first.lat, first.lon)
+                const observations = used.map((o) => {
+                    const distKm = hypo0.distanceTo(o.ll) / 1000
+                    const distW = 1 / Math.pow(1 + distKm / 200, 2)
+                    const levelW = 1 + Math.max(0, o.level) / 10
+                    return {
+                        lat: o.lat,
+                        lon: o.lon,
+                        ll: o.ll,
+                        tObsSec: o.tObsSec,
+                        weight: distW * levelW,
+                    }
+                })
+
+                const est = locateHypocenterGeiger({
+                    travelTime: _getTravelTime(),
+                    observations,
+                    initial: {
+                        lat: first.lat,
+                        lon: first.lon,
+                        depthKm: 10,
+                        originSec: first.tObsSec - 2.0,
+                    },
+                    maxIter: 8,
+                })
+                if (est) {
+                    const minObsSec = observations.reduce(
+                        (acc, o) => (Number.isFinite(o?.tObsSec) ? Math.min(acc, o.tObsSec) : acc),
+                        Infinity
+                    )
+                    const clampUpper = Number.isFinite(minObsSec) ? (minObsSec - 0.01) : Infinity
+                    const originSec = Number.isFinite(est.originSec) ? Math.min(est.originSec, clampUpper) : clampUpper
+
+                    lastHypo = {
+                        lat: est.lat,
+                        lon: est.lon,
+                        depthKm: est.depthKm,
+                        originMs: originSec * 1000,
+                        rmsSec: est.rmsSec,
+                        converged: est.converged,
+                    }
+                    lastHypoEstimateAtMs = now
+                    solved = true
+                }
+            }
+
+            if (!solved && used.length >= 1 && !lastHypo) {
+                const first = used[0]
+                lastHypo = {
+                    lat: first.lat,
+                    lon: first.lon,
+                    depthKm: 10,
+                    originMs: (first.tObsSec - 2.0) * 1000,
+                    rmsSec: Infinity,
+                    converged: false,
+                }
+                lastHypoEstimateAtMs = now
+            }
+        }
+
+        if (lastHypo) {
+            _updateHypoLayers(lastHypo, now)
+            palertDetectOriginTime.value = stampToTime(lastHypo.originMs, 8)
+            palertDetectDepthKm.value = lastHypo.depthKm
+
+            // Prefer epicenter name if available; else fallback to coordinates
+            const fallback = `${lastHypo.lat.toFixed(2)}, ${lastHypo.lon.toFixed(2)}`
+            palertDetectEpicenterName.value = fallback
+            getNearestEpiName(lastHypo.lat, lastHypo.lon)
+                .then((name) => {
+                    if (name) palertDetectEpicenterName.value = name
+                })
+                .catch(() => {})
+        }
+    } else {
+        _resetPalertHypo()
     }
 
     statusStore.isActive.palertNet = activeIds.size > 0
@@ -847,6 +1141,8 @@ const applyRealtimePga = (dataVals) => {
         periodMaxLevel = -1
         palertPeriodMaxShindo.value = '?'
         palertPeriodBarClass.value = 'gray'
+
+        _resetPalertHypo()
     }
     if (smartSetView) smartSetView()
 
@@ -922,6 +1218,7 @@ const applyRealtimePga = (dataVals) => {
                     color,
                     weight: 2,
                     fill: false,
+                    opacity: gridBlinkOn ? 1 : 0.15,
                     pane: 'palertGridPane',
                     interactive: false
                 }).addTo(map)
@@ -937,6 +1234,10 @@ const applyRealtimePga = (dataVals) => {
             }
         }
     }
+
+    // 点滅（揺れ検知中）
+    if (gridRects.size > 0) _startGridBlinking()
+    else _stopGridBlinking()
 }
 
 const tickRealtime = async () => {
@@ -955,7 +1256,7 @@ const tickRealtime = async () => {
     if (!payload) return
 
     if (payload.timestamp) palertUpdateTime.value = formatIsoToTime(payload.timestamp, 8)
-    applyRealtimePga(payload.dataVals)
+    applyRealtimePga(payload.dataVals, nowMs)
 }
 
 const startRealtimeLoop = () => {
@@ -1036,6 +1337,8 @@ watch(() => settingsStore.mainSettings.displaySeisNet.delay, () => {
     palertMarkerCount.value = 0
     palertMaxPgaGal.value = '?'
     statusStore.isActive.palertNet = false
+
+    _resetPalertHypo()
 }, { immediate: true })
 
 watch(
@@ -1061,12 +1364,15 @@ watch(
 )
 
 onBeforeUnmount(() => {
+    _stopGridBlinking()
     stopRealtimeLoop()
     if (stationListInterval) clearInterval(stationListInterval)
     stationListInterval = null
 
     if (map) map.off('zoomend', renderAll)
     clearStations()
+
+    _resetPalertHypo()
 
     if (unwatchMap) unwatchMap()
 })

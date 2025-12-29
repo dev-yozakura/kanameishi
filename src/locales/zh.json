@@ -190,6 +190,13 @@
       "kma_period": "KMA区间",
       "palert_realtime": "P-Alert实时",
       "palert_period": "P-Alert区间"
+    },
+    "shake": {
+      "nied_title": "NIED 摇晃检测",
+      "niedkmoni_title": "NIEDkmoni 摇晃检测",
+      "palert_title": "P-Alert 摇晃检测",
+      "depth": "深度 ",
+      "obs_count": "观测点数 {count}"
     }
   },
   "eqlist": {

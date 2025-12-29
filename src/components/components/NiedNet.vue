@@ -13,6 +13,7 @@ import { getTimeNumberString, playSound, sendMyNotification, calcTimeDiff, focus
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
 import { locateHypocenterGeiger } from '@/utils/HypocenterGeiger'
+import { getNearestEpiName } from '@/utils/EpiName'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { NiedStation, simpleIcon } from '@/classes/StationClasses';
@@ -43,6 +44,15 @@ let lastHypo = null
 let lastHypoEstimateAtMs = 0
 let _tjma2001 = null
 let _niedHypoTooltipKey = ''
+let _niedEpiName = ''
+let _niedEpiReqId = 0
+
+const _escapeHtml = (s) => String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 
 const _getTravelTime = () => {
     if(_tjma2001) return _tjma2001
@@ -67,7 +77,31 @@ const _resetNiedHypo = ()=>{
     firstDetectMsByStationId.clear()
     lastHypo = null
     lastHypoEstimateAtMs = 0
+    _niedEpiName = ''
+    if(niedEpicenterName) niedEpicenterName.value = ''
+    if(niedDetectActive) niedDetectActive.value = false
+    if(niedDetectOriginTime) niedDetectOriginTime.value = ''
+    if(niedDetectDepthKm) niedDetectDepthKm.value = NaN
+    if(niedDetectObsCount) niedDetectObsCount.value = 0
     _clearNiedHypoLayers()
+}
+
+const _resolveEpicenterName = async (hypo)=>{
+    if(!hypo || !niedEpicenterName) return
+    const reqId = ++_niedEpiReqId
+    try {
+        const name = await getNearestEpiName(hypo.lat, hypo.lon)
+        if(reqId !== _niedEpiReqId) return
+        _niedEpiName = name || ''
+        niedEpicenterName.value = _niedEpiName
+        _niedHypoTooltipKey = ''
+    }
+    catch {
+        if(reqId !== _niedEpiReqId) return
+        _niedEpiName = ''
+        niedEpicenterName.value = ''
+        _niedHypoTooltipKey = ''
+    }
 }
 
 const _updateHypoLayers = (hypo, frameMs)=>{
@@ -88,18 +122,20 @@ const _updateHypoLayers = (hypo, frameMs)=>{
     }
 
     const originStr = Number.isFinite(hypo.originMs) ? stampToTime(hypo.originMs, 9) : ''
-    const tooltipKey = `${hypo.depthKm}|${originStr}`
+    const tooltipKey = `${hypo.depthKm}|${originStr}|${_niedEpiName}`
     if(tooltipKey !== _niedHypoTooltipKey){
         _niedHypoTooltipKey = tooltipKey
+        const nameLine = _niedEpiName ? `<br>Name ${_escapeHtml(_niedEpiName)}` : ''
         niedHypoMarker.bindTooltip(
-            `<strong>NIED(推定)</strong><br>Depth ${hypo.depthKm}km<br>Origin ${originStr}`,
+            `<strong>NIED(推定)</strong><br>Depth ${hypo.depthKm}km<br>Origin ${originStr}${nameLine}`,
             { permanent: false, direction: 'top', className: 'custom-tooltip' }
         )
     }
 
+    const shakePColor = 'var(--swave-blue)'
     if(pRadiusKm > 0){
         if(!niedPWave){
-            niedPWave = L.circle(latLng, { color: 'white', opacity: 1, weight: 2, fill: false, radius: pRadiusKm * 1000, pane: 'wavePane', interactive: false }).addTo(map)
+            niedPWave = L.circle(latLng, { color: shakePColor, opacity: 1, weight: 2, fill: false, radius: pRadiusKm * 1000, pane: 'wavePane', interactive: false }).addTo(map)
         }
         else {
             niedPWave.setLatLng(latLng)
@@ -111,7 +147,7 @@ const _updateHypoLayers = (hypo, frameMs)=>{
         niedPWave = null
     }
 
-    const sColor = 'var(--swave-orange)'
+    const sColor = 'var(--swave-green)'
     if(sRadiusKm > 0){
         if(!niedSWave){
             niedSWave = L.circle(latLng, { color: sColor, opacity: 1, weight: 2, fill: false, radius: sRadiusKm * 1000, pane: 'wavePane', interactive: false }).addTo(map)
@@ -164,6 +200,11 @@ const niedUpdateTime = inject('niedUpdateTime')
 const niedPeriodMaxShindo = inject('niedPeriodMaxShindo')
 const niedPeriodBarClass = inject('niedPeriodBarClass')
 const niedMarkerCount = inject('niedMarkerCount')
+const niedEpicenterName = inject('niedEpicenterName')
+const niedDetectActive = inject('niedDetectActive')
+const niedDetectOriginTime = inject('niedDetectOriginTime')
+const niedDetectDepthKm = inject('niedDetectDepthKm')
+const niedDetectObsCount = inject('niedDetectObsCount')
 const handleTempEqlists = inject('handleTempEqlists')
 const smartSetView = inject('smartSetView')
 let periodMaxLevel = -1
@@ -303,13 +344,26 @@ const update = (frameMs)=>{
                     if(!Number.isFinite(tMs)) return
                     const lat = station.latLng[0]
                     const lon = station.latLng[1]
+
+                    // Yahoo sitelist 側に標高が含まれている場合のみ利用（無ければ 0m）
+                    let elevM = 0
+                    const src = stationList?.[station.id]
+                    if (Array.isArray(src) && Number.isFinite(src[2])) {
+                        elevM = Number(src[2])
+                    } else if (src && typeof src === 'object') {
+                        const v = src.elevation ?? src.elev ?? src.altitude ?? src.alt ?? src.height
+                        const n = Number(v)
+                        if (Number.isFinite(n)) elevM = n
+                    }
+
                     picks.push({
                         id: station.id,
                         tObsSec: tMs / 1000,
                         ll: L.latLng(station.latLng),
                         lat,
                         lon,
-                        level: station.level
+                        level: station.level,
+                        elevM
                     })
                 })
                 picks.sort((a,b)=>a.tObsSec-b.tObsSec)
@@ -328,7 +382,8 @@ const update = (frameMs)=>{
                             lon: o.lon,
                             ll: o.ll,
                             tObsSec: o.tObsSec,
-                            weight: distW * levelW
+                            weight: distW * levelW,
+                            elevM: Number.isFinite(o?.elevM) ? o.elevM : 0
                         }
                     })
 
@@ -354,6 +409,7 @@ const update = (frameMs)=>{
                         }
                         lastHypoEstimateAtMs = nowMs
                         solved = true
+                        _resolveEpicenterName(lastHypo)
                     }
                 }
 
@@ -368,9 +424,17 @@ const update = (frameMs)=>{
                         converged: false
                     }
                     lastHypoEstimateAtMs = nowMs
+                    _resolveEpicenterName(lastHypo)
                 }
             }
             if(lastHypo) _updateHypoLayers(lastHypo, nowMs)
+
+            if(niedDetectObsCount) niedDetectObsCount.value = activeStationsSet.size
+            if(lastHypo){
+                if(niedDetectActive) niedDetectActive.value = true
+                if(niedDetectOriginTime) niedDetectOriginTime.value = stampToTime(lastHypo.originMs, 9)
+                if(niedDetectDepthKm) niedDetectDepthKm.value = lastHypo.depthKm
+            }
         }
     }
 }
