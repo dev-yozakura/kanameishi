@@ -143,8 +143,11 @@
   },
   "shakeDetect": {
     "title": "揺れ検知",
+    "capture": "履歴に保存",
     "location": "震央地名",
     "origin_time": "発生日時",
+    "max_intensity": "最大震度",
+    "click_hint": "クリック:リプレイ / Ctrl+クリック:削除",
     "depth": "深さ",
     "obs_count": "観測点数",
     "empty": "履歴がありません"

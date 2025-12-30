@@ -179,6 +179,7 @@
                                     <div class="location">{{ niedEpicenterName }}</div>
                                     <div class="time">{{ niedDetectOriginTime }} (UTC+9)</div>
                                     <div class="bottom">
+                                        <div class="magnitude" v-if="Number.isFinite(niedDetectMagnitude)">M{{ niedDetectMagnitude.toFixed(2) }}</div>
                                         <div class="depth">{{ $t('mainMap.shake.depth') }}{{ Number.isFinite(niedDetectDepthKm) ? `${Math.round(niedDetectDepthKm)}km` : '-' }}</div>
                                         <div class="type">{{ $t('mainMap.shake.obs_count', { count: niedDetectObsCount }) }}</div>
                                     </div>
@@ -1296,6 +1297,8 @@ const niedDetectActive = ref(false)
 const niedDetectOriginTime = ref('')
 const niedDetectDepthKm = ref(NaN)
 const niedDetectObsCount = ref(0)
+const niedDetectMagnitude = ref(NaN)
+const niedDetectMagnitudeUsed = ref(0)
 provide('niedUpdateTime', niedUpdateTime)
 provide('niedMaxShindo', niedMaxShindo)
 provide('niedMaxPgaGal', niedMaxPgaGal)
@@ -1306,6 +1309,8 @@ provide('niedDetectActive', niedDetectActive)
 provide('niedDetectOriginTime', niedDetectOriginTime)
 provide('niedDetectDepthKm', niedDetectDepthKm)
 provide('niedDetectObsCount', niedDetectObsCount)
+provide('niedDetectMagnitude', niedDetectMagnitude)
+provide('niedDetectMagnitudeUsed', niedDetectMagnitudeUsed)
 
 const niedMarkerCount = ref(0)
 provide('niedMarkerCount', niedMarkerCount)
@@ -1346,6 +1351,28 @@ provide('palertDetectEpicenterName', palertDetectEpicenterName)
 const niedShakeSessionId = ref('')
 const palertShakeSessionId = ref('')
 
+const _parseOriginTimeTextToUtcMs = (originTimeText, timeZone) => {
+    // originTimeText: 'YYYY-MM-DD HH:mm:ss' (local in given UTC offset)
+    if (!originTimeText || !Number.isInteger(timeZone)) return NaN
+    const m = String(originTimeText).trim().match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/)
+    if (!m) return NaN
+    const yyyy = Number(m[1])
+    const MM = Number(m[2])
+    const dd = Number(m[3])
+    const hh = Number(m[4])
+    const mm = Number(m[5])
+    const ss = Number(m[6])
+    if (![yyyy, MM, dd, hh, mm, ss].every(Number.isFinite)) return NaN
+    // Convert local(UTC+timeZone) -> UTC
+    return Date.UTC(yyyy, MM - 1, dd, hh - timeZone, mm, ss)
+}
+
+const niedShakeSessionOriginMs = ref(NaN)
+const palertShakeSessionOriginMs = ref(NaN)
+
+const niedShakePrevObsCount = ref(0)
+const palertShakePrevObsCount = ref(0)
+
 watch(
     [
         niedDetectActive,
@@ -1353,18 +1380,39 @@ watch(
         niedEpicenterName,
         niedDetectDepthKm,
         niedDetectObsCount,
+        niedPeriodMaxShindo,
         () => settingsStore.mainSettings.displaySeisNet.niedSource,
     ],
-    ([active, originTimeText, epicenterName, depthKm, obsCount, niedSource]) => {
+    ([active, originTimeText, epicenterName, depthKm, obsCount, periodMaxShindo, niedSource]) => {
         if (!originTimeText || (!active && !(Number.isInteger(obsCount) && obsCount > 0))) return;
         const source = niedSource === 'kmoni_image' ? 'niedkmoni' : 'nied';
 
-        if (active && !niedShakeSessionId.value) {
+        const prevObsCount = Number(niedShakePrevObsCount.value) || 0
+        const startedByObs = Number.isInteger(obsCount) && obsCount > 0 && prevObsCount <= 0
+
+        const originMs = _parseOriginTimeTextToUtcMs(originTimeText, 9)
+        const sessionOriginMs = Number(niedShakeSessionOriginMs.value)
+        const shouldRotateSession = (
+            niedShakeSessionId.value &&
+            Number.isFinite(originMs) &&
+            Number.isFinite(sessionOriginMs) &&
+            // New event heuristic: origin jumps more than 30s (or goes backwards)
+            (Math.abs(originMs - sessionOriginMs) > 30 * 1000 || originMs < sessionOriginMs - 5 * 1000)
+        )
+
+        if ((startedByObs || active) && !niedShakeSessionId.value) {
             niedShakeSessionId.value = `shake:${source}:${Date.now()}`
+            niedShakeSessionOriginMs.value = originMs
+        } else if ((startedByObs || active) && shouldRotateSession) {
+            niedShakeSessionId.value = `shake:${source}:${Date.now()}`
+            niedShakeSessionOriginMs.value = originMs
         }
         if (!active && (!Number.isInteger(obsCount) || obsCount <= 0)) {
             niedShakeSessionId.value = ''
+            niedShakeSessionOriginMs.value = NaN
         }
+
+        niedShakePrevObsCount.value = Number.isInteger(obsCount) ? obsCount : prevObsCount
 
         shakeDetectionsStore.upsertShake({
             id: niedShakeSessionId.value || undefined,
@@ -1374,6 +1422,7 @@ watch(
             timeZone: 9,
             depthKm,
             obsCount,
+            maxShindo: periodMaxShindo,
         });
     },
     { immediate: true }
@@ -1386,16 +1435,36 @@ watch(
         palertDetectEpicenterName,
         palertDetectDepthKm,
         palertDetectObsCount,
+        palertPeriodMaxShindo,
     ],
-    ([active, originTimeText, epicenterName, depthKm, obsCount]) => {
+    ([active, originTimeText, epicenterName, depthKm, obsCount, periodMaxShindo]) => {
         if (!originTimeText || (!active && !(Number.isInteger(obsCount) && obsCount > 0))) return;
 
-        if (active && !palertShakeSessionId.value) {
+        const prevObsCount = Number(palertShakePrevObsCount.value) || 0
+        const startedByObs = Number.isInteger(obsCount) && obsCount > 0 && prevObsCount <= 0
+
+        const originMs = _parseOriginTimeTextToUtcMs(originTimeText, 8)
+        const sessionOriginMs = Number(palertShakeSessionOriginMs.value)
+        const shouldRotateSession = (
+            palertShakeSessionId.value &&
+            Number.isFinite(originMs) &&
+            Number.isFinite(sessionOriginMs) &&
+            (Math.abs(originMs - sessionOriginMs) > 30 * 1000 || originMs < sessionOriginMs - 5 * 1000)
+        )
+
+        if ((startedByObs || active) && !palertShakeSessionId.value) {
             palertShakeSessionId.value = `shake:palert:${Date.now()}`
+            palertShakeSessionOriginMs.value = originMs
+        } else if ((startedByObs || active) && shouldRotateSession) {
+            palertShakeSessionId.value = `shake:palert:${Date.now()}`
+            palertShakeSessionOriginMs.value = originMs
         }
         if (!active && (!Number.isInteger(obsCount) || obsCount <= 0)) {
             palertShakeSessionId.value = ''
+            palertShakeSessionOriginMs.value = NaN
         }
+
+        palertShakePrevObsCount.value = Number.isInteger(obsCount) ? obsCount : prevObsCount
 
         shakeDetectionsStore.upsertShake({
             id: palertShakeSessionId.value || undefined,
@@ -1405,6 +1474,7 @@ watch(
             timeZone: 8,
             depthKm,
             obsCount,
+            maxShindo: periodMaxShindo,
         });
     },
     { immediate: true }

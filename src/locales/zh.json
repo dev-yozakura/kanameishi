@@ -143,8 +143,11 @@
   },
   "shakeDetect": {
     "title": "摇晃检测",
+    "capture": "保存到记录",
     "location": "震央地名",
     "origin_time": "发生时间",
+    "max_intensity": "最大震度",
+    "click_hint": "点击:回放 / Ctrl+点击:删除",
     "depth": "深度",
     "obs_count": "观测点数",
     "empty": "暂无记录"

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 
 const STORAGE_KEY = 'shakeDetections';
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 const MAX_ITEMS = 200;
 
 function safeParse(json) {
@@ -24,6 +24,34 @@ function normalizeString(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 
+function shindoLabelRank(label) {
+    // JMA shindo label ordering
+    const v = normalizeString(label);
+    if (!v || v === '?') return -1;
+    const map = {
+        '0': 0,
+        '1': 1,
+        '2': 2,
+        '3': 3,
+        '4': 4,
+        '5弱': 5,
+        '5強': 6,
+        '6弱': 7,
+        '6強': 8,
+        '7': 9,
+    };
+    if (Object.prototype.hasOwnProperty.call(map, v)) return map[v];
+    const n = Number(v);
+    return Number.isFinite(n) ? n : -1;
+}
+
+function pickMaxShindo(prevLabel, nextLabel) {
+    const a = shindoLabelRank(prevLabel);
+    const b = shindoLabelRank(nextLabel);
+    if (b > a) return normalizeString(nextLabel);
+    return normalizeString(prevLabel);
+}
+
 function buildShakeId({ source, originTimeText, timeZone }) {
     return `shake:${source}:${originTimeText}:UTC+${timeZone}`;
 }
@@ -35,11 +63,17 @@ function buildTsunamiId({ source, id }) {
 export const useShakeDetectionsStore = defineStore('shakeDetectionsStore', {
     state: () => ({
         items: [],
+        captureEnabled: true,
         hydrated: false,
     }),
     getters: {
         sortedItems: (state) => {
-            return [...state.items].sort((a, b) => (b.updatedAtMs || 0) - (a.updatedAtMs || 0));
+            // 最新(作成/開始)が一番上。更新時刻で並びが揺れないよう createdAtMs 優先。
+            return [...state.items].sort((a, b) => {
+                const at = (b?.createdAtMs ?? b?.updatedAtMs ?? 0) - (a?.createdAtMs ?? a?.updatedAtMs ?? 0);
+                if (at !== 0) return at;
+                return (b?.updatedAtMs ?? 0) - (a?.updatedAtMs ?? a?.updatedAtMs ?? 0);
+            });
         },
     },
     actions: {
@@ -54,10 +88,13 @@ export const useShakeDetectionsStore = defineStore('shakeDetectionsStore', {
 
             const version = parsed.version;
             const items = parsed.items;
-            if (version !== STORAGE_VERSION || !Array.isArray(items)) {
+            if (!Array.isArray(items) || (version !== 1 && version !== STORAGE_VERSION)) {
                 this.hydrated = true;
                 return;
             }
+
+            const captureEnabled = parsed.captureEnabled;
+            if (typeof captureEnabled === 'boolean') this.captureEnabled = captureEnabled;
 
             this.items = items
                 .filter((x) => x && typeof x === 'object')
@@ -66,7 +103,7 @@ export const useShakeDetectionsStore = defineStore('shakeDetectionsStore', {
         },
 
         serialize() {
-            return JSON.stringify({ version: STORAGE_VERSION, items: this.items });
+            return JSON.stringify({ version: STORAGE_VERSION, captureEnabled: !!this.captureEnabled, items: this.items });
         },
 
         persist() {
@@ -91,10 +128,24 @@ export const useShakeDetectionsStore = defineStore('shakeDetectionsStore', {
             }
         },
 
-        upsertShake({ id, source, epicenterName, originTimeText, timeZone, depthKm, obsCount }) {
+        setCaptureEnabled(enabled) {
+            this.captureEnabled = !!enabled;
+        },
+
+        removeItem(id) {
+            const normalizedId = normalizeString(id);
+            if (!normalizedId) return;
+            const index = this.items.findIndex((x) => x?.id === normalizedId);
+            if (index === -1) return;
+            this.items.splice(index, 1);
+        },
+
+        upsertShake({ id, source, epicenterName, originTimeText, timeZone, depthKm, obsCount, maxShindo }) {
+            if (!this.captureEnabled) return;
             const normalizedSource = normalizeString(source);
             const normalizedOriginTimeText = normalizeString(originTimeText);
             const normalizedEpicenterName = normalizeString(epicenterName);
+            const normalizedMaxShindo = normalizeString(maxShindo);
 
             if (!normalizedSource || !normalizedOriginTimeText || !Number.isInteger(timeZone)) return;
 
@@ -116,18 +167,22 @@ export const useShakeDetectionsStore = defineStore('shakeDetectionsStore', {
                 timeZone,
                 depthKm: isFiniteNumber(depthKm) ? depthKm : null,
                 obsCount: Number.isInteger(obsCount) ? obsCount : null,
+                maxShindo: normalizedMaxShindo || null,
                 updatedAtMs: nowMs(),
                 createdAtMs: nowMs(),
             };
 
             const prev = this.items.find((x) => x?.id === itemId);
             if (prev) {
+                // keep max intensity through the session
+                nextItem.maxShindo = pickMaxShindo(prev.maxShindo, nextItem.maxShindo) || null;
                 const unchanged =
                     prev.epicenterName === nextItem.epicenterName &&
                     prev.originTimeText === nextItem.originTimeText &&
                     prev.timeZone === nextItem.timeZone &&
                     prev.depthKm === nextItem.depthKm &&
-                    prev.obsCount === nextItem.obsCount;
+                    prev.obsCount === nextItem.obsCount &&
+                    prev.maxShindo === nextItem.maxShindo;
                 if (unchanged) return;
                 nextItem.createdAtMs = prev.createdAtMs;
             }
@@ -136,6 +191,7 @@ export const useShakeDetectionsStore = defineStore('shakeDetectionsStore', {
         },
 
         upsertTsunami({ source, id, titleText, reportTime, timeZone, status }) {
+            if (!this.captureEnabled) return;
             const normalizedSource = normalizeString(source);
             const normalizedId = normalizeString(id);
 

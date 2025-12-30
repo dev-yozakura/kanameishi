@@ -95,6 +95,10 @@ watch(() => shakeDetectionsStore.items, () => {
   localStorage.setItem('shakeDetections', shakeDetectionsStore.serialize())
 }, { deep: true })
 
+watch(() => shakeDetectionsStore.captureEnabled, () => {
+  localStorage.setItem('shakeDetections', shakeDetectionsStore.serialize())
+})
+
 </script>
 
 <style lang="scss" scoped>

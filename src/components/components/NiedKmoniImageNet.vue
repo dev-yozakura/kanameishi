@@ -15,8 +15,10 @@ import { iconUrls } from '@/utils/Urls'
 import { getLevelFromInstShindo, stampToTime, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel, calcWaveDistance } from '@/utils/Utils'
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
 import { locateHypocenterGeigerRobust } from '@/utils/HypocenterGeiger'
+import { refineHypocenterArrivalNonArrival } from '@/utils/ArrivalNonArrivalRefine'
 import { getNearestEpiName } from '@/utils/EpiName'
 import { NiedStation, simpleIcon } from '@/classes/StationClasses'
+import { estimateMagnitudeJointRegression } from '@/utils/MagnitudeEstimate'
 import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
 
 const statusStore = useStatusStore()
@@ -34,6 +36,8 @@ const niedDetectActive = inject('niedDetectActive')
 const niedDetectOriginTime = inject('niedDetectOriginTime')
 const niedDetectDepthKm = inject('niedDetectDepthKm')
 const niedDetectObsCount = inject('niedDetectObsCount')
+const niedDetectMagnitude = inject('niedDetectMagnitude')
+const niedDetectMagnitudeUsed = inject('niedDetectMagnitudeUsed')
 const handleTempEqlists = inject('handleTempEqlists')
 const smartSetView = inject('smartSetView')
 
@@ -67,10 +71,15 @@ let _niedHypoTooltipKey = ''
 
 let lastHypoEstimateAtMs = 0
 let lastHypo = null // { lat, lon, depthKm, originMs, score }
+let lastMagEstimateAtMs = 0
 let hypoEstimateFinished = false
 let hypoStopChecked = false
 let _niedEpiName = ''
 let _niedEpiReqId = 0
+
+let lastPgaArr = null
+let lastPgaValidArr = null
+let lastPgaTsMs = NaN
 
 const HYPO_ESTIMATE_MIN_POINTS = 40
 const HYPO_ESTIMATE_STOP_AFTER_MS = 20 * 1000
@@ -112,6 +121,7 @@ const _resetNiedHypo = (hard = false) => {
   if (hard) kmoniFirstDetectMsByStationId.clear()
   lastHypoEstimateAtMs = 0
   lastHypo = null
+  lastMagEstimateAtMs = 0
   hypoEstimateFinished = false
   hypoStopChecked = false
   _niedEpiName = ''
@@ -120,6 +130,8 @@ const _resetNiedHypo = (hard = false) => {
   if (niedDetectOriginTime) niedDetectOriginTime.value = ''
   if (niedDetectDepthKm) niedDetectDepthKm.value = NaN
   if (niedDetectObsCount) niedDetectObsCount.value = 0
+  if (niedDetectMagnitude) niedDetectMagnitude.value = NaN
+  if (niedDetectMagnitudeUsed) niedDetectMagnitudeUsed.value = 0
   _clearNiedHypoLayers()
 }
 
@@ -354,7 +366,7 @@ const update = (frameMs) => {
   if (stationList.length === stations.length && stations.length === stationData.value.length) {
     const render = document.visibilityState === 'visible'
     if (!render) pendingRender = true
-    const nowMs = Number.isFinite(frameMs) ? frameMs : timeStore.getTimeStamp()
+    const nowMs = Number.isFinite(frameMs) ? frameMs : Date.now()
     let maxLevel = -1
     for (let i = 0; i < stationList.length; i += 1) {
       stations[i].update(stationData.value[i], render)
@@ -424,16 +436,13 @@ const update = (frameMs) => {
       lastDetectActiveAtMs = nowMs
     }
 
-    if (Number.isFinite(nowMs)) {
-      activeSet.forEach((station) => {
-        // 既にアクティブになっている局でも、初回検知時刻が未記録なら補完する
-        if (!kmoniFirstDetectMsByStationId.has(station.id)) {
-          kmoniFirstDetectMsByStationId.set(station.id, { tMs: nowMs, level: station.level })
-        }
-      })
-    }
-
-    activeSet.forEach((station) => station.setActive())
+    // Yahoo(NiedNet) と同じ: アクティブになった局を setActive しつつ、初検知時刻を記録する
+    activeSet.forEach((station) => {
+      if (Number.isFinite(nowMs) && !kmoniFirstDetectMsByStationId.has(station.id)) {
+        kmoniFirstDetectMsByStationId.set(station.id, { tMs: nowMs, level: station.level })
+      }
+      station.setActive()
+    })
 
     const canEstimate = map && Number.isFinite(nowMs) && (
       activeSet.size > 0 ||
@@ -485,12 +494,58 @@ const update = (frameMs) => {
             Infinity
           )
           const clampUpper = Number.isFinite(minObsSec) ? minObsSec - 0.01 : Infinity
-          const originSec = Number.isFinite(est.originSec) ? Math.min(est.originSec, clampUpper) : clampUpper
+          const originSec0 = Number.isFinite(est.originSec) ? Math.min(est.originSec, clampUpper) : clampUpper
+
+          // 着未着法: 未到着(未検知)局の不等式ペナルティで軽量リファイン
+          const arrivedIds = new Set(used.map((p) => p.id))
+          const candidateNonArrivalIds = new Set()
+          for (const p of used) {
+            const nbs = adjStationIds?.[p.id] || []
+            for (const nid of nbs) {
+              if (arrivedIds.has(nid)) continue
+              if (kmoniFirstDetectMsByStationId.has(nid)) continue
+              candidateNonArrivalIds.add(nid)
+            }
+          }
+          const nonArrivals = []
+          const hypoSeed = L.latLng(est.lat, est.lon)
+          for (const nid of candidateNonArrivalIds) {
+            const st = stations[nid]
+            if (!st?.latLng) continue
+            const ll = L.latLng(st.latLng)
+            const distKm = hypoSeed.distanceTo(ll) / 1000
+            const distW = 1 / Math.pow(1 + distKm / 200, 2)
+            nonArrivals.push({ ll, weight: distW })
+            if (nonArrivals.length >= 48) break
+          }
+          const refined = refineHypocenterArrivalNonArrival({
+            travelTime,
+            hypo: {
+              lat: est.lat,
+              lon: est.lon,
+              depthKm: est.depthKm,
+              originSec: originSec0,
+            },
+            arrivals: built.observations,
+            nonArrivals,
+            nowSec: nowMs / 1000,
+            options: {
+              lambda: 0.25,
+              searchKm: 10,
+              depthKm: 6,
+              timeSec: 0.6,
+              useStationElevation: false,
+              acceptImprovementRatio: 0.985,
+            },
+          })
+          const originSec = Number.isFinite(refined?.originSec)
+            ? Math.min(refined.originSec, clampUpper)
+            : originSec0
 
           lastHypo = {
-            lat: est.lat,
-            lon: est.lon,
-            depthKm: est.depthKm,
+            lat: Number.isFinite(refined?.lat) ? refined.lat : est.lat,
+            lon: Number.isFinite(refined?.lon) ? refined.lon : est.lon,
+            depthKm: Number.isFinite(refined?.depthKm) ? refined.depthKm : est.depthKm,
             originMs: originSec * 1000,
             rmsSec: est.rmsSec,
             converged: est.converged,
@@ -498,7 +553,6 @@ const update = (frameMs) => {
           lastHypoEstimateAtMs = nowMs
           solved = true
           _resolveEpicenterName(lastHypo)
-          _updateNiedHypoLayers(lastHypo, nowMs)
         }
       }
 
@@ -515,7 +569,6 @@ const update = (frameMs) => {
         }
         lastHypoEstimateAtMs = nowMs
         _resolveEpicenterName(lastHypo)
-        _updateNiedHypoLayers(lastHypo, nowMs)
       }
 
       if (shouldStopNow && lastHypo) {
@@ -533,6 +586,44 @@ const update = (frameMs) => {
       if (niedDetectActive) niedDetectActive.value = true
       if (niedDetectOriginTime) niedDetectOriginTime.value = stampToTime(lastHypo.originMs, 9)
       if (niedDetectDepthKm) niedDetectDepthKm.value = lastHypo.depthKm
+
+      // PGA + 距離から推定マグニチュード（サンプルPythonのJS移植）
+      if (
+        niedDetectMagnitude &&
+        Number.isFinite(nowMs) &&
+        lastPgaArr &&
+        lastPgaValidArr &&
+        (lastMagEstimateAtMs === 0 || nowMs - lastMagEstimateAtMs >= 1000)
+      ) {
+        const hypoLl = L.latLng(lastHypo.lat, lastHypo.lon)
+        const R = []
+        const PGA = []
+
+        for (const [id] of kmoniFirstDetectMsByStationId.entries()) {
+          const station = stations[id]
+          if (!station) continue
+          if (!lastPgaValidArr[id]) continue
+          const pga = Number(lastPgaArr[id])
+          if (!Number.isFinite(pga)) continue
+          const distKm = hypoLl.distanceTo(L.latLng(station.latLng)) / 1000
+          if (!Number.isFinite(distKm) || distKm <= 0) continue
+          R.push(distKm)
+          PGA.push(pga)
+        }
+
+        const { M, nUsed } = estimateMagnitudeJointRegression(R, PGA, {
+          a: 0.8,
+          b: 1.05,
+          c: 0.002,
+          d: -1.0,
+          minPgaGal: 0.3,
+          weightBy: 'distance2',
+        })
+
+        niedDetectMagnitude.value = Number.isFinite(M) ? M : NaN
+        if (niedDetectMagnitudeUsed) niedDetectMagnitudeUsed.value = nUsed
+        lastMagEstimateAtMs = nowMs
+      }
     }
   }
 }
@@ -632,12 +723,16 @@ const handleDecoded = (instArr, validArr, tsMs) => {
   update(tsMs)
 }
 
-const handleDecodedPga = (pgaArr, validArr) => {
+const handleDecodedPga = (pgaArr, validArr, tsMs) => {
   if (!niedMaxPgaGal) return
   if (!pgaArr || !validArr) {
     niedMaxPgaGal.value = '?'
     return
   }
+
+  lastPgaArr = pgaArr
+  lastPgaValidArr = validArr
+  lastPgaTsMs = tsMs
 
   let maxPga = -Infinity
   for (let i = 0; i < pgaArr.length; i += 1) {

@@ -10,30 +10,14 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 // https://vitejs.dev/config/
 export default defineConfig(({ command }) => {
   const isTauri = !!process.env.TAURI_ENV_PLATFORM
-
   const normalizeBase = (value) => {
     if (!value) return '/'
-    let normalized = value.trim()
-    if (!normalized.startsWith('/')) normalized = `/${normalized}`
-    if (!normalized.endsWith('/')) normalized = `${normalized}/`
-    return normalized
+    return value.endsWith('/') ? value : `${value}/`
   }
-
-  const isWebBuild = command === 'build' && !isTauri
-  const githubRepo = process.env.GITHUB_REPOSITORY
-  const githubOwner = githubRepo?.includes('/') ? githubRepo.split('/')[0] : undefined
-  const githubRepoName = githubRepo?.includes('/') ? githubRepo.split('/')[1] : undefined
-
-  const githubPagesBase =
-    githubOwner && githubRepoName === `${githubOwner}.github.io`
-      ? '/'
-      : githubRepoName
-        ? `/${githubRepoName}/`
-        : '/'
-
-  const base = isWebBuild
-    ? normalizeBase(process.env.BASE_URL ?? githubPagesBase)
-    : '/'
+  const base =
+    command === 'build' && !isTauri
+      ? normalizeBase(process.env.BASE_URL ?? '/')
+      : '/'
 
   return {
     base,
@@ -46,24 +30,35 @@ export default defineConfig(({ command }) => {
     host: 'localhost',
     port: 5173,
     proxy: {
-      '/kmoni': {
-        target: 'http://www.kmoni.bosai.go.jp',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/kmoni/, ''),
-      },
+      // Kyoshin Monitor (Yahoo RealTimeData) - DEV uses /yahoo
       '/yahoo': {
         target: 'https://weather-kyoshin.east.edge.storage-yahoo.jp',
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/yahoo/, ''),
-        configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq) => {
-            // Yahoo側の参照元チェック回避用（必要になることがある）
-            proxyReq.setHeader('Origin', 'https://weather.yahoo.co.jp')
-            proxyReq.setHeader('Referer', 'https://weather.yahoo.co.jp/')
-          })
+      },
+
+      // NIED kmoni webservice / realtime images - DEV uses /kmoni
+      '/kmoni': {
+        // Some networks block 443 to kmoni.bosai.go.jp but allow 80.
+        // Using HTTP upstream keeps the app working in DEV mode.
+        target: 'http://www.kmoni.bosai.go.jp',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/kmoni/, ''),
+      },
+
+      // P-Alert GraphQL - DEV uses /palert/graphql/
+      // The upstream may validate Origin/Referer, so proxy sets them.
+      '/palert': {
+        target: 'https://palert.earth.sinica.edu.tw',
+        changeOrigin: true,
+        secure: true,
+        headers: {
+          Origin: 'https://palert.earth.sinica.edu.tw',
+          Referer: 'https://palert.earth.sinica.edu.tw/realtime',
         },
+        rewrite: (path) => path.replace(/^\/palert/, ''),
       },
       '/msil': {
         target: 'https://www.msil.go.jp',
@@ -106,18 +101,6 @@ export default defineConfig(({ command }) => {
         target: 'https://lb-4.exptech.dev',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/exptech-lb-4/, ''),
-      },
-      '/palert': {
-        target: 'https://palert.earth.sinica.edu.tw',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/palert/, ''),
-        configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq) => {
-            proxyReq.setHeader('Origin', 'https://palert.earth.sinica.edu.tw')
-            proxyReq.setHeader('Referer', 'https://palert.earth.sinica.edu.tw/realtime')
-          })
-        },
       },
     },
   },

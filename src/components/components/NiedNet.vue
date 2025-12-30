@@ -13,6 +13,7 @@ import { getTimeNumberString, playSound, sendMyNotification, calcTimeDiff, focus
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
 import { locateHypocenterGeigerRobust } from '@/utils/HypocenterGeiger'
+import { refineHypocenterArrivalNonArrival } from '@/utils/ArrivalNonArrivalRefine'
 import { getNearestEpiName } from '@/utils/EpiName'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -446,12 +447,61 @@ const update = (frameMs)=>{
                             Infinity
                         )
                         const clampUpper = Number.isFinite(minObsSec) ? (minObsSec - 0.01) : Infinity
-                        const originSec = Number.isFinite(est.originSec) ? Math.min(est.originSec, clampUpper) : clampUpper
+                        const originSec0 = Number.isFinite(est.originSec) ? Math.min(est.originSec, clampUpper) : clampUpper
+
+                        // 着未着法: 未到着(未検知)局の不等式ペナルティで軽量リファイン
+                        // 非検知局は「使用点の近傍候補(隣接局)」のみ採用し、計算量を抑える
+                        const arrivedIds = new Set(used.map((p) => p.id))
+                        const candidateNonArrivalIds = new Set()
+                        for (const p of used) {
+                            const nbs = adjStationIds?.[p.id] || []
+                            for (const nid of nbs) {
+                                if (arrivedIds.has(nid)) continue
+                                if (firstDetectMsByStationId.has(nid)) continue
+                                candidateNonArrivalIds.add(nid)
+                            }
+                        }
+                        const nonArrivals = []
+                        // 近い局ほど制約力が強くなるよう距離重みを付ける
+                        const hypoSeed = L.latLng(est.lat, est.lon)
+                        for (const nid of candidateNonArrivalIds) {
+                            const st = stations[nid]
+                            if (!st?.latLng) continue
+                            const ll = L.latLng(st.latLng)
+                            const distKm = hypoSeed.distanceTo(ll) / 1000
+                            const distW = 1 / Math.pow(1 + distKm / 200, 2)
+                            nonArrivals.push({ ll, weight: distW })
+                            if (nonArrivals.length >= 48) break
+                        }
+                        const refined = refineHypocenterArrivalNonArrival({
+                            travelTime: _getTravelTime(),
+                            hypo: {
+                                lat: est.lat,
+                                lon: est.lon,
+                                depthKm: est.depthKm,
+                                originSec: originSec0,
+                            },
+                            arrivals: observations,
+                            nonArrivals,
+                            nowSec: nowMs / 1000,
+                            options: {
+                                lambda: 0.25,
+                                searchKm: 10,
+                                depthKm: 6,
+                                timeSec: 0.6,
+                                useStationElevation: false,
+                                acceptImprovementRatio: 0.985,
+                            }
+                        })
+
+                        const originSec = Number.isFinite(refined?.originSec)
+                            ? Math.min(refined.originSec, clampUpper)
+                            : originSec0
 
                         lastHypo = {
-                            lat: est.lat,
-                            lon: est.lon,
-                            depthKm: est.depthKm,
+                            lat: Number.isFinite(refined?.lat) ? refined.lat : est.lat,
+                            lon: Number.isFinite(refined?.lon) ? refined.lon : est.lon,
+                            depthKm: Number.isFinite(refined?.depthKm) ? refined.depthKm : est.depthKm,
                             originMs: originSec * 1000,
                             rmsSec: est.rmsSec,
                             converged: est.converged
