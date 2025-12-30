@@ -10,8 +10,30 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 // https://vitejs.dev/config/
 export default defineConfig(({ command }) => {
   const isTauri = !!process.env.TAURI_ENV_PLATFORM
-  const base =
-    command === 'build' && !isTauri ? (process.env.BASE_URL ?? '/') : '/'
+
+  const normalizeBase = (value) => {
+    if (!value) return '/'
+    let normalized = value.trim()
+    if (!normalized.startsWith('/')) normalized = `/${normalized}`
+    if (!normalized.endsWith('/')) normalized = `${normalized}/`
+    return normalized
+  }
+
+  const isWebBuild = command === 'build' && !isTauri
+  const githubRepo = process.env.GITHUB_REPOSITORY
+  const githubOwner = githubRepo?.includes('/') ? githubRepo.split('/')[0] : undefined
+  const githubRepoName = githubRepo?.includes('/') ? githubRepo.split('/')[1] : undefined
+
+  const githubPagesBase =
+    githubOwner && githubRepoName === `${githubOwner}.github.io`
+      ? '/'
+      : githubRepoName
+        ? `/${githubRepoName}/`
+        : '/'
+
+  const base = isWebBuild
+    ? normalizeBase(process.env.BASE_URL ?? githubPagesBase)
+    : '/'
 
   return {
     base,
@@ -128,8 +150,8 @@ export default defineConfig(({ command }) => {
             manifest: {
               name: '要石 kanameishi',
               short_name: 'kanameishi',
-              start_url: '/',
-              scope: '/',
+              start_url: base,
+              scope: base,
               display: 'standalone',
               icons: [
                 {

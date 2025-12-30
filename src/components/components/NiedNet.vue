@@ -35,7 +35,10 @@ const niedHypoIcon = L.icon({
     iconAnchor: [iconRadius, iconRadius]
 })
 
+// stationId -> { tMs: number, level: number }
 const firstDetectMsByStationId = new Map()
+const OBS_KEEP_GAP_MS = 10 * 1000
+let lastDetectActiveAtMs = 0
 let niedHypoMarker = null
 let niedPWave = null
 let niedSWave = null
@@ -73,8 +76,8 @@ const _clearNiedHypoLayers = ()=>{
     _niedHypoTooltipKey = ''
 }
 
-const _resetNiedHypo = ()=>{
-    firstDetectMsByStationId.clear()
+const _resetNiedHypo = (hard = false)=>{
+    if(hard) firstDetectMsByStationId.clear()
     lastHypo = null
     lastHypoEstimateAtMs = 0
     _niedEpiName = ''
@@ -329,9 +332,19 @@ const update = (frameMs)=>{
             })
             if(first) decimal = first.latLng.map(val => Math.round((val + 180) % 1 * 10) / 10)
         }
+
+        // 検出が一度途切れても、推定に使う観測点(初検知)は保持する。
+        // ただし長時間空いた後に再び揺れ検知が始まった場合は、新規イベント扱いでクリアする。
+        if(Number.isFinite(nowMs) && activeStationsSet.size > 0){
+            if(lastDetectActiveAtMs > 0 && nowMs - lastDetectActiveAtMs > OBS_KEEP_GAP_MS){
+                _resetNiedHypo(true)
+            }
+            lastDetectActiveAtMs = nowMs
+        }
+
         activeStationsSet.forEach(station=>{
             if(Number.isFinite(nowMs) && !firstDetectMsByStationId.has(station.id)) {
-                firstDetectMsByStationId.set(station.id, nowMs)
+                firstDetectMsByStationId.set(station.id, { tMs: nowMs, level: station.level })
             }
             station.setActive()
         })
@@ -339,9 +352,11 @@ const update = (frameMs)=>{
         if(map && Number.isFinite(nowMs) && activeStationsSet.size > 0){
             if(nowMs - lastHypoEstimateAtMs >= 1000){
                 const picks = []
-                activeStationsSet.forEach(station=>{
-                    const tMs = firstDetectMsByStationId.get(station.id)
-                    if(!Number.isFinite(tMs)) return
+                // 推定には「現在アクティブな局」だけでなく、イベント中に一度でも検知した局(初検知)を使う
+                for (const [id, info] of firstDetectMsByStationId.entries()) {
+                    const station = stations[id]
+                    const tMs = info?.tMs
+                    if(!station || !Number.isFinite(tMs)) continue
                     const lat = station.latLng[0]
                     const lon = station.latLng[1]
 
@@ -357,22 +372,24 @@ const update = (frameMs)=>{
                     }
 
                     picks.push({
-                        id: station.id,
+                        id,
                         tObsSec: tMs / 1000,
                         ll: L.latLng(station.latLng),
                         lat,
                         lon,
-                        level: station.level,
+                        level: Number.isFinite(info?.level) ? info.level : (station.level ?? -1),
                         elevM
                     })
-                })
+                }
                 picks.sort((a,b)=>a.tObsSec-b.tObsSec)
                 const used = picks.slice(0, 40)
 
                 let solved = false
                 if(used.length >= 4){
-                    const first = used[0]
-                    const hypo0 = L.latLng(first.lat, first.lon)
+                    const seed = used.slice(0, 3)
+                    const initialLat = seed.reduce((s, o) => s + o.lat, 0) / seed.length
+                    const initialLon = seed.reduce((s, o) => s + o.lon, 0) / seed.length
+                    const hypo0 = L.latLng(initialLat, initialLon)
                     const observations = used.map(o=>{
                         const distKm = hypo0.distanceTo(o.ll) / 1000
                         const distW = 1 / Math.pow(1 + distKm / 200, 2)
@@ -391,10 +408,10 @@ const update = (frameMs)=>{
                         travelTime: _getTravelTime(),
                         observations,
                         initial: {
-                            lat: first.lat,
-                            lon: first.lon,
+                            lat: initialLat,
+                            lon: initialLon,
                             depthKm: 10,
-                            originSec: first.tObsSec - 2.0
+                            originSec: used[0].tObsSec - 2.0
                         },
                         maxIter: 8
                     })
@@ -696,7 +713,7 @@ watch(()=>settingsStore.mainSettings.displaySeisNet.delay, newVal=>{
         station.expireSeconds = station.defaultExpireSeconds
         station.update('c', true)
     })
-    _resetNiedHypo()
+    _resetNiedHypo(true)
 
     clearInterval(delayInterval)
     if(newVal > maxDelay / 60000){
@@ -711,7 +728,7 @@ watch(()=>settingsStore.mainSettings.displaySeisNet.delay, newVal=>{
     }
 }, { immediate: true })
 onBeforeUnmount(()=>{
-    _resetNiedHypo()
+    _resetNiedHypo(true)
     if(niedMarkerCount) niedMarkerCount.value = 0
     clearInterval(fetchStationInterval)
     clearInterval(requestInterval)

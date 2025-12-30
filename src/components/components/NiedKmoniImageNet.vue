@@ -54,7 +54,10 @@ const niedHypoIcon = L.icon({
   iconAnchor: [iconRadius, iconRadius],
 })
 
+// stationId -> { tMs: number, level: number }
 const kmoniFirstDetectMsByStationId = new Map() // stationId -> first detect frame ts (ms)
+const OBS_KEEP_GAP_MS = 10 * 1000
+let lastDetectActiveAtMs = 0
 
 let niedHypoMarker = null
 let niedPWave = null
@@ -95,8 +98,8 @@ const _clearNiedHypoLayers = () => {
   _niedHypoTooltipKey = ''
 }
 
-const _resetNiedHypo = () => {
-  kmoniFirstDetectMsByStationId.clear()
+const _resetNiedHypo = (hard = false) => {
+  if (hard) kmoniFirstDetectMsByStationId.clear()
   lastHypoEstimateAtMs = 0
   lastHypo = null
   _niedEpiName = ''
@@ -128,11 +131,14 @@ const _resolveEpicenterName = async (hypo) => {
 const _buildGeigerObservations = (used) => {
   if (!used?.length) return null
 
-  // 初期値: 最初に検知した観測点
+  // 初期値: 最初に検知した3点の重心（深さは固定10km）
+  const seed = used.slice(0, 3)
+  const initialLat = seed.reduce((s, o) => s + o.lat, 0) / seed.length
+  const initialLon = seed.reduce((s, o) => s + o.lon, 0) / seed.length
   const first = used[0]
   const initial = {
-    lat: first.lat,
-    lon: first.lon,
+    lat: initialLat,
+    lon: initialLon,
     depthKm: 10,
     originSec: first.tObsSec - 2.0,
   }
@@ -393,11 +399,20 @@ const update = (frameMs) => {
       if (first) decimal = first.latLng.map((val) => Math.round(((val + 180) % 1) * 10) / 10)
     }
 
+    // 検出が一度途切れても、推定に使う観測点(初検知)は保持する。
+    // ただし長時間空いた後に再び揺れ検知が始まった場合は、新規イベント扱いでクリアする。
+    if (Number.isFinite(nowMs) && activeSet.size > 0) {
+      if (lastDetectActiveAtMs > 0 && nowMs - lastDetectActiveAtMs > OBS_KEEP_GAP_MS) {
+        _resetNiedHypo(true)
+      }
+      lastDetectActiveAtMs = nowMs
+    }
+
     if (Number.isFinite(nowMs)) {
       activeSet.forEach((station) => {
         // 既にアクティブになっている局でも、初回検知時刻が未記録なら補完する
         if (!kmoniFirstDetectMsByStationId.has(station.id)) {
-          kmoniFirstDetectMsByStationId.set(station.id, nowMs)
+          kmoniFirstDetectMsByStationId.set(station.id, { tMs: nowMs, level: station.level })
         }
       })
     }
@@ -406,20 +421,22 @@ const update = (frameMs) => {
 
     if (map && Number.isFinite(nowMs) && activeSet.size > 0 && nowMs - lastHypoEstimateAtMs >= 1000) {
       const picks = []
-      activeSet.forEach((station) => {
-        const tMs = kmoniFirstDetectMsByStationId.get(station.id)
-        if (!Number.isFinite(tMs)) return
-        const elevM = Number(points.value?.[station.id]?.elevation)
+      // 推定には「現在アクティブな局」だけでなく、イベント中に一度でも検知した局(初検知)を使う
+      for (const [id, info] of kmoniFirstDetectMsByStationId.entries()) {
+        const station = stations[id]
+        const tMs = info?.tMs
+        if (!station || !Number.isFinite(tMs)) continue
+        const elevM = Number(points.value?.[id]?.elevation)
         picks.push({
-          id: station.id,
+          id,
           tObsSec: tMs / 1000,
           ll: L.latLng(station.latLng),
           lat: station.latLng[0],
           lon: station.latLng[1],
-          level: station.level,
+          level: Number.isFinite(info?.level) ? info.level : (station.level ?? -1),
           elevM: Number.isFinite(elevM) ? elevM : 0,
         })
-      })
+      }
       picks.sort((a, b) => a.tObsSec - b.tObsSec)
       const used = picks.slice(0, 40)
 
@@ -860,7 +877,7 @@ watch(
     shake2Notified = false
     focused = false
     lastFrameTimeStr = null
-    _resetNiedHypo()
+    _resetNiedHypo(true)
 
     stations.forEach((station) => {
       if (!station) return
@@ -893,7 +910,7 @@ onBeforeUnmount(() => {
       }
     })
   }
-  _resetNiedHypo()
+  _resetNiedHypo(true)
   if (niedMarkerCount) niedMarkerCount.value = 0
   if (worker) worker.terminate()
   worker = null

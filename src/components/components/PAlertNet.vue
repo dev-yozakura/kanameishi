@@ -107,7 +107,10 @@ const palertHypoIcon = L.icon({
     iconAnchor: [hypoIconRadius, hypoIconRadius]
 })
 
+// stationId -> { tMs: number, level: number }
 const firstDetectMsByStationId = new Map() // stationId -> first detect frame ts (ms)
+const OBS_KEEP_GAP_MS = 10 * 1000
+let lastDetectActiveAtMs = 0
 let palertHypoMarker = null
 let palertPWave = null
 let palertSWave = null
@@ -169,8 +172,8 @@ const _clearPalertHypoLayers = () => {
     palertSWaveFill = null
 }
 
-const _resetPalertHypo = () => {
-    firstDetectMsByStationId.clear()
+const _resetPalertHypo = (hard = false) => {
+    if (hard) firstDetectMsByStationId.clear()
     lastHypo = null
     lastHypoEstimateAtMs = 0
     _clearPalertHypoLayers()
@@ -974,7 +977,6 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
         if (st.isActive && st.activeUntil && now > st.activeUntil) {
             st.isActive = false
         }
-
         const pga = dataVals?.[id]
         const pgaGal = normalizePgaToGal(pga)
 
@@ -993,10 +995,15 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
 
     palertMaxShindo.value = getShindoFromLevel(maxLevel)
     palertMaxPgaGal.value = maxPgaGal > 0 ? maxPgaGal.toFixed(1) : '?'
-
-    // Detect shake (NIED互換)
     const activeIds = computeActiveStations()
     if (activeIds.size > 0) {
+        // 検出が一度途切れても、推定に使う観測点(初検知)は保持する。
+        // ただし長時間空いた後に再び揺れ検知が始まった場合は、新規イベント扱いでクリアする。
+        if (lastDetectActiveAtMs > 0 && now - lastDetectActiveAtMs > OBS_KEEP_GAP_MS) {
+            _resetPalertHypo(true)
+        }
+        lastDetectActiveAtMs = now
+
         for (const id of activeIds) {
             const st = stations[id]
             if (!st) continue
@@ -1004,7 +1011,7 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
             st.activeUntil = now + 10500
 
             if (!firstDetectMsByStationId.has(id)) {
-                firstDetectMsByStationId.set(id, now)
+                firstDetectMsByStationId.set(id, { tMs: now, level: st?.level ?? -1 })
             }
         }
     }
@@ -1023,18 +1030,18 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
     if (map && Number.isFinite(now) && activeStationIds.length > 0) {
         if (now - lastHypoEstimateAtMs >= 1000) {
             const picks = []
-            for (const id of activeStationIds) {
-                const tMs = firstDetectMsByStationId.get(id)
+            // 推定には「現在アクティブな局」だけでなく、イベント中に一度でも検知した局(初検知)を使う
+            for (const [id, info] of firstDetectMsByStationId.entries()) {
+                const tMs = info?.tMs
                 const ll = stationIndex.get(id)
-                const st = stations[id]
-                if (!Number.isFinite(tMs) || !ll || !st) continue
+                if (!Number.isFinite(tMs) || !ll) continue
                 picks.push({
                     id,
                     tObsSec: tMs / 1000,
                     ll: L.latLng(ll[0], ll[1]),
                     lat: ll[0],
                     lon: ll[1],
-                    level: st.level ?? -1,
+                    level: Number.isFinite(info?.level) ? info.level : (stations[id]?.level ?? -1),
                 })
             }
             picks.sort((a, b) => a.tObsSec - b.tObsSec)
@@ -1042,8 +1049,10 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
 
             let solved = false
             if (used.length >= 4) {
-                const first = used[0]
-                const hypo0 = L.latLng(first.lat, first.lon)
+                const seed = used.slice(0, 3)
+                const initialLat = seed.reduce((s, o) => s + o.lat, 0) / seed.length
+                const initialLon = seed.reduce((s, o) => s + o.lon, 0) / seed.length
+                const hypo0 = L.latLng(initialLat, initialLon)
                 const observations = used.map((o) => {
                     const distKm = hypo0.distanceTo(o.ll) / 1000
                     const distW = 1 / Math.pow(1 + distKm / 200, 2)
@@ -1061,10 +1070,10 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
                     travelTime: _getTravelTime(),
                     observations,
                     initial: {
-                        lat: first.lat,
-                        lon: first.lon,
+                        lat: initialLat,
+                        lon: initialLon,
                         depthKm: 10,
-                        originSec: first.tObsSec - 2.0,
+                        originSec: used[0].tObsSec - 2.0,
                     },
                     maxIter: 8,
                 })
@@ -1236,8 +1245,11 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
     }
 
     // 点滅（揺れ検知中）
-    if (gridRects.size > 0) _startGridBlinking()
-    else _stopGridBlinking()
+    if (gridRects.size > 0) {
+        _startGridBlinking()
+    } else {
+        _stopGridBlinking()
+    }
 }
 
 const tickRealtime = async () => {
@@ -1338,7 +1350,7 @@ watch(() => settingsStore.mainSettings.displaySeisNet.delay, () => {
     palertMaxPgaGal.value = '?'
     statusStore.isActive.palertNet = false
 
-    _resetPalertHypo()
+    _resetPalertHypo(true)
 }, { immediate: true })
 
 watch(
@@ -1372,7 +1384,7 @@ onBeforeUnmount(() => {
     if (map) map.off('zoomend', renderAll)
     clearStations()
 
-    _resetPalertHypo()
+    _resetPalertHypo(true)
 
     if (unwatchMap) unwatchMap()
 })
