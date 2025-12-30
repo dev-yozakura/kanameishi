@@ -3524,7 +3524,8 @@ const loadMsilNet = async () => {
     }
 
     try {
-        const msilBase = import.meta.env.DEV ? '/msil' : 'https://www.msil.go.jp'
+        const edgeProxyBase = (import.meta.env.VITE_EDGE_PROXY_BASE || '').replace(/\/+$/, '')
+        const msilBase = import.meta.env.DEV ? '/msil' : (edgeProxyBase ? `${edgeProxyBase}/msil` : 'https://www.msil.go.jp')
         const targetTimesRes = await fetch(`${msilBase}/tiles/smoni/targetTimes.json?_=${Date.now()}`, { signal: msilSignal });
         const targetTimes = await targetTimesRes.json();
         if (!Array.isArray(targetTimes)) throw new Error('Invalid targetTimes format');

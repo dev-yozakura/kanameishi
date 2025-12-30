@@ -16,6 +16,18 @@ icon是《铃芽之旅》的草太さん（椅子形态）。
 
 > 说明：PWA 通过 Service Worker 缓存资源，若更新后仍显示旧版本，可在浏览器中清除站点数据/缓存后重试。
 
+## GitHub Pages で一部データが表示できない場合（重要）
+GitHub Pages は **静的ホスティング** のため、開発時に使っている Vite の `server.proxy`（例: `/kmoni`, `/palert`, `/msil`）が使えません。
+また、外部サイトの多くは **CORS 制限** や **Origin/Referer チェック** があるため、ブラウザから直接取得できない場合があります。
+
+対策として、外部に **リバースプロキシ（Edge Proxy）** を用意して、ビルド時に `VITE_EDGE_PROXY_BASE` を設定してください。
+
+- Proxy 実装例: [tools/edge-proxy/worker.mjs](tools/edge-proxy/worker.mjs)（Cloudflare Workers 向け）
+- GitHub Actions での設定: リポジトリ Settings → Secrets and variables → Actions → Variables に `VITE_EDGE_PROXY_BASE` を追加
+	- 例: `https://your-worker.your-account.workers.dev`
+
+この設定がない場合、環境によっては NIED(kmoni), P-Alert, 海しる(MSIL) などが表示できません。
+
 ### 开发者：如何以 PWA 方式验证（Android）
 PWA 的前提是 **安全上下文**（HTTPS 或 localhost）。因此：
 * 已部署到 HTTPS 的站点：直接用 Android Chrome 打开并“安装应用”。

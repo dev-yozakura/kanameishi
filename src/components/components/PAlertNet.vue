@@ -25,9 +25,14 @@ const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
 
 const isTauri = getIsTauri()
+const edgeProxyBase = (import.meta.env.VITE_EDGE_PROXY_BASE || '').replace(/\/+$/, '')
 const graphqlUrl = isTauri
     ? 'https://palert.earth.sinica.edu.tw/graphql/'
-    : '/palert/graphql/'
+    : (import.meta.env.DEV
+        ? '/palert/graphql/'
+        : (edgeProxyBase
+            ? `${edgeProxyBase}/palert/graphql/`
+            : 'https://palert.earth.sinica.edu.tw/graphql/'))
 
 const P_ALERT_HEADERS = {
     Origin: 'https://palert.earth.sinica.edu.tw',

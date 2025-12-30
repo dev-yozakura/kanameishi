@@ -251,7 +251,11 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
 let pollInFlight = false
 let lastAbortController = null
 
-const proxyBase = computed(() => (import.meta.env.DEV ? '/kmoni' : 'http://www.kmoni.bosai.go.jp'))
+const edgeProxyBase = (import.meta.env.VITE_EDGE_PROXY_BASE || '').replace(/\/+$/, '')
+const proxyBase = computed(() => {
+  if (edgeProxyBase) return `${edgeProxyBase}/kmoni`
+  return import.meta.env.DEV ? '/kmoni' : 'https://www.kmoni.bosai.go.jp'
+})
 const delayMs = computed(() => settingsStore.mainSettings.displaySeisNet.delay * 60000)
 
 const _formatJstKey = (ms) => {

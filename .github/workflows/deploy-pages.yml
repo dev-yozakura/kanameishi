@@ -36,6 +36,9 @@ jobs:
           # vite.config.js can infer base from GITHUB_REPOSITORY, but keep this explicit
           # so local/CI behavior stays predictable.
           BASE_URL: ${{ github.repository == format('{0}/{0}.github.io', github.repository_owner) && '/' || format('/{0}/', github.event.repository.name) }}
+          # Optional: external proxy for CORS-restricted sources (kmoni/palert/msil, etc.)
+          # Set this in repo Settings -> Secrets and variables -> Actions -> Variables.
+          VITE_EDGE_PROXY_BASE: ${{ vars.VITE_EDGE_PROXY_BASE }}
         run: pnpm -s build
 
       - uses: actions/upload-pages-artifact@v3

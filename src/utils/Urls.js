@@ -1,6 +1,7 @@
 export const eqUrls = {
-    niedLatest: "http://www.kmoni.bosai.go.jp/webservice/server/pros/latest.json",
-  jmaEew2_http: "http://www.kmoni.bosai.go.jp/webservice/hypo/eew",
+    // NOTE: GitHub Pages is served over HTTPS, so http:// will be blocked as mixed content.
+    niedLatest: "https://www.kmoni.bosai.go.jp/webservice/server/pros/latest.json",
+  jmaEew2_http: "https://www.kmoni.bosai.go.jp/webservice/hypo/eew",
   jmaEqlist_http: "https://api.p2pquake.net/v2/history?codes=551&limit=1",
   usgsEqlist_http:
     "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
