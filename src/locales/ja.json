@@ -34,6 +34,7 @@
     "seisNet": {
       "title": "地震モニタリングネットワーク",
       "dataSource": "データソース",
+      "hypo_estimate_max_points": "震源推定に使う最大観測点数",
       "nied_net": "強震モニタ・震度（日本）",
       "nied_mode": "表示方式",
       "nied_mode_yahoo": "既存（Yahoo RealTimeData）",
@@ -139,6 +140,14 @@
         "title": "津波情報受信時"
       }
     }
+  },
+  "shakeDetect": {
+    "title": "揺れ検知",
+    "location": "震央地名",
+    "origin_time": "発生日時",
+    "depth": "深さ",
+    "obs_count": "観測点数",
+    "empty": "履歴がありません"
   },
   "mainMap": {
     "map_colors": "地図の色",

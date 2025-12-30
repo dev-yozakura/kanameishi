@@ -400,6 +400,11 @@
                             <InfoFilled />
                         </el-icon>
                     </el-menu-item>
+                    <el-menu-item index="shake">
+                        <el-icon>
+                            <BellFilled />
+                        </el-icon>
+                    </el-menu-item>
                     <el-menu-item index="settings">
                         <el-icon>
                             <Setting />
@@ -407,8 +412,9 @@
                     </el-menu-item>
                 </el-menu>
             </div>
-            <div class="drawer" ref="drawer" v-show="menuId == 'eqlists' && !settingsStore.mainSettings.hideDrawer || menuId == 'settings'">
+            <div class="drawer" ref="drawer" v-show="(menuId == 'eqlists' && !settingsStore.mainSettings.hideDrawer) || menuId == 'settings' || menuId == 'shake'">
                 <EqlistComponent v-show="menuId == 'eqlists'" />
+                <ShakeDetectComponent v-show="menuId == 'shake'" />
                 <SettingsComponent v-show="menuId == 'settings'" />
             </div>
             <transition name="dialog-fade">
@@ -426,11 +432,13 @@ import 'leaflet.vectorgrid';
 import 'leaflet/dist/leaflet.css';
 import '@/assets/background.css';
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, watchEffect, provide } from 'vue';
-import { HomeFilled, FullScreen, WarnTriangleFilled, InfoFilled, Setting } from '@element-plus/icons-vue';
+import { HomeFilled, FullScreen, WarnTriangleFilled, InfoFilled, Setting, BellFilled } from '@element-plus/icons-vue';
 import { eewSources, eqlistSources, seisNetSources, sourceTypes, tsunamiSources, useStatusStore } from '@/stores/status';
 import { useSettingsStore } from '@/stores/settings';
 import { useTimeStore } from '@/stores/time';
+import { useShakeDetectionsStore } from '@/stores/shakeDetections';
 import EqlistComponent from './EqlistComponent.vue';
+import ShakeDetectComponent from './ShakeDetectComponent.vue';
 import SettingsComponent from './SettingsComponent.vue';
 import { verifyUpToDate, setClassName, getClassLevel, classNameArray, pointDistToCnArea, pointDistToKrArea, csisArray, shindoArray, calcCsisLevel, calcJmaShindoLevel, formatTimeZone, simplifyTopoJson, formatCsis, csisRomanArray, formatShindo, getLevelFromInstShindo, getShindoFromInstShindo, stampToTime, playSound, sendMyNotification, focusWindow, getShindoFromLevel } from '@/utils/Utils';
 import { topojsonUrls, iconUrls } from '@/utils/Urls';
@@ -458,6 +466,7 @@ const cwaLatestCrossIcon = L.icon({
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
+const shakeDetectionsStore = useShakeDetectionsStore()
 let map, jpEewBaseMap, krEewBaseMap, cnEewBaseMap, jpTsunamiBaseMap, cnTsunamiBaseMap, labelLayer1, labelLayer2, terminatorLayer, terminatorFillLayer, cnFaultBaseMap
 let eewMarkerPane, eqlistMarkerPane, historyMarkerPane, wavePane, waveFillPane, niedGridPane, tremGridPane, palertGridPane, kmaGridPane, msilNetPane, msilNetLayer, tremRtsLayer, eewBasePane, tsunamiBasePane, labelPane1, labelPane2
 let msilWorker
@@ -1333,6 +1342,105 @@ provide('palertDetectOriginTime', palertDetectOriginTime)
 provide('palertDetectDepthKm', palertDetectDepthKm)
 provide('palertDetectObsCount', palertDetectObsCount)
 provide('palertDetectEpicenterName', palertDetectEpicenterName)
+
+const niedShakeSessionId = ref('')
+const palertShakeSessionId = ref('')
+
+watch(
+    [
+        niedDetectActive,
+        niedDetectOriginTime,
+        niedEpicenterName,
+        niedDetectDepthKm,
+        niedDetectObsCount,
+        () => settingsStore.mainSettings.displaySeisNet.niedSource,
+    ],
+    ([active, originTimeText, epicenterName, depthKm, obsCount, niedSource]) => {
+        if (!originTimeText || (!active && !(Number.isInteger(obsCount) && obsCount > 0))) return;
+        const source = niedSource === 'kmoni_image' ? 'niedkmoni' : 'nied';
+
+        if (active && !niedShakeSessionId.value) {
+            niedShakeSessionId.value = `shake:${source}:${Date.now()}`
+        }
+        if (!active && (!Number.isInteger(obsCount) || obsCount <= 0)) {
+            niedShakeSessionId.value = ''
+        }
+
+        shakeDetectionsStore.upsertShake({
+            id: niedShakeSessionId.value || undefined,
+            source,
+            epicenterName,
+            originTimeText,
+            timeZone: 9,
+            depthKm,
+            obsCount,
+        });
+    },
+    { immediate: true }
+)
+
+watch(
+    [
+        palertDetectActive,
+        palertDetectOriginTime,
+        palertDetectEpicenterName,
+        palertDetectDepthKm,
+        palertDetectObsCount,
+    ],
+    ([active, originTimeText, epicenterName, depthKm, obsCount]) => {
+        if (!originTimeText || (!active && !(Number.isInteger(obsCount) && obsCount > 0))) return;
+
+        if (active && !palertShakeSessionId.value) {
+            palertShakeSessionId.value = `shake:palert:${Date.now()}`
+        }
+        if (!active && (!Number.isInteger(obsCount) || obsCount <= 0)) {
+            palertShakeSessionId.value = ''
+        }
+
+        shakeDetectionsStore.upsertShake({
+            id: palertShakeSessionId.value || undefined,
+            source: 'palert',
+            epicenterName,
+            originTimeText,
+            timeZone: 8,
+            depthKm,
+            obsCount,
+        });
+    },
+    { immediate: true }
+)
+
+watch(
+    () => (statusStore.isActive.jmaTsunami ? statusStore.tsunamiMessage.jmaTsunami : null),
+    (msg) => {
+        if (!msg) return;
+        shakeDetectionsStore.upsertTsunami({
+            source: 'jmaTsunami',
+            id: msg.id,
+            titleText: msg.titleText,
+            reportTime: msg.reportTime,
+            timeZone: msg.timeZone,
+            status: msg.status,
+        });
+    },
+    { deep: true, immediate: true }
+)
+
+watch(
+    () => (statusStore.isActive.nmefcTsunami ? statusStore.tsunamiMessage.nmefcTsunami : null),
+    (msg) => {
+        if (!msg) return;
+        shakeDetectionsStore.upsertTsunami({
+            source: 'nmefcTsunami',
+            id: msg.id,
+            titleText: msg.titleText,
+            reportTime: msg.reportTime,
+            timeZone: msg.timeZone,
+            status: msg.status,
+        });
+    },
+    { deep: true, immediate: true }
+)
 
 const palertMarkerCount = ref(0)
 provide('palertMarkerCount', palertMarkerCount)

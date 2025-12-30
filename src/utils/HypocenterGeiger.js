@@ -74,16 +74,13 @@ const travelTimeSec = (travelTime, depthKm, distKm) => {
   return Number.isFinite(t) ? t : NaN
 }
 
-const computeResiduals = (travelTime, lat, lon, depthKm, originSec, obs) => {
+const computeResiduals = (travelTime, lat, lon, depthKm, originSec, obs, useStationElevation) => {
   const hypo = L.latLng(lat, lon)
   const res = []
   const dists = []
   for (const o of obs) {
     const distKm = hypo.distanceTo(o.ll) / 1000
-    // 観測点の標高(m)を簡易的に考慮: 震源深さ(海面基準)に対して、
-    // 観測点が高いほど実効的な深さ差が増えるとみなす（depthKm + elevKm）。
-    // 観測側に elevM がない場合は 0m として扱う。
-    const elevKm = Number.isFinite(o?.elevM) ? o.elevM / 1000 : 0
+    const elevKm = useStationElevation && Number.isFinite(o?.elevM) ? o.elevM / 1000 : 0
     const effDepthKm = clamp(depthKm + elevKm, 0, 700)
     const tp = travelTimeSec(travelTime, effDepthKm, distKm)
     if (!Number.isFinite(tp)) return null
@@ -94,6 +91,15 @@ const computeResiduals = (travelTime, lat, lon, depthKm, originSec, obs) => {
   return { res, dists }
 }
 
+const median = (values) => {
+  const v = values.filter((x) => Number.isFinite(x)).slice().sort((a, b) => a - b)
+  if (!v.length) return NaN
+  const m = Math.floor(v.length / 2)
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2
+}
+
+const absMedian = (values) => median(values.map((x) => Math.abs(x)))
+
 export const locateHypocenterGeiger = ({
   travelTime,
   observations,
@@ -101,6 +107,7 @@ export const locateHypocenterGeiger = ({
   maxIter = 8,
   dxKm = 1.0,
   dzKm = 2.0,
+  useStationElevation = true,
 }) => {
   // observations: [{ lat, lon, tObsSec, ll, weight, elevM? }]
   if (!travelTime) return null
@@ -126,7 +133,7 @@ export const locateHypocenterGeiger = ({
   let rms = Infinity
 
   for (let it = 0; it < maxIter; it += 1) {
-    const base = computeResiduals(travelTime, lat, lon, depthKm, originSec, obs)
+    const base = computeResiduals(travelTime, lat, lon, depthKm, originSec, obs, useStationElevation)
     if (!base) return null
 
     const latN = lat + kmToDegLat(dxKm)
@@ -134,12 +141,12 @@ export const locateHypocenterGeiger = ({
     const lonE = lon + kmToDegLon(dxKm, lat)
     const lonW = lon - kmToDegLon(dxKm, lat)
 
-    const resN = computeResiduals(travelTime, latN, lon, depthKm, originSec, obs)
-    const resS = computeResiduals(travelTime, latS, lon, depthKm, originSec, obs)
-    const resE = computeResiduals(travelTime, lat, lonE, depthKm, originSec, obs)
-    const resW = computeResiduals(travelTime, lat, lonW, depthKm, originSec, obs)
-    const resUp = computeResiduals(travelTime, lat, lon, clamp(depthKm + dzKm, 0, 700), originSec, obs)
-    const resDn = computeResiduals(travelTime, lat, lon, clamp(depthKm - dzKm, 0, 700), originSec, obs)
+    const resN = computeResiduals(travelTime, latN, lon, depthKm, originSec, obs, useStationElevation)
+    const resS = computeResiduals(travelTime, latS, lon, depthKm, originSec, obs, useStationElevation)
+    const resE = computeResiduals(travelTime, lat, lonE, depthKm, originSec, obs, useStationElevation)
+    const resW = computeResiduals(travelTime, lat, lonW, depthKm, originSec, obs, useStationElevation)
+    const resUp = computeResiduals(travelTime, lat, lon, clamp(depthKm + dzKm, 0, 700), originSec, obs, useStationElevation)
+    const resDn = computeResiduals(travelTime, lat, lon, clamp(depthKm - dzKm, 0, 700), originSec, obs, useStationElevation)
     if (!resN || !resS || !resE || !resW || !resUp || !resDn) return null
 
     // We need dT/dx but we have residuals r = tObs - (t0+T)
@@ -200,4 +207,66 @@ export const locateHypocenterGeiger = ({
 
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(depthKm) || !Number.isFinite(originSec)) return null
   return { lat, lon, depthKm, originSec, rmsSec: rms, converged }
+}
+
+export const locateHypocenterGeigerRobust = (params) => {
+  // 2-pass: solve -> compute residuals -> reject outliers -> solve again
+  const {
+    travelTime,
+    observations,
+    useStationElevation = true,
+  } = params || {}
+
+  const first = locateHypocenterGeiger(params)
+  if (!first || !travelTime || !observations || observations.length < 4) return first
+
+  const base = computeResiduals(
+    travelTime,
+    first.lat,
+    first.lon,
+    first.depthKm,
+    first.originSec,
+    observations,
+    useStationElevation
+  )
+  if (!base?.res?.length) return first
+
+  const medAbs = absMedian(base.res)
+  // 典型的な残差幅の数倍を外れ値閾値にする（下限を持たせて過剰除外を防ぐ）
+  const thresholdSec = clamp(Number.isFinite(medAbs) ? 3 * medAbs : 0.8, 0.6, 5.0)
+
+  const paired = observations.map((o, i) => ({ o, r: base.res[i] }))
+  const kept = paired.filter((p) => Number.isFinite(p.r) && Math.abs(p.r) <= thresholdSec).map((p) => p.o)
+
+  let filtered = kept
+  if (filtered.length < 4) {
+    filtered = paired
+      .filter((p) => Number.isFinite(p.r))
+      .slice()
+      .sort((a, b) => Math.abs(a.r) - Math.abs(b.r))
+      .slice(0, Math.max(4, Math.min(observations.length, 8)))
+      .map((p) => p.o)
+  }
+  if (filtered.length < 4 || filtered.length === observations.length) return first
+
+  const second = locateHypocenterGeiger({
+    ...params,
+    observations: filtered,
+    initial: {
+      lat: first.lat,
+      lon: first.lon,
+      depthKm: first.depthKm,
+      originSec: first.originSec,
+    },
+  })
+  if (!second) return first
+
+  return {
+    ...second,
+    robust: {
+      thresholdSec,
+      kept: filtered.length,
+      removed: Math.max(0, observations.length - filtered.length),
+    },
+  }
 }

@@ -16,7 +16,7 @@ import { calcWaveDistance, focusWindow, getLevelFromInstShindo, getShindoFromLev
 import { iconUrls } from '@/utils/Urls'
 import { isTauri as getIsTauri } from '@tauri-apps/api/core'
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
-import { locateHypocenterGeiger } from '@/utils/HypocenterGeiger'
+import { locateHypocenterGeigerRobust } from '@/utils/HypocenterGeiger'
 import { getNearestEpiName } from '@/utils/EpiName'
 import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
 
@@ -122,7 +122,17 @@ let palertSWave = null
 let palertSWaveFill = null
 let lastHypo = null // { lat, lon, depthKm, originMs, rmsSec, converged }
 let lastHypoEstimateAtMs = 0
+let hypoEstimateFinished = false
+let hypoStopChecked = false
 let _tjma2001 = null
+
+const HYPO_ESTIMATE_MIN_POINTS = 40
+const HYPO_ESTIMATE_STOP_AFTER_MS = 20 * 1000
+const _getHypoEstimateMaxPoints = () => {
+    const v = Number(settingsStore.mainSettings?.displaySeisNet?.hypoEstimateMaxPoints)
+    const n = Number.isFinite(v) ? Math.floor(v) : 120
+    return Math.min(500, Math.max(HYPO_ESTIMATE_MIN_POINTS, n))
+}
 
 let gridBlinkTimer = null
 let gridBlinkOn = true
@@ -181,6 +191,8 @@ const _resetPalertHypo = (hard = false) => {
     if (hard) firstDetectMsByStationId.clear()
     lastHypo = null
     lastHypoEstimateAtMs = 0
+    hypoEstimateFinished = false
+    hypoStopChecked = false
     _clearPalertHypoLayers()
 
     palertDetectActive.value = false
@@ -1029,11 +1041,16 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
     }
 
     palertDetectActive.value = activeStationIds.length > 0
-    palertDetectObsCount.value = activeStationIds.length
+    palertDetectObsCount.value = firstDetectMsByStationId.size
+
+    const canEstimate = map && Number.isFinite(now) && (
+        activeStationIds.length > 0 ||
+        (firstDetectMsByStationId.size > 0 && lastDetectActiveAtMs > 0 && now - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS)
+    )
 
     // 震源推定 + 予報円描画（揺れ検知由来）
-    if (map && Number.isFinite(now) && activeStationIds.length > 0) {
-        if (now - lastHypoEstimateAtMs >= 1000) {
+    if (canEstimate) {
+        if (!hypoEstimateFinished && now - lastHypoEstimateAtMs >= 1000) {
             const picks = []
             // 推定には「現在アクティブな局」だけでなく、イベント中に一度でも検知した局(初検知)を使う
             for (const [id, info] of firstDetectMsByStationId.entries()) {
@@ -1050,7 +1067,14 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
                 })
             }
             picks.sort((a, b) => a.tObsSec - b.tObsSec)
-            const used = picks.slice(0, 40)
+            const firstPickMs = picks.length > 0 ? (picks[0].tObsSec * 1000) : NaN
+            const deadlineMs = Number.isFinite(firstPickMs) ? (firstPickMs + HYPO_ESTIMATE_STOP_AFTER_MS) : NaN
+            const reachedDeadline = Number.isFinite(deadlineMs) && now >= deadlineMs
+            const shouldStopNow = !hypoStopChecked && reachedDeadline && picks.length >= HYPO_ESTIMATE_MIN_POINTS
+            if (!hypoStopChecked && reachedDeadline) hypoStopChecked = true
+
+            const maxPoints = _getHypoEstimateMaxPoints()
+            const used = picks.slice(0, Math.min(picks.length, maxPoints))
 
             let solved = false
             if (used.length >= 4) {
@@ -1071,7 +1095,7 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
                     }
                 })
 
-                const est = locateHypocenterGeiger({
+                const est = locateHypocenterGeigerRobust({
                     travelTime: _getTravelTime(),
                     observations,
                     initial: {
@@ -1081,6 +1105,7 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
                         originSec: used[0].tObsSec - 2.0,
                     },
                     maxIter: 8,
+                    useStationElevation: false,
                 })
                 if (est) {
                     const minObsSec = observations.reduce(
@@ -1114,6 +1139,10 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
                     converged: false,
                 }
                 lastHypoEstimateAtMs = now
+            }
+
+            if (shouldStopNow && lastHypo) {
+                hypoEstimateFinished = true
             }
         }
 

@@ -14,7 +14,7 @@ import { useTimeStore } from '@/stores/time'
 import { iconUrls } from '@/utils/Urls'
 import { getLevelFromInstShindo, stampToTime, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel, calcWaveDistance } from '@/utils/Utils'
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
-import { locateHypocenterGeiger } from '@/utils/HypocenterGeiger'
+import { locateHypocenterGeigerRobust } from '@/utils/HypocenterGeiger'
 import { getNearestEpiName } from '@/utils/EpiName'
 import { NiedStation, simpleIcon } from '@/classes/StationClasses'
 import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
@@ -67,8 +67,18 @@ let _niedHypoTooltipKey = ''
 
 let lastHypoEstimateAtMs = 0
 let lastHypo = null // { lat, lon, depthKm, originMs, score }
+let hypoEstimateFinished = false
+let hypoStopChecked = false
 let _niedEpiName = ''
 let _niedEpiReqId = 0
+
+const HYPO_ESTIMATE_MIN_POINTS = 40
+const HYPO_ESTIMATE_STOP_AFTER_MS = 20 * 1000
+const _getHypoEstimateMaxPoints = () => {
+  const v = Number(settingsStore.mainSettings?.displaySeisNet?.hypoEstimateMaxPoints)
+  const n = Number.isFinite(v) ? Math.floor(v) : 120
+  return Math.min(500, Math.max(HYPO_ESTIMATE_MIN_POINTS, n))
+}
 
 const _escapeHtml = (s) =>
   String(s)
@@ -102,6 +112,8 @@ const _resetNiedHypo = (hard = false) => {
   if (hard) kmoniFirstDetectMsByStationId.clear()
   lastHypoEstimateAtMs = 0
   lastHypo = null
+  hypoEstimateFinished = false
+  hypoStopChecked = false
   _niedEpiName = ''
   if (niedEpicenterName) niedEpicenterName.value = ''
   if (niedDetectActive) niedDetectActive.value = false
@@ -423,7 +435,12 @@ const update = (frameMs) => {
 
     activeSet.forEach((station) => station.setActive())
 
-    if (map && Number.isFinite(nowMs) && activeSet.size > 0 && nowMs - lastHypoEstimateAtMs >= 1000) {
+    const canEstimate = map && Number.isFinite(nowMs) && (
+      activeSet.size > 0 ||
+      (kmoniFirstDetectMsByStationId.size > 0 && lastDetectActiveAtMs > 0 && nowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS)
+    )
+
+    if (canEstimate && !hypoEstimateFinished && nowMs - lastHypoEstimateAtMs >= 1000) {
       const picks = []
       // 推定には「現在アクティブな局」だけでなく、イベント中に一度でも検知した局(初検知)を使う
       for (const [id, info] of kmoniFirstDetectMsByStationId.entries()) {
@@ -442,24 +459,39 @@ const update = (frameMs) => {
         })
       }
       picks.sort((a, b) => a.tObsSec - b.tObsSec)
-      const used = picks.slice(0, 40)
+      const firstPickMs = picks.length > 0 ? picks[0].tObsSec * 1000 : NaN
+      const deadlineMs = Number.isFinite(firstPickMs) ? firstPickMs + HYPO_ESTIMATE_STOP_AFTER_MS : NaN
+      const reachedDeadline = Number.isFinite(deadlineMs) && nowMs >= deadlineMs
+      const shouldStopNow = !hypoStopChecked && reachedDeadline && picks.length >= HYPO_ESTIMATE_MIN_POINTS
+      if (!hypoStopChecked && reachedDeadline) hypoStopChecked = true
+
+      const maxPoints = _getHypoEstimateMaxPoints()
+      const used = picks.slice(0, Math.min(picks.length, maxPoints))
 
       const travelTime = _getTravelTime()
       const built = _buildGeigerObservations(used)
       let solved = false
       if (built && used.length >= 4) {
-        const est = locateHypocenterGeiger({
+        const est = locateHypocenterGeigerRobust({
           travelTime,
           observations: built.observations,
           initial: built.initial,
           maxIter: 8,
+          useStationElevation: false,
         })
         if (est) {
+          const minObsSec = built.observations.reduce(
+            (acc, o) => (Number.isFinite(o?.tObsSec) ? Math.min(acc, o.tObsSec) : acc),
+            Infinity
+          )
+          const clampUpper = Number.isFinite(minObsSec) ? minObsSec - 0.01 : Infinity
+          const originSec = Number.isFinite(est.originSec) ? Math.min(est.originSec, clampUpper) : clampUpper
+
           lastHypo = {
             lat: est.lat,
             lon: est.lon,
             depthKm: est.depthKm,
-            originMs: est.originSec * 1000,
+            originMs: originSec * 1000,
             rmsSec: est.rmsSec,
             converged: est.converged,
           }
@@ -485,6 +517,10 @@ const update = (frameMs) => {
         _resolveEpicenterName(lastHypo)
         _updateNiedHypoLayers(lastHypo, nowMs)
       }
+
+      if (shouldStopNow && lastHypo) {
+        hypoEstimateFinished = true
+      }
     }
 
     // 推定済みであれば、推定更新がなくても円を毎フレーム更新する
@@ -492,7 +528,7 @@ const update = (frameMs) => {
       _updateNiedHypoLayers(lastHypo, nowMs)
     }
 
-    if (niedDetectObsCount) niedDetectObsCount.value = activeSet.size
+    if (niedDetectObsCount) niedDetectObsCount.value = kmoniFirstDetectMsByStationId.size
     if (lastHypo) {
       if (niedDetectActive) niedDetectActive.value = true
       if (niedDetectOriginTime) niedDetectOriginTime.value = stampToTime(lastHypo.originMs, 9)

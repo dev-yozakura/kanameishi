@@ -14,6 +14,7 @@ import { onBeforeMount, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useTimeStore } from './stores/time';
 import { useStatusStore } from '@/stores/status';
 import { useSettingsStore } from './stores/settings';
+import { useShakeDetectionsStore } from './stores/shakeDetections';
 import { eqUrls, topojsonUrls } from './utils/Urls';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { platform } from '@tauri-apps/plugin-os';
@@ -23,6 +24,7 @@ import Http from './classes/Http';
 const timeStore = useTimeStore()
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
+const shakeDetectionsStore = useShakeDetectionsStore()
 
 const container = ref()
 
@@ -49,6 +51,7 @@ async function getGeojson(retries = 0){
 onBeforeMount(async () => {
   settingsStore.setMainSettings(localStorage.getItem('mainSettings'))
   settingsStore.setAdvancedSettings(localStorage.getItem('advancedSettings'))
+  shakeDetectionsStore.hydrateFromStorage(localStorage.getItem('shakeDetections'))
   settingsStore.mainSettings.displaySeisNet.delay = 0
   if(settingsStore.advancedSettings.multiApi) Object.assign(eqUrls, JSON.parse(localStorage.getItem('multiApi')))
   if(settingsStore.advancedSettings.enableNmefcTsunami) Object.assign(topojsonUrls, JSON.parse(localStorage.getItem('nmefcTsunami')))
@@ -86,6 +89,10 @@ watch(() => settingsStore.mainSettings, (newValue) => {
 }, { deep: true })
 watch(() => settingsStore.advancedSettings, (newValue) => {
   localStorage.setItem('advancedSettings', JSON.stringify(newValue))
+}, { deep: true })
+
+watch(() => shakeDetectionsStore.items, () => {
+  localStorage.setItem('shakeDetections', shakeDetectionsStore.serialize())
 }, { deep: true })
 
 </script>

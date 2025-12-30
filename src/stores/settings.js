@@ -32,6 +32,7 @@ export const useSettingsStore = defineStore('settingsStore', {
                 hideNoData: false,
                 displayShindo0: false,
                 delay: 0,
+                hypoEstimateMaxPoints: 120,
                 niedNet: false,
                 niedSource: 'yahoo',
                 niedSensitivity: 2,
@@ -186,6 +187,10 @@ export const useSettingsStore = defineStore('settingsStore', {
                         } else {
                             ds.palertQuantizeDeg = 0.1
                         }
+                    }
+
+                    if (!Number.isFinite(Number(ds.hypoEstimateMaxPoints))) {
+                        ds.hypoEstimateMaxPoints = 120
                     }
                 }
             }

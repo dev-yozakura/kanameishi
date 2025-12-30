@@ -12,7 +12,7 @@ import { seisNetUrls, iconUrls } from '@/utils/Urls';
 import { getTimeNumberString, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel, stampToTime, calcWaveDistance } from '@/utils/Utils';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
-import { locateHypocenterGeiger } from '@/utils/HypocenterGeiger'
+import { locateHypocenterGeigerRobust } from '@/utils/HypocenterGeiger'
 import { getNearestEpiName } from '@/utils/EpiName'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -45,10 +45,20 @@ let niedSWave = null
 let niedSWaveFill = null
 let lastHypo = null
 let lastHypoEstimateAtMs = 0
+let hypoEstimateFinished = false
+let hypoStopChecked = false
 let _tjma2001 = null
 let _niedHypoTooltipKey = ''
 let _niedEpiName = ''
 let _niedEpiReqId = 0
+
+const HYPO_ESTIMATE_MIN_POINTS = 40
+const HYPO_ESTIMATE_STOP_AFTER_MS = 20 * 1000
+const _getHypoEstimateMaxPoints = () => {
+    const v = Number(settingsStore.mainSettings?.displaySeisNet?.hypoEstimateMaxPoints)
+    const n = Number.isFinite(v) ? Math.floor(v) : 120
+    return Math.min(500, Math.max(HYPO_ESTIMATE_MIN_POINTS, n))
+}
 
 const _escapeHtml = (s) => String(s)
     .replaceAll('&', '&amp;')
@@ -80,6 +90,8 @@ const _resetNiedHypo = (hard = false)=>{
     if(hard) firstDetectMsByStationId.clear()
     lastHypo = null
     lastHypoEstimateAtMs = 0
+    hypoEstimateFinished = false
+    hypoStopChecked = false
     _niedEpiName = ''
     if(niedEpicenterName) niedEpicenterName.value = ''
     if(niedDetectActive) niedDetectActive.value = false
@@ -349,8 +361,13 @@ const update = (frameMs)=>{
             station.setActive()
         })
 
-        if(map && Number.isFinite(nowMs) && activeStationsSet.size > 0){
-            if(nowMs - lastHypoEstimateAtMs >= 1000){
+        const canEstimate = map && Number.isFinite(nowMs) && (
+            activeStationsSet.size > 0 ||
+            (firstDetectMsByStationId.size > 0 && lastDetectActiveAtMs > 0 && nowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS)
+        )
+
+        if(canEstimate){
+            if(!hypoEstimateFinished && nowMs - lastHypoEstimateAtMs >= 1000){
                 const picks = []
                 // 推定には「現在アクティブな局」だけでなく、イベント中に一度でも検知した局(初検知)を使う
                 for (const [id, info] of firstDetectMsByStationId.entries()) {
@@ -382,7 +399,14 @@ const update = (frameMs)=>{
                     })
                 }
                 picks.sort((a,b)=>a.tObsSec-b.tObsSec)
-                const used = picks.slice(0, 40)
+                const firstPickMs = picks.length > 0 ? (picks[0].tObsSec * 1000) : NaN
+                const deadlineMs = Number.isFinite(firstPickMs) ? (firstPickMs + HYPO_ESTIMATE_STOP_AFTER_MS) : NaN
+                const reachedDeadline = Number.isFinite(deadlineMs) && nowMs >= deadlineMs
+                const shouldStopNow = !hypoStopChecked && reachedDeadline && picks.length >= HYPO_ESTIMATE_MIN_POINTS
+                if (!hypoStopChecked && reachedDeadline) hypoStopChecked = true
+
+                const maxPoints = _getHypoEstimateMaxPoints()
+                const used = picks.slice(0, Math.min(picks.length, maxPoints))
 
                 let solved = false
                 if(used.length >= 4){
@@ -404,7 +428,7 @@ const update = (frameMs)=>{
                         }
                     })
 
-                    const est = locateHypocenterGeiger({
+                    const est = locateHypocenterGeigerRobust({
                         travelTime: _getTravelTime(),
                         observations,
                         initial: {
@@ -413,14 +437,22 @@ const update = (frameMs)=>{
                             depthKm: 10,
                             originSec: used[0].tObsSec - 2.0
                         },
-                        maxIter: 8
+                        maxIter: 8,
+                        useStationElevation: false
                     })
                     if(est){
+                        const minObsSec = observations.reduce(
+                            (acc, o) => (Number.isFinite(o?.tObsSec) ? Math.min(acc, o.tObsSec) : acc),
+                            Infinity
+                        )
+                        const clampUpper = Number.isFinite(minObsSec) ? (minObsSec - 0.01) : Infinity
+                        const originSec = Number.isFinite(est.originSec) ? Math.min(est.originSec, clampUpper) : clampUpper
+
                         lastHypo = {
                             lat: est.lat,
                             lon: est.lon,
                             depthKm: est.depthKm,
-                            originMs: est.originSec * 1000,
+                            originMs: originSec * 1000,
                             rmsSec: est.rmsSec,
                             converged: est.converged
                         }
@@ -443,10 +475,14 @@ const update = (frameMs)=>{
                     lastHypoEstimateAtMs = nowMs
                     _resolveEpicenterName(lastHypo)
                 }
+
+                if(shouldStopNow && lastHypo) {
+                    hypoEstimateFinished = true
+                }
             }
             if(lastHypo) _updateHypoLayers(lastHypo, nowMs)
 
-            if(niedDetectObsCount) niedDetectObsCount.value = activeStationsSet.size
+            if(niedDetectObsCount) niedDetectObsCount.value = firstDetectMsByStationId.size
             if(lastHypo){
                 if(niedDetectActive) niedDetectActive.value = true
                 if(niedDetectOriginTime) niedDetectOriginTime.value = stampToTime(lastHypo.originMs, 9)

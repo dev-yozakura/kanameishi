@@ -117,6 +117,20 @@
                 <div class="group">
                     <span class="font-bold w-full">{{ $t('settings.seisNet.dataSource') }}</span>
                     <div class="switch-group">
+                        <div class="switch-full">
+                            <span>{{ $t('settings.seisNet.hypo_estimate_max_points') }}</span>
+                            <el-input-number
+                                v-model="settingsStore.mainSettings.displaySeisNet.hypoEstimateMaxPoints"
+                                size="small"
+                                :min="40"
+                                :max="500"
+                                :step="10"
+                                controls-position="right"
+                                style="width: 156px"
+                            />
+                        </div>
+                    </div>
+                    <div class="switch-group">
                         <div class="w-full">
                             <div class="switch-full">
                                 <span>{{ $t('settings.seisNet.nied_net') }} ({{ $t('settings.seisNet.marker_count', { count: niedMarkerCountDisplay }) }})</span>
