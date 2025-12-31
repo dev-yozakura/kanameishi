@@ -77,6 +77,10 @@ let hypoStopChecked = false
 let _niedEpiName = ''
 let _niedEpiReqId = 0
 
+// 予報円の描画は「データ取得/デコード(1Hz)」と分離して 10fps で回す
+const NIED_FORECAST_DRAW_INTERVAL_MS = 100
+let niedForecastDrawTimer = null
+
 let lastPgaArr = null
 let lastPgaValidArr = null
 let lastPgaTsMs = NaN
@@ -272,6 +276,31 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
   }
 }
 
+const _startNiedForecastDrawLoop = () => {
+  if (niedForecastDrawTimer) return
+  niedForecastDrawTimer = setInterval(() => {
+    if (!map) return
+    if (!lastHypo) return
+
+    const nowMs = timeStore.getTimeStamp() - delayMs.value
+    if (!Number.isFinite(nowMs)) return
+
+    // 揺れ検知が完全に途切れた後は更新しない（安全側）
+    const canDraw = statusStore.isActive.niedNet || (
+      kmoniFirstDetectMsByStationId.size > 0 &&
+      lastDetectActiveAtMs > 0 &&
+      nowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS
+    )
+    if (!canDraw) return
+
+    _updateNiedHypoLayers(lastHypo, nowMs)
+  }, NIED_FORECAST_DRAW_INTERVAL_MS)
+}
+
+const _stopNiedForecastDrawLoop = () => {
+  if (niedForecastDrawTimer) clearInterval(niedForecastDrawTimer)
+  niedForecastDrawTimer = null
+}
 let pollInFlight = false
 let lastAbortController = null
 
@@ -892,6 +921,8 @@ unwatchMap = watch(
       // ignore
     }
 
+    _startNiedForecastDrawLoop()
+
     map.on('zoomend', renderAll)
     unwatchGrids = watch(
       grids,
@@ -1028,6 +1059,7 @@ watch(
 onBeforeUnmount(() => {
   try { lastAbortController?.abort?.() } catch {}
   try { document.removeEventListener('visibilitychange', _onVisibilityChange) } catch {}
+  _stopNiedForecastDrawLoop()
   if (unwatchMap) unwatchMap()
   if (unwatchGrids) unwatchGrids()
   if (unwatchRender) unwatchRender()

@@ -53,6 +53,10 @@ let _niedHypoTooltipKey = ''
 let _niedEpiName = ''
 let _niedEpiReqId = 0
 
+// 予報円の描画は「データ取得/解析」と分離して 10fps で回す
+const NIED_FORECAST_DRAW_INTERVAL_MS = 100
+let niedForecastDrawTimer = null
+
 const HYPO_ESTIMATE_MIN_POINTS = 40
 const HYPO_ESTIMATE_STOP_AFTER_MS = 20 * 1000
 const _getHypoEstimateMaxPoints = () => {
@@ -186,6 +190,26 @@ const _updateHypoLayers = (hypo, frameMs)=>{
         niedSWave = null
         niedSWaveFill = null
     }
+}
+
+const _startNiedForecastDrawLoop = () => {
+    if (niedForecastDrawTimer) return
+    niedForecastDrawTimer = setInterval(() => {
+        if (!map) return
+        if (!lastHypo) return
+
+        // 揺れ検知が完全に途切れた後は更新しない（安全側）
+        const logicalNowMs = Date.now() - (Number.isFinite(delay.value) ? delay.value : 0)
+        if (!Number.isFinite(logicalNowMs)) return
+        if (lastDetectActiveAtMs > 0 && logicalNowMs - lastDetectActiveAtMs > OBS_KEEP_GAP_MS && firstDetectMsByStationId.size === 0) return
+
+        _updateHypoLayers(lastHypo, logicalNowMs)
+    }, NIED_FORECAST_DRAW_INTERVAL_MS)
+}
+
+const _stopNiedForecastDrawLoop = () => {
+    if (niedForecastDrawTimer) clearInterval(niedForecastDrawTimer)
+    niedForecastDrawTimer = null
 }
 
 const _fetchJson = async (url)=>{
@@ -679,6 +703,7 @@ watch(()=>statusStore.map, newVal=>{
     if(newVal !== null){
         map = newVal
         map.on('zoomend', renderAll)
+        _startNiedForecastDrawLoop()
         unwatchGrids = watch(grids, (newVal)=>{
             let maxLevel = -1, maxColor = 'gray'
             for(let key in newVal) {
@@ -815,6 +840,7 @@ watch(()=>settingsStore.mainSettings.displaySeisNet.delay, newVal=>{
 }, { immediate: true })
 onBeforeUnmount(()=>{
     _resetNiedHypo(true)
+    _stopNiedForecastDrawLoop()
     if(niedMarkerCount) niedMarkerCount.value = 0
     clearInterval(fetchStationInterval)
     clearInterval(requestInterval)

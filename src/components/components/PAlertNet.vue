@@ -126,6 +126,11 @@ let lastHypoEstimateAtMs = 0
 let hypoEstimateFinished = false
 let hypoStopChecked = false
 let _tjma2001 = null
+let _palertHypoTooltipKey = ''
+
+// 予報円の描画は「データ取得(1Hz)」とは別に回す（10fps）
+const PALERT_FORECAST_DRAW_INTERVAL_MS = 100
+let palertForecastDrawTimer = null
 
 const HYPO_ESTIMATE_MIN_POINTS = 40
 const HYPO_ESTIMATE_STOP_AFTER_MS = 20 * 1000
@@ -186,6 +191,7 @@ const _clearPalertHypoLayers = () => {
     palertPWave = null
     palertSWave = null
     palertSWaveFill = null
+    _palertHypoTooltipKey = ''
 }
 
 const _resetPalertHypo = (hard = false) => {
@@ -222,12 +228,16 @@ const _updateHypoLayers = (hypo, frameMs) => {
     }
 
     const originStr = Number.isFinite(hypo.originMs) ? stampToTime(hypo.originMs, 8) : ''
-    try {
-        palertHypoMarker.bindTooltip(
-            `<strong>P-Alert(推定)</strong><br>Depth ${Math.round(hypo.depthKm)}km<br>Origin ${originStr}`,
-            { permanent: false, direction: 'top', className: 'custom-tooltip' }
-        )
-    } catch {}
+    const tooltipKey = `${Math.round(hypo.depthKm)}|${originStr}`
+    if (tooltipKey !== _palertHypoTooltipKey) {
+        _palertHypoTooltipKey = tooltipKey
+        try {
+            palertHypoMarker.bindTooltip(
+                `<strong>P-Alert(推定)</strong><br>Depth ${Math.round(hypo.depthKm)}km<br>Origin ${originStr}`,
+                { permanent: false, direction: 'top', className: 'custom-tooltip' }
+            )
+        } catch {}
+    }
 
     if (pRadiusKm > 0) {
         if (!palertPWave) {
@@ -284,6 +294,22 @@ const _updateHypoLayers = (hypo, frameMs) => {
         palertSWave = null
         palertSWaveFill = null
     }
+}
+
+const _startPalertForecastDrawLoop = () => {
+    if (palertForecastDrawTimer) return
+    palertForecastDrawTimer = setInterval(() => {
+        if (!map) return
+        if (!lastHypo) return
+        const nowMs = timeStore.getTimeStamp() - delayMs.value
+        if (!Number.isFinite(nowMs)) return
+        _updateHypoLayers(lastHypo, nowMs)
+    }, PALERT_FORECAST_DRAW_INTERVAL_MS)
+}
+
+const _stopPalertForecastDrawLoop = () => {
+    if (palertForecastDrawTimer) clearInterval(palertForecastDrawTimer)
+    palertForecastDrawTimer = null
 }
 
 const shouldShowShindoTooltip = (level, zoom) => {
@@ -438,30 +464,118 @@ const calcRecentPgaRms = (pgaGalSeries) => {
     return Number.isFinite(rms) ? rms : 0
 }
 
-// 台湾(2020年以前の旧制度)の近似: I = 2*log10(PGA[gal]) + 0.70 を四捨五入して震度階級(0..7)
-// 1秒統計値しか無いので、直近数秒のRMSでスパイクを抑えてから換算する。
-const pgaSeriesToTaiwanIntensityClass = (pgaGalSeries) => {
-    const pgaEff = calcRecentPgaRms(pgaGalSeries)
-    if (!Number.isFinite(pgaEff) || pgaEff <= 0) return -1
+// P-alert 震度(表示)の算出:
+// 1) PGA[Gal = cm/s^2] の範囲表で震度を算出
+// 2) その震度が5未満なら確定
+// 3) 5以上なら PGV[cm/s] の範囲表で震度を再算出
+// ※ P-Alert GraphQL では現状 realtimePGA のみ取得しているため、PGVが得られない場合は
+//    PGAから簡易推定したPGVを用いる（主に高震度帯の段階判定用）。
 
-    const iFloat = 2.0 * Math.log10(pgaEff) + 0.70
-    const iClass = Math.round(iFloat)
-    return Math.max(0, Math.min(7, iClass))
-}
-
-// 内部描画は既存の0..20 level系(色/半径/揺れ検知が依存)なので、台湾の0..7を近いlevelに写像する
-const taiwanClassToLevel = (iClass) => {
-    switch (iClass) {
-        case 0: return 0
-        case 1: return 8
-        case 2: return 10
-        case 3: return 12
-        case 4: return 14
-        case 5: return 16
-        case 6: return 18
-        case 7: return 20
+const shindoLabelToLevel = (label) => {
+    switch (label) {
+        case '0': return 0
+        case '1': return 8
+        case '2': return 10
+        case '3': return 12
+        case '4': return 14
+        case '5-': return 16
+        case '5+': return 17
+        case '6-': return 18
+        case '6+': return 19
+        case '7': return 20
         default: return -1
     }
+}
+
+const pgaToShindoLabel = (pgaGal) => {
+    const v = Number(pgaGal)
+    if (!Number.isFinite(v) || v <= 0) return '0'
+    if (v < 0.8) return '0'
+    if (v < 2.5) return '1'
+    if (v < 8.0) return '2'
+    if (v < 25) return '3'
+    if (v < 80) return '4'
+    if (v < 140) return '5-'
+    if (v < 250) return '5+'
+    if (v < 440) return '6-'
+    if (v < 800) return '6+'
+    return '7'
+}
+
+const normalizePgvToCms = (pgv) => {
+    let v = Number(pgv)
+    if (!Number.isFinite(v) || v <= 0) return 0
+    // もしmm/s相当で来た場合の保険（PGAのmGal補正と同様の考え方）
+    if (v >= 5000) v = v / 1000
+    return v
+}
+
+const pgvToShindoLabel = (pgvCms) => {
+    const v = Number(pgvCms)
+    if (!Number.isFinite(v) || v <= 0) return '0'
+    if (v < 0.2) return '0'
+    if (v < 0.7) return '1'
+    if (v < 1.9) return '2'
+    if (v < 5.7) return '3'
+    if (v < 15) return '4'
+    if (v < 30) return '5-'
+    if (v < 50) return '5+'
+    if (v < 80) return '6-'
+    if (v < 140) return '6+'
+    return '7'
+}
+
+const estimatePgvFromPga = (pgaGal) => {
+    // 目安: 高震度域のPGA/PGV境界比が概ね 5.0〜5.8 程度なので、その中間を採用
+    // (cm/s^2) / 5.6 ≒ (cm/s)
+    const v = Number(pgaGal)
+    if (!Number.isFinite(v) || v <= 0) return 0
+    return v / 5.6
+}
+
+const extractPgaPgv = (raw) => {
+    // dataVals[id] の形式が環境により異なる可能性があるため、広めに吸収
+    // - number: PGA
+    // - [pga, pgv]
+    // - { pga, pgv } / { PGA, PGV }
+    if (Array.isArray(raw)) {
+        return { pga: raw[0], pgv: raw[1] }
+    }
+    if (raw && typeof raw === 'object') {
+        return {
+            pga: raw.pga ?? raw.PGA ?? raw.acc ?? raw.Acc ?? raw.value,
+            pgv: raw.pgv ?? raw.PGV ?? raw.vel ?? raw.Vel,
+        }
+    }
+    return { pga: raw, pgv: undefined }
+}
+
+const pgaSeriesToPalertLevel = (pgaGalSeries, pgvCmsSeries) => {
+    const pgaEff = calcRecentPgaRms(pgaGalSeries)
+    const pgaLabel = pgaToShindoLabel(pgaEff)
+
+    const pgaLevel = shindoLabelToLevel(pgaLabel)
+    if (pgaLevel < 0) return -1
+    // 5未満ならPGAで確定（0..4は level<=15 で表現される）
+    if (pgaLevel <= 15) return pgaLevel
+
+    let pgvEff = 0
+    if (Array.isArray(pgvCmsSeries) && pgvCmsSeries.length > 0) {
+        // pgv系列は任意。PGAのRMSと同じ考え方で直近RMS。
+        const N = 3
+        const recent = pgvCmsSeries.slice(0, N)
+        const vals = recent
+            .map((x) => normalizePgvToCms(x))
+            .filter((x) => Number.isFinite(x) && x >= 0)
+        while (vals.length < N) vals.push(0)
+        const meanSq = vals.reduce((s, x) => s + x * x, 0) / N
+        pgvEff = Math.sqrt(meanSq)
+    } else {
+        pgvEff = estimatePgvFromPga(pgaEff)
+    }
+
+    const pgvLabel = pgvToShindoLabel(pgvEff)
+    return shindoLabelToLevel(pgvLabel)
 }
 
 const pad2 = (n) => String(n).padStart(2, '0')
@@ -629,6 +743,8 @@ const fetchStationList = async () => {
                 recentLevel: [],
                 recentPga: [],
                 pgaEff: 0,
+                recentPgv: [],
+                pgvEff: 0,
                 activity: 0,
                 isActive: false,
                 activeUntil: 0,
@@ -995,18 +1111,25 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
         if (st.isActive && st.activeUntil && now > st.activeUntil) {
             st.isActive = false
         }
-        const pga = dataVals?.[id]
-        const pgaGal = normalizePgaToGal(pga)
+        const raw = dataVals?.[id]
+        const extracted = extractPgaPgv(raw)
+        const pgaGal = normalizePgaToGal(extracted?.pga)
+        const pgvCms = normalizePgvToCms(extracted?.pgv)
 
         if (pgaGal > maxPgaGal) maxPgaGal = pgaGal
 
         st.recentPga.unshift(pgaGal)
         st.recentPga.splice(10)
 
+        // PGV (cm/s)
+        if (!Array.isArray(st.recentPgv)) st.recentPgv = []
+        st.recentPgv.unshift(pgvCms)
+        st.recentPgv.splice(10)
+
         st.pgaEff = calcRecentPgaRms(st.recentPga)
 
-        const iClass = pgaSeriesToTaiwanIntensityClass(st.recentPga)
-        const level = taiwanClassToLevel(iClass)
+        // 震度(表示)はPGA/PGVの範囲表で段階判定
+        const level = pgaSeriesToPalertLevel(st.recentPga, st.recentPgv)
         updateStationState(st, level)
         if (st.level > maxLevel) maxLevel = st.level
     }
@@ -1340,16 +1463,31 @@ const tickRealtime = async () => {
     const nowMs = timeStore.getTimeStamp() - delayMs.value
     const recordTimeSeconds = nowMs / 1000
 
-    const res = await postGraphql(REALTIME_PGA_QUERY, {
-        recordTime: recordTimeSeconds,
-        type: 0
-    })
+    const [resPga, resPgv] = await Promise.all([
+        postGraphql(REALTIME_PGA_QUERY, { recordTime: recordTimeSeconds, type: 0 }),
+        postGraphql(REALTIME_PGA_QUERY, { recordTime: recordTimeSeconds, type: 1 }),
+    ])
 
-    const payload = res?.data?.realtimePGA
-    if (!payload) return
+    const payloadPga = resPga?.data?.realtimePGA
+    const payloadPgv = resPgv?.data?.realtimePGA
+    if (!payloadPga && !payloadPgv) return
 
-    if (payload.timestamp) palertUpdateTime.value = formatIsoToTime(payload.timestamp, 8)
-    applyRealtimePga(payload.dataVals, nowMs)
+    const ts = payloadPga?.timestamp ?? payloadPgv?.timestamp
+    if (ts) palertUpdateTime.value = formatIsoToTime(ts, 8)
+
+    const pgaVals = payloadPga?.dataVals ?? {}
+    const pgvVals = payloadPgv?.dataVals ?? {}
+    const merged = {}
+
+    for (const id of Object.keys(pgaVals)) {
+        merged[id] = { pga: pgaVals[id], pgv: pgvVals?.[id] }
+    }
+    for (const id of Object.keys(pgvVals)) {
+        if (merged[id]) continue
+        merged[id] = { pga: pgaVals?.[id], pgv: pgvVals[id] }
+    }
+
+    applyRealtimePga(merged, nowMs)
 }
 
 const startRealtimeLoop = () => {
@@ -1390,6 +1528,7 @@ unwatchMap = watch(
         palertRenderer = L.canvas({ padding: 0.5, pane: 'palertStationPane0' })
         map.on('zoomend', renderAll)
         startRealtimeLoop()
+        _startPalertForecastDrawLoop()
     },
     { immediate: true }
 )
@@ -1458,6 +1597,7 @@ watch(
 
 onBeforeUnmount(() => {
     _stopGridBlinking()
+    _stopPalertForecastDrawLoop()
     stopRealtimeLoop()
     if (stationListInterval) clearInterval(stationListInterval)
     stationListInterval = null
