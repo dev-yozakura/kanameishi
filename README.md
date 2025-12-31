@@ -1,107 +1,132 @@
-# 要石 kanameishi
+# 要石（kanameishi）
 
-## 简介
-要石(kanameishi)是一个基于多重API制作的地震预警和地震信息可视化Web应用，基于Vite+Vue3+Leaflet开发。  
-提供基于Tauri构建的Windows及macOS应用程序，推荐Windows 10、macOS 11及以上系统使用。  
-icon是《铃芽之旅》的草太さん（椅子形态）。  
-* [Web版](https://kanameishi.lipomoea.tech/)
-* [Web版备用](https://kanameishi.pages.dev/)（使用CloudFlare托管，速度更快，但国内可能需要代理访问。）
-* [应用程序下载](https://github.com/Lipomoea/kanameishi/releases)
-* [应用程序下载（备用）](https://gitee.com/lipomoea/kanameishi/releases)
+## 概要
+要石（kanameishi）は、複数の API を組み合わせて地震警報（EEW）や地震情報を可視化する Web アプリです。Vite + Vue 3 + Leaflet で開発されています。
+
+Tauri による Windows / macOS アプリも提供しています（Windows 10 / macOS 11 以上推奨）。
+
+アイコンは『すずめの戸締まり』の草太さん（椅子形態）をモチーフにしています。
+
+## リンク
+- Web版: https://kanameishi.lipomoea.tech/
+- Web版（予備）: https://kanameishi.pages.dev/（Cloudflare ホスティング。環境によってはアクセスにプロキシが必要な場合があります）
+- アプリ版（Releases）: https://github.com/Lipomoea/kanameishi/releases
+- アプリ版（予備）: https://gitee.com/lipomoea/kanameishi/releases
+
+## 主な機能
+- 地震警報（EEW）の受信・表示
+	- 日本気象庁（JMA）
+	- 台湾中央気象署（CWA）
+	- 中国地震局（CEA：省級ソース含む）
+	- 四川省地震局（SC）
+	- 福建省地震局（FJ）
+- 地震情報の受信・表示
+	- 日本気象庁（JMA）
+	- 中国地震台ネットワーク（CENC）
+- 津波情報の受信・表示（日本気象庁）
+- 観測網データの表示（例: NIED 強震モニタ）
+
+## 重要：利用前の注意
+利用前に、アプリ内の「設定」→「ヘルプ&About」の注意事項を必ず確認してください。
 
 ## Android（PWA）
-本仓库已加入 PWA 支持，可在 Android 上“安装到主屏幕”作为应用使用：
-* 用 Chrome 打开 Web 版
-* 浏览器菜单 → “添加到主屏幕”（或“安装应用”）
+本リポジトリは PWA に対応しており、Android では「ホーム画面に追加（アプリとしてインストール）」して利用できます。
 
-> 说明：PWA 通过 Service Worker 缓存资源，若更新后仍显示旧版本，可在浏览器中清除站点数据/缓存后重试。
+手順:
+- Android の Chrome で Web 版を開く
+- ブラウザメニュー →「ホーム画面に追加」または「アプリをインストール」
+
+補足:
+- PWA は Service Worker によるキャッシュを使用します。更新後も古い表示が残る場合、サイトデータ/キャッシュを削除して再試行してください。
 
 ## GitHub Pages で一部データが表示できない場合（重要）
-GitHub Pages は **静的ホスティング** のため、開発時に使っている Vite の `server.proxy`（例: `/kmoni`, `/palert`, `/msil`）が使えません。
-また、外部サイトの多くは **CORS 制限** や **Origin/Referer チェック** があるため、ブラウザから直接取得できない場合があります。
+GitHub Pages は「静的ホスティング」のため、開発時に使っている Vite の `server.proxy`（例: `/kmoni`, `/palert`, `/msil`）が使えません。
+また、外部サイトの多くは CORS 制限や Origin/Referer チェックがあるため、ブラウザから直接取得できない場合があります。
 
-対策として、外部に **リバースプロキシ（Edge Proxy）** を用意して、ビルド時に `VITE_EDGE_PROXY_BASE` を設定してください。
+対策として、外部にリバースプロキシ（Edge Proxy）を用意し、ビルド時に `VITE_EDGE_PROXY_BASE` を設定してください。
 
-- Proxy 実装例: [tools/edge-proxy/worker.mjs](tools/edge-proxy/worker.mjs)（Cloudflare Workers 向け）
-- GitHub Actions での設定: リポジトリ Settings → Secrets and variables → Actions → Variables に `VITE_EDGE_PROXY_BASE` を追加
+- Proxy 実装例（Cloudflare Workers 向け）: [tools/edge-proxy/worker.mjs](tools/edge-proxy/worker.mjs)
+- GitHub Actions での設定例:
+	- リポジトリ Settings → Secrets and variables → Actions → Variables に `VITE_EDGE_PROXY_BASE` を追加
 	- 例: `https://your-worker.your-account.workers.dev`
 
-この設定がない場合、環境によっては NIED(kmoni), P-Alert, 海しる(MSIL) などが表示できません。
+この設定がない場合、環境によっては NIED(kmoni), P-Alert, 海しる(MSIL) などが表示できないことがあります。
 
-## 任意: GlobalQuake (Yuzhno) SSE テスト
+## 任意：GlobalQuake (Yuzhno) SSE テスト
+`http://localhost:8788/gq/yuzhno/stream` への SSE 接続は、プロキシが停止しているとブラウザが自動再接続を繰り返し、コンソールに `net::ERR_CONNECTION_REFUSED` が大量に出ることがあります。
 
-`http://localhost:8788/gq/yuzhno/stream` への SSE 接続は、プロキシが落ちているとブラウザが自動再接続を繰り返し、コンソールに `net::ERR_CONNECTION_REFUSED` が多発します。
-
-このため **デフォルトでは無効** です。必要な場合のみ、環境変数で明示的に有効化してください:
+このためデフォルトでは無効です。必要な場合のみ、環境変数で明示的に有効化してください。
 
 - `VITE_GQ_YUZHNO_SSE_URL=http://localhost:8788/gq/yuzhno/stream`
 
-### 开发者：如何以 PWA 方式验证（Android）
-PWA 的前提是 **安全上下文**（HTTPS 或 localhost）。因此：
-* 已部署到 HTTPS 的站点：直接用 Android Chrome 打开并“安装应用”。
-* 本地开发机：推荐用 **ADB 反向端口** 在手机上访问 `http://localhost`（依然满足 localhost 规则）。
+## 開発者向け：PWA として検証（Android）
+PWA は「セキュアコンテキスト」（HTTPS または localhost）が前提です。
 
-#### 方式 A：部署到 HTTPS（最简单）
-* 将 `dist/` 部署到任意 HTTPS 静态托管（例如 Cloudflare Pages / GitHub Pages 等）
-* Android Chrome 打开站点 → 菜单 → “安装应用/添加到主屏幕”
+### 方法A：HTTPS にデプロイ（最も簡単）
+- `dist/` を任意の HTTPS 静的ホスティング（Cloudflare Pages / GitHub Pages 等）へ配置
+- Android Chrome で開き、メニューから「アプリをインストール/ホーム画面に追加」
 
-#### 方式 B：本地 + ADB（无需折腾 HTTPS 证书）
-1) 构建并在本机启动预览：
-* `pnpm install`
-* `pnpm build`
-* `pnpm preview`
+### 方法B：ローカル + ADB（HTTPS 証明書が不要）
+1) ビルドしてプレビュー起動:
+- `pnpm install`
+- `pnpm build`
+- `pnpm preview`
 
-2) 手机开启“USB 调试”，连接到电脑后执行：
-* `adb reverse tcp:4173 tcp:4173`
+2) 端末で USB デバッグを有効にして PC に接続し、次を実行:
+- `adb reverse tcp:4173 tcp:4173`
 
-3) 在手机 Chrome 打开：
-* `http://localhost:4173/`
-然后在菜单里选择“安装应用/添加到主屏幕”。
+3) 端末の Chrome で次を開く:
+- `http://localhost:4173/`
 
-#### 方式 C：同一局域网访问（需要 HTTPS）
-如果要在手机上直接访问电脑 IP（例如 `http://192.168.x.x:4173`），由于不是 localhost，Service Worker 通常不会在 HTTP 下工作。
-* 仅用于页面查看：`pnpm preview:host` 后用手机访问即可。
-* 需要完整 PWA（SW/离线缓存/安装）：请改用 HTTPS（自签证书/反代/隧道）或使用“方式 B”。
+### 方法C：同一 LAN からアクセス（HTTPS が必要）
+PC の IP（例: `http://192.168.x.x:4173`）に HTTP で直接アクセスする場合、localhost ではないため Service Worker が動作しないことが一般的です。
 
-## 主要功能  
-* 接收日本气象厅、台湾省中央气象署、中国地震局（包括各省分局）、四川省地震局、福建省地震局地震预警信息。
-* 接收日本气象厅、中国地震台网地震信息。
-* 接收日本气象厅海啸情报。
-* 获取NIED強震モニタ测站数据。
-## 注意事项
-* 使用本网页前，请详细阅读网页“设置”-“帮助&关于”中的内容。
-## 数据来源
-* 地震预警（JMA/CWA/CEA/SC/FJ）、地震信息（CENC）、地震列表（JMA）、IP定位：[Wolfx Open API](https://wolfx.jp/apidoc)（请注意参考接口文档）
-* 地震信息（JMA）、海啸信息（JMA）：[P2PQuake](https://www.p2pquake.net/develop/json_api_v2/#/P2P%E5%9C%B0%E9%9C%87%E6%83%85%E5%A0%B1%20API/get_history)
-* 地震预警（CEA/SC/FJ）、地震信息（CENC/USGS/FSSN）、地震列表（CENC/FSSN）、NTP时间：[FAN Studio API](https://api.fanstudio.tech/doc/wsapi/)
-* 中国大陆地图：[阿里云DataV.GeoAtlas](https://datav.aliyun.com/portal/school/atlas/area_selector)
-* 中国台湾地图：[GeoJSON](https://geojson.cn/)
-* 中国断层：[国家地震科学数据中心](https://data.earthquake.cn/datashare/report.shtml?PAGEID=datasourcelist&dt=ff808082845b8fd401845bf036a1000c)
-* 中国地图注记：[中国城市经纬度坐标点集](https://gitcode.com/Open-source-documentation-tutorial/a0d83)
-* 日本地图：[日本気象庁](https://www.data.jma.go.jp/developer/gis.html)（注意钓鱼岛地区处理）
-* 世界地图：[GeoJSON Maps of the globe](https://geojson-maps.kyd.au/)（注意甄别争议地区）
-* 地震計リアルタイム（SeedLink）：[IRIS DMC SeedLink Service](https://ds.iris.edu/ds/nodes/dmc/services/seedlink/)
-* SREV音效：[scratch-realtime-earthquake-viewer-page](https://github.com/kotoho7/scratch-realtime-earthquake-viewer-page)
-* 中文倒计时播报素材：[地牛Wake Up！](https://eew.earthquake.tw/)
-## 参考软件
-* [JQuake](https://jquake.net/)
-* [scratch-realtime-earthquake-viewer-page](https://github.com/kotoho7/scratch-realtime-earthquake-viewer-page)
-* [TREM-Lite](https://github.com/ExpTechTW/TREM-Lite)
-## 特别鸣谢
-* [Wolfx Project](https://wolfx.jp/)
-* [TBS](https://space.bilibili.com/652050915/)
-* [FAN](https://www.fanstudio.tech/)
-* Dxr (QQ: 2194362576)
-* HomoOS
-* [azzbm](https://space.bilibili.com/702013828)
-* [不知道要取什么系列](https://space.bilibili.com/499911115)
-* [Andyli](https://space.bilibili.com/401770455)
-* 各位提供帮助的EEW爱好者
-## 版权声明
-本项目参考了以下项目的源代码。
-* [TREM-Lite](https://github.com/ExpTechTW/TREM-Lite)
-* [TREM-tauri](https://github.com/ExpTechTW/TREM-tauri)
-* [EarthQuakeWarning](https://github.com/kengwang/EarthQuakeWarning)
-* [Zero-Quake](https://github.com/0Quake/Zero-Quake)
-## 开放源代码许可
-本项目基于[AGPL-3.0](https://github.com/Lipomoea/kanameishi/blob/main/LICENSE)协议授权。
+- ページ表示だけでよければ `pnpm preview:host` でアクセス可能
+- PWA（SW/オフラインキャッシュ/インストール）まで検証する場合は HTTPS を用意するか、方法Bを利用してください
+
+## データソース（取得元）
+- 地震警報（JMA/CWA/CEA/SC/FJ）、地震情報（CENC）、地震一覧（JMA）、IP 位置推定: [Wolfx Open API](https://wolfx.jp/apidoc)
+- 地震情報（JMA）、津波情報（JMA）: [P2PQuake JSON API v2](https://www.p2pquake.net/develop/json_api_v2/#/P2P%E5%9C%B0%E9%9C%87%E6%83%85%E5%A0%B1%20API/get_history)
+- 地震警報（CEA/SC/FJ）、地震情報（CENC/USGS/FSSN）、地震一覧（CENC/FSSN）、NTP 時刻: [FAN Studio API](https://api.fanstudio.tech/doc/wsapi/)
+
+### 地図データ
+- 中国大陸: [阿里云 DataV.GeoAtlas](https://datav.aliyun.com/portal/school/atlas/area_selector)
+- 台湾: [GeoJSON](https://geojson.cn/)
+- 中国断層: [国家地震科学数据中心](https://data.earthquake.cn/datashare/report.shtml?PAGEID=datasourcelist&dt=ff808082845b8fd401845bf036a1000c)
+- 中国の地名注記: [中国城市经纬度坐标点集](https://gitcode.com/Open-source-documentation-tutorial/a0d83)
+- 日本: [日本気象庁 GIS](https://www.data.jma.go.jp/developer/gis.html)
+- 世界: [GeoJSON Maps of the globe](https://geojson-maps.kyd.au/)（境界線/係争地等は各自でご確認ください）
+
+### 観測データ
+- 地震計リアルタイム（SeedLink）: [IRIS DMC SeedLink Service](https://ds.iris.edu/ds/nodes/dmc/services/seedlink/)
+
+### 音声素材
+- SREV 効果音: [scratch-realtime-earthquake-viewer-page](https://github.com/kotoho7/scratch-realtime-earthquake-viewer-page)
+- 中国語カウントダウン音声素材: [地牛 Wake Up！](https://eew.earthquake.tw/)
+
+## 参考ソフト
+- [JQuake](https://jquake.net/)
+- [scratch-realtime-earthquake-viewer-page](https://github.com/kotoho7/scratch-realtime-earthquake-viewer-page)
+- [TREM-Lite](https://github.com/ExpTechTW/TREM-Lite)
+
+## 謝辞
+- [Wolfx Project](https://wolfx.jp/)
+- [TBS](https://space.bilibili.com/652050915/)
+- [FAN](https://www.fanstudio.tech/)
+- Dxr（QQ: 2194362576）
+- HomoOS
+- [azzbm](https://space.bilibili.com/702013828)
+- [不知道要取什么系列](https://space.bilibili.com/499911115)
+- [Andyli](https://space.bilibili.com/401770455)
+- そのほか支援いただいた EEW コミュニティの皆さま
+
+## 著作権・参考実装について
+本プロジェクトは、以下のプロジェクトの実装を参考にしています。
+
+- [TREM-Lite](https://github.com/ExpTechTW/TREM-Lite)
+- [TREM-tauri](https://github.com/ExpTechTW/TREM-tauri)
+- [EarthQuakeWarning](https://github.com/kengwang/EarthQuakeWarning)
+- [Zero-Quake](https://github.com/0Quake/Zero-Quake)
+
+## ライセンス
+本プロジェクトは [AGPL-3.0](LICENSE) で提供されています。

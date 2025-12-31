@@ -92,7 +92,10 @@ const _clearNiedHypoLayers = ()=>{
 }
 
 const _resetNiedHypo = (hard = false)=>{
-    if(hard) firstDetectMsByStationId.clear()
+    if(hard) {
+        firstDetectMsByStationId.clear()
+        lastDetectActiveAtMs = 0
+    }
     lastHypo = null
     lastHypoEstimateAtMs = 0
     hypoEstimateFinished = false
@@ -201,7 +204,16 @@ const _startNiedForecastDrawLoop = () => {
         // 揺れ検知が完全に途切れた後は更新しない（安全側）
         const logicalNowMs = Date.now() - (Number.isFinite(delay.value) ? delay.value : 0)
         if (!Number.isFinite(logicalNowMs)) return
-        if (lastDetectActiveAtMs > 0 && logicalNowMs - lastDetectActiveAtMs > OBS_KEEP_GAP_MS && firstDetectMsByStationId.size === 0) return
+
+        const canDraw = statusStore.isActive.niedNet || (
+            firstDetectMsByStationId.size > 0 &&
+            lastDetectActiveAtMs > 0 &&
+            logicalNowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS
+        )
+        if (!canDraw) {
+            _resetNiedHypo(true)
+            return
+        }
 
         _updateHypoLayers(lastHypo, logicalNowMs)
     }, NIED_FORECAST_DRAW_INTERVAL_MS)
@@ -247,6 +259,13 @@ const niedDetectDepthKm = inject('niedDetectDepthKm')
 const niedDetectObsCount = inject('niedDetectObsCount')
 const handleTempEqlists = inject('handleTempEqlists')
 const smartSetView = inject('smartSetView')
+
+const _onVisibilityChange = () => {
+    if (document.visibilityState === 'visible' && pendingRender) {
+        pendingRender = false
+        renderAll()
+    }
+}
 let periodMaxLevel = -1
 const currentMaxShindo = computed(()=>{
     const currentMaxLevel = Math.max(...Object.keys(grids.value).map(key=>grids.value[key].level), -1)
@@ -691,12 +710,7 @@ onMounted(()=>{
             console.log(err);
         }
     }, 500);
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && pendingRender) {
-            pendingRender = false
-            renderAll()
-        }
-    })
+    document.addEventListener('visibilitychange', _onVisibilityChange)
 })
 let unwatchGrids, unwatchRender
 watch(()=>statusStore.map, newVal=>{
@@ -842,6 +856,7 @@ onBeforeUnmount(()=>{
     _resetNiedHypo(true)
     _stopNiedForecastDrawLoop()
     if(niedMarkerCount) niedMarkerCount.value = 0
+    try { document.removeEventListener('visibilitychange', _onVisibilityChange) } catch {}
     clearInterval(fetchStationInterval)
     clearInterval(requestInterval)
     clearInterval(delayInterval)
@@ -853,11 +868,13 @@ onBeforeUnmount(()=>{
         stations[index] = null
     })
     stations.length = 0
-    map.eachLayer(layer=>{
-        if(layer.options.pane == 'niedGridPane' || layer.options.pane.includes('niedStationPane')){
-            map.removeLayer(layer)
-        }
-    })
+    if(map) {
+        map.eachLayer(layer=>{
+            if(layer.options.pane == 'niedGridPane' || layer.options.pane.includes('niedStationPane')){
+                map.removeLayer(layer)
+            }
+        })
+    }
 })
 </script>
 

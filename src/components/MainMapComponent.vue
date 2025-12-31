@@ -2190,19 +2190,52 @@ const loadMaps = async (retries = 0) => {
             firstMsg = true
         }, 1000);
     }
-    let promises, shouldRetry = false
-    const topoKeys = Object.keys(topojsonUrls)
-    if(!isTauri() && ('caches' in window)){
-        const cache = await caches.open('topojson')
-        promises = topoKeys.map(key=>cache.match(topojsonUrls[key]).then(res=>res?.json()))
+    let shouldRetry = false
+
+    const getTopoJson = async (key) => {
+        const url = topojsonUrls[key]
+        if(!url) return null
+        try {
+            if(!isTauri() && ('caches' in window)){
+                const cache = await caches.open('topojson')
+                const cached = await cache.match(url)
+                if(cached) return await cached.json()
+            }
+            const resp = await fetch(url)
+            if(!resp?.ok) return null
+            return await resp.json()
+        } catch (_) {
+            return null
+        }
     }
-    else{
-        promises = topoKeys.map(key=>fetch(topojsonUrls[key]).then(res=>res?.json()))
-    }
-    const resps = await Promise.all(promises)
-    const topoByKey = Object.fromEntries(topoKeys.map((key, i) => [key, resps[i]]))
-    const { global, cn_eew, cn_fault, cn_adm1, cn_adm1_internal, jp, jp_eew, jp_tsunami, cn_tsunami, kr_eew, countries10m, kr_adm1, kr_adm1_internal, tw_adm1, tw_adm1_internal } = topoByKey
-    if(global && cn_eew && cn_fault && jp && jp_eew && kr_eew && jp_tsunami){
+
+    // Load only what we actually need to render at startup.
+    // This keeps parsed topojson objects out of memory when features are disabled.
+    const shouldLoadEewBaseMaps = !!(settingsStore.advancedSettings.forceCalcInt && !settingsStore.mainSettings.disableEewBaseMap)
+    const shouldLoadJpTsunami = !!settingsStore.mainSettings.source.jmaTsunami
+
+    const [global, jp, countries10m] = await Promise.all([
+        getTopoJson('global'),
+        getTopoJson('jp'),
+        getTopoJson('countries10m'),
+    ])
+
+    // Admin boundaries: prefer internal versions, fallback to non-internal.
+    const cn_adm1_internal = await getTopoJson('cn_adm1_internal')
+    const cn_adm1 = cn_adm1_internal?.type ? null : await getTopoJson('cn_adm1')
+    const kr_adm1_internal = await getTopoJson('kr_adm1_internal')
+    const kr_adm1 = kr_adm1_internal?.type ? null : await getTopoJson('kr_adm1')
+    const tw_adm1_internal = await getTopoJson('tw_adm1_internal')
+    const tw_adm1 = tw_adm1_internal?.type ? null : await getTopoJson('tw_adm1')
+
+    const [cn_eew, jp_eew, kr_eew, jp_tsunami] = await Promise.all([
+        shouldLoadEewBaseMaps ? getTopoJson('cn_eew') : Promise.resolve(null),
+        shouldLoadEewBaseMaps ? getTopoJson('jp_eew') : Promise.resolve(null),
+        shouldLoadEewBaseMaps ? getTopoJson('kr_eew') : Promise.resolve(null),
+        shouldLoadJpTsunami ? getTopoJson('jp_tsunami') : Promise.resolve(null),
+    ])
+
+    if(global && jp && (!shouldLoadEewBaseMaps || (cn_eew && jp_eew && kr_eew)) && (!shouldLoadJpTsunami || jp_tsunami)){
         clearTimeout(msgTimer)
         loadBaseMap(global, 'basePane', true, undefined, { filterFeature: _isTaiwanOrKoreaByBboxCenter })
         loadBaseMap(jp, 'basePane')
@@ -2263,38 +2296,48 @@ const loadMaps = async (retries = 0) => {
             loadBaseMap(tw_adm1, 'adminBoundaryPane', false, adminLineStyle, { simplifyFactor: 0 })
         }
 
-        jpEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
-        ? null : loadBaseMap(jp_eew, 'eewBasePane', false, {
-            color: '#bbbbbb00',
-            opacity: 1,
-            fillColor: '#39393900',
-            fillOpacity: 1,
-            weight: 1,
-        })
-        krEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
-        ? null : loadBaseMap(kr_eew, 'eewBasePane', false, {
-            color: '#bbbbbb00',
-            opacity: 1,
-            fillColor: '#39393900',
-            fillOpacity: 1,
-            weight: 1,
-        }, { simplifyFactor: 0 })
-        cnEewBaseMap = settingsStore.mainSettings.disableEewBaseMap 
-        ? null : loadBaseMap(cn_eew, 'eewBasePane', false, {
-            color: '#bbbbbb00',
-            opacity: 1,
-            fillColor: '#39393900',
-            fillOpacity: 1,
-            weight: 1,
-        })
-        watch(()=>settingsStore.mainSettings.displayCnFault, newVal => {
+        // EEW base maps are only needed for forceCalcInt (area-based intensity estimation).
+        // Keep them out of memory otherwise.
+        jpEewBaseMap = null
+        krEewBaseMap = null
+        cnEewBaseMap = null
+        if(shouldLoadEewBaseMaps) {
+            jpEewBaseMap = loadBaseMap(jp_eew, 'eewBasePane', false, {
+                color: '#bbbbbb00',
+                opacity: 1,
+                fillColor: '#39393900',
+                fillOpacity: 1,
+                weight: 1,
+            })
+            krEewBaseMap = loadBaseMap(kr_eew, 'eewBasePane', false, {
+                color: '#bbbbbb00',
+                opacity: 1,
+                fillColor: '#39393900',
+                fillOpacity: 1,
+                weight: 1,
+            }, { simplifyFactor: 0 })
+            cnEewBaseMap = loadBaseMap(cn_eew, 'eewBasePane', false, {
+                color: '#bbbbbb00',
+                opacity: 1,
+                fillColor: '#39393900',
+                fillOpacity: 1,
+                weight: 1,
+            })
+        }
+
+        // CN fault layer can be large; load on-demand to reduce memory when disabled.
+        watch(()=>settingsStore.mainSettings.displayCnFault, async newVal => {
             if(cnFaultBaseMap && map.hasLayer(cnFaultBaseMap)) map.removeLayer(cnFaultBaseMap)
+            cnFaultBaseMap = null
             if(newVal) {
-                cnFaultBaseMap = loadBaseMap(cn_fault, 'faultBasePane', true, {
-                    color: 'red',
-                    opacity: 0.5,
-                    weight: 1,
-                })
+                const cn_fault = await getTopoJson('cn_fault')
+                if(cn_fault) {
+                    cnFaultBaseMap = loadBaseMap(cn_fault, 'faultBasePane', true, {
+                        color: 'red',
+                        opacity: 0.5,
+                        weight: 1,
+                    })
+                }
             }
         }, { immediate: true })
         if(settingsStore.advancedSettings.forceCalcInt){
@@ -2358,7 +2401,7 @@ const loadMaps = async (retries = 0) => {
                 csisList.value = newNewCsisList.slice(0, 50)
             }, { deep: true, immediate: true })
         }
-        if(settingsStore.mainSettings.source.jmaTsunami) {
+        if(settingsStore.mainSettings.source.jmaTsunami && jp_tsunami) {
             jpTsunamiBaseMap = loadBaseMap(jp_tsunami, 'tsunamiBasePane', false, {
                 color: '#ffffff00',
                 opacity: 1,
@@ -2376,25 +2419,9 @@ const loadMaps = async (retries = 0) => {
                 smartSetView()
             }, { deep: true, immediate: true })
         }
+        // cn_tsunami is optional and may not exist in this build.
         if(settingsStore.mainSettings.source.nmefcTsunami) {
-            if(cn_tsunami) {
-                cnTsunamiBaseMap = loadBaseMap(cn_tsunami, 'tsunamiBasePane', false, {
-                    color: '#ffffff00',
-                    opacity: 1,
-                    weight: map.getZoom(),
-                })
-                map.on('zoomend', () => {
-                    cnTsunamiBaseMap.setStyle({
-                        weight: map.getZoom()
-                    })
-                })
-                watch(nmefcTsunamiWarnArea, newVal => {
-                    cnTsunamiBaseMap.setStyle(feature => ({
-                        color: tsunamiColors[newVal[feature.properties.name]?.className] || '#ffffff00'
-                    }))
-                    smartSetView()
-                }, { deep: true, immediate: true })
-            }
+            // no-op unless cn_tsunami topojson is provided
         }
 
         mapsLoaded = true

@@ -122,7 +122,10 @@ const _clearNiedHypoLayers = () => {
 }
 
 const _resetNiedHypo = (hard = false) => {
-  if (hard) kmoniFirstDetectMsByStationId.clear()
+  if (hard) {
+    kmoniFirstDetectMsByStationId.clear()
+    lastDetectActiveAtMs = 0
+  }
   lastHypoEstimateAtMs = 0
   lastHypo = null
   lastMagEstimateAtMs = 0
@@ -291,7 +294,10 @@ const _startNiedForecastDrawLoop = () => {
       lastDetectActiveAtMs > 0 &&
       nowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS
     )
-    if (!canDraw) return
+    if (!canDraw) {
+      _resetNiedHypo(true)
+      return
+    }
 
     _updateNiedHypoLayers(lastHypo, nowMs)
   }, NIED_FORECAST_DRAW_INTERVAL_MS)
