@@ -9,6 +9,12 @@
                 </label>
             </div>
 
+            <div class="pager" v-if="items.length">
+                <button class="btn" :disabled="pageIndex === 0" @click="pageIndex--">&lt;</button>
+                <div class="info">{{ pageIndex + 1 }} / {{ totalPages }}</div>
+                <button class="btn" :disabled="pageIndex >= totalPages - 1" @click="pageIndex++">&gt;</button>
+            </div>
+
             <div class="header">
                 <div class="col location">{{ $t('shakeDetect.location') }}</div>
                 <div class="col time">{{ $t('shakeDetect.origin_time') }}</div>
@@ -17,8 +23,8 @@
                 <div class="col obs">{{ $t('shakeDetect.obs_count') }}</div>
             </div>
 
-            <div class="list" v-if="items.length">
-                <div class="row" v-for="item in items" :key="item.id" @click="handleRowClick(item, $event)">
+            <div class="list" v-if="pagedItems.length">
+                <div class="row" v-for="item in pagedItems" :key="item.id" @click="handleRowClick(item, $event)">
                     <div class="col location">
                         <div class="main">{{ item.epicenterName || '-' }}</div>
                         <div class="sub">{{ formatSource(item) }}</div>
@@ -48,7 +54,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeMount } from 'vue';
+import { computed, onBeforeMount, ref, watch } from 'vue';
 import { useShakeDetectionsStore } from '@/stores/shakeDetections';
 import { useSettingsStore } from '@/stores/settings';
 import { useTimeStore } from '@/stores/time';
@@ -64,6 +70,23 @@ onBeforeMount(() => {
 });
 
 const items = computed(() => shakeDetectionsStore.sortedItems);
+
+const PAGE_SIZE = 10;
+const pageIndex = ref(0);
+const totalPages = computed(() => Math.max(1, Math.ceil(items.value.length / PAGE_SIZE)));
+const pagedItems = computed(() => {
+    const start = pageIndex.value * PAGE_SIZE;
+    return items.value.slice(start, start + PAGE_SIZE);
+});
+
+watch(
+    () => items.value.length,
+    () => {
+        const maxIndex = Math.max(0, totalPages.value - 1);
+        if (pageIndex.value > maxIndex) pageIndex.value = maxIndex;
+    },
+    { immediate: true }
+);
 
 const captureEnabled = computed({
     get: () => !!shakeDetectionsStore.captureEnabled,
@@ -156,6 +179,35 @@ function handleRowClick(item, ev) {
             padding: 0 4px;
             font-size: 12px;
             opacity: 0.7;
+        }
+
+        .pager {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 0 4px;
+
+            .btn {
+                width: 28px;
+                height: 22px;
+                border-radius: 6px;
+                background-color: #ffffff;
+                border: #dcdfe6 1px solid;
+                cursor: pointer;
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+
+            .info {
+                font-size: 12px;
+                opacity: 0.75;
+                user-select: none;
+            }
         }
 
         .list {

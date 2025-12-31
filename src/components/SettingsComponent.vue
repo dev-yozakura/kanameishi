@@ -8,9 +8,9 @@
                     <div class="switch-group">
                         <div class="switch-full">
                             <span>{{ $t('settings.general.language') }}</span>
-                            <el-select v-model="settingsStore.mainSettings.language" placeholder="Select" style="width: 120px">
-                                <el-option label="日本語" value="ja" />
-                                <el-option label="中文" value="zh" />
+                            <el-select v-model="settingsStore.mainSettings.language" :placeholder="$t('settings.common.select')" style="width: 120px">
+                                <el-option :label="$t('settings.general.lang_ja')" value="ja" />
+                                <el-option :label="$t('settings.general.lang_zh')" value="zh" />
                             </el-select>
                         </div>
                     </div>
@@ -262,11 +262,11 @@
                                     :disabled="!settingsStore.mainSettings.displaySeisNet.kmaNet"
                                     style="width: 72px;"
                                 >
-                                    <el-option label="关" :value="1" />
-                                    <el-option label="5秒" :value="5" />
-                                    <el-option label="10秒" :value="10" />
-                                    <el-option label="30秒" :value="30" />
-                                    <el-option label="60秒" :value="60" />
+                                    <el-option :label="$t('settings.common.off')" :value="1" />
+                                    <el-option :label="$t('settings.common.seconds', { sec: 5 })" :value="5" />
+                                    <el-option :label="$t('settings.common.seconds', { sec: 10 })" :value="10" />
+                                    <el-option :label="$t('settings.common.seconds', { sec: 30 })" :value="30" />
+                                    <el-option :label="$t('settings.common.seconds', { sec: 60 })" :value="60" />
                                 </el-select>
                             </div>
                         </div>
@@ -661,15 +661,15 @@
                         </div>
                     </div>
                 </div>
-                <span class="sub-title">音效</span>
+                <span class="sub-title">{{ $t('settings.sound.title') }}</span>
                 <div class="group">
                     <div class="switch-group">
                         <div class="switch-full">
-                            <span>关闭默认通知音</span>
+                            <span>{{ $t('settings.sound.mute_default_notification_sound') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.muteNotification" />
                         </div>
                         <div class="switch-full">
-                            <span>选择音效</span>
+                            <span>{{ $t('settings.sound.select_sound_effect') }}</span>
                             <el-select 
                                 v-model="settingsStore.mainSettings.soundEffect"
                                 size="small"
@@ -679,15 +679,15 @@
                             </el-select>
                         </div>
                         <div class="switch-full">
-                            <span>{{ isTauri ? '自定义音效' : '试听音效' }}</span>
-                            <el-button size="small" @click="customizeAudio = true">{{ isTauri ? '自定义' : '试听' }}</el-button>
+                            <span>{{ isTauri ? $t('settings.sound.custom_sound_effect') : $t('settings.sound.preview_sound_effect') }}</span>
+                            <el-button size="small" @click="customizeAudio = true">{{ isTauri ? $t('settings.sound.customize') : $t('settings.sound.preview') }}</el-button>
                         </div>
                     </div>
                 </div>
-                <span class="sub-title">显示</span>
+                <span class="sub-title">{{ $t('settings.display.title') }}</span>
                 <div class="group">
                     <span class="font-bold w-full">
-                        所在地设置
+                        {{ $t('settings.display.location_title') }}
                         <el-popover
                             placement="top"
                             :width="300"
@@ -697,14 +697,14 @@
                                 <question-filled width="1em" height="1em" />
                             </template>
                             <strong>
-                                <p>设置为(0,0)表示不生效。</p>
-                                <p>地震预警事件中更新位置不会立即生效。</p>
+                                <p>{{ $t('settings.display.location_hint1') }}</p>
+                                <p>{{ $t('settings.display.location_hint2') }}</p>
                             </strong>
                         </el-popover>
                     </span>
                     <div class="switch-group">
                         <div class="switch-full">
-                            <span>纬度</span>
+                            <span>{{ $t('settings.display.latitude') }}</span>
                             <el-input-number
                                 class="lat-lng"
                                 v-model="settingsStore.mainSettings.userLatLng[0]"
@@ -716,7 +716,7 @@
                             />
                         </div>
                         <div class="switch-full">
-                            <span>经度</span>
+                            <span>{{ $t('settings.display.longitude') }}</span>
                             <el-input-number
                                 class="lat-lng"
                                 v-model="settingsStore.mainSettings.userLatLng[1]"
@@ -728,49 +728,49 @@
                             />
                         </div>
                         <div class="switch-full">
-                            <span>使用IP地址定位</span>
+                            <span>{{ $t('settings.display.use_ip_geolocation') }}</span>
                             <el-button
                                 size="small"
                                 @click="autoLocate"
-                            >自动定位</el-button>
+                            >{{ $t('settings.display.auto_locate') }}</el-button>
                         </div>
                         <div class="switch-full">
-                            <span>清除经纬度</span>
+                            <span>{{ $t('settings.display.clear_latlng') }}</span>
                             <el-button
                                 size="small"
                                 @click="clearUserLatLng"
-                            >清除</el-button>
+                            >{{ $t('settings.common.clear') }}</el-button>
                         </div>
                         <div class="switch-full">
-                            <span>显示所在地</span>
+                            <span>{{ $t('settings.display.show_location') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.displayUser" />
                         </div>
                     </div>
-                    <span class="font-bold w-full">主震动倒计时</span>
+                    <span class="font-bold w-full">{{ $t('settings.display.main_shaking_countdown_title') }}</span>
                     <div class="switch-group">
                         <div class="w-full">
                             <div class="switch-full">
-                                <span>显示本地预估烈度和横波抵达倒计时</span>
+                                <span>{{ $t('settings.display.show_local_estimated_csis_and_swave') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displayCountdown" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>强制计算倒计时</span>
+                                <span>{{ $t('settings.display.force_calc_countdown') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.forceDisplayCountdown" :disabled="!settingsStore.mainSettings.displayCountdown" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>播放倒计时音效</span>
+                                <span>{{ $t('settings.display.play_countdown_sound') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.playCountdownSound" :disabled="!settingsStore.mainSettings.displayCountdown" />
                             </div>
                             <div class="switch-full pl-8">
-                                <span>仅强有感时播放音效</span>
+                                <span>{{ $t('settings.display.countdown_sound_only_intense') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.countdownOnlyIntense" :disabled="!(settingsStore.mainSettings.displayCountdown && settingsStore.mainSettings.playCountdownSound && settingsStore.advancedSettings.forceCalcInt && settingsStore.mainSettings.playIntenseSound)" />
                             </div>
                             <div class="switch-full pl-8">
-                                <span>中文播报倒计时</span>
+                                <span>{{ $t('settings.display.countdown_speech_zh') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.countdownSpeech" :disabled="!(settingsStore.mainSettings.displayCountdown && settingsStore.mainSettings.playCountdownSound)" />
                             </div>
                             <div class="switch-full pl-8">
-                                <span>剩余{{ settingsStore.mainSettings.countdownStart }}秒时开始播放</span>
+                                <span>{{ $t('settings.display.countdown_start_at', { sec: settingsStore.mainSettings.countdownStart }) }}</span>
                                 <el-slider
                                     v-model="settingsStore.mainSettings.countdownStart"
                                     :disabled="!(settingsStore.mainSettings.displayCountdown && settingsStore.mainSettings.playCountdownSound)"
@@ -782,19 +782,19 @@
                             </div>
                         </div>
                     </div>
-                    <span class="font-bold w-full">地图烈度</span>
+                    <span class="font-bold w-full">{{ $t('settings.display.map_intensity_title') }}</span>
                     <div class="switch-group">
                         <div class="switch-full">
-                            <span>显示地图烈度图例</span>
+                            <span>{{ $t('settings.display.show_map_intensity_legend') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.displayLegend" :disabled="settingsStore.mainSettings.disableEewBaseMap" />
                         </div>
                         <div class="switch-full">
-                            <span>显示区域烈度列表</span>
+                            <span>{{ $t('settings.display.show_area_intensity_list') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.displayAreaIntensities" />
                         </div>
                     </div>
                     <span class="font-bold w-full">
-                        默认视野设置
+                        {{ $t('settings.display.default_view_title') }}
                         <el-popover
                             placement="top"
                             :width="300"
@@ -804,15 +804,15 @@
                                 <question-filled width="1em" height="1em" />
                             </template>
                             <strong>
-                                <p>设置无可聚焦事件时地图的视野范围。</p>
-                                <p>设置为(0,0)表示不生效。</p>
-                                <p>若不设置默认使用所在地经纬度。</p>
+                                <p>{{ $t('settings.display.default_view_hint1') }}</p>
+                                <p>{{ $t('settings.display.default_view_hint2') }}</p>
+                                <p>{{ $t('settings.display.default_view_hint3') }}</p>
                             </strong>
                         </el-popover>
                     </span>
                     <div class="switch-group">
                         <div class="switch-full">
-                            <span>纬度</span>
+                            <span>{{ $t('settings.display.latitude') }}</span>
                             <el-input-number
                                 class="lat-lng"
                                 v-model="settingsStore.mainSettings.viewLatLng[0]"
@@ -824,7 +824,7 @@
                             />
                         </div>
                         <div class="switch-full">
-                            <span>经度</span>
+                            <span>{{ $t('settings.display.longitude') }}</span>
                             <el-input-number
                                 class="lat-lng"
                                 v-model="settingsStore.mainSettings.viewLatLng[1]"
@@ -836,7 +836,7 @@
                             />
                         </div>
                         <div class="switch-full">
-                            <span>缩放</span>
+                            <span>{{ $t('settings.display.zoom') }}</span>
                             <el-input-number
                                 v-model="settingsStore.mainSettings.defaultZoom"
                                 size="small"
@@ -847,24 +847,24 @@
                             />
                         </div>
                         <div class="switch-full">
-                            <span>设置为当前地图视野</span>
+                            <span>{{ $t('settings.display.set_to_current_view') }}</span>
                             <el-button
                                 size="small"
                                 @click="setCurrentViewAsDefault"
-                            >设置</el-button>
+                            >{{ $t('settings.common.set') }}</el-button>
                         </div>
                         <div class="switch-full">
-                            <span>清除经纬度</span>
+                            <span>{{ $t('settings.display.clear_latlng') }}</span>
                             <el-button
                                 size="small"
                                 @click="clearViewLatLng"
-                            >清除</el-button>
+                            >{{ $t('settings.common.clear') }}</el-button>
                         </div>
                     </div>
-                    <span class="font-bold w-full">其他</span>
+                    <span class="font-bold w-full">{{ $t('settings.display.other_title') }}</span>
                     <div class="switch-group">
                         <div class="switch-full">
-                            <span>UI缩放比例</span>
+                            <span>{{ $t('settings.display.ui_scale') }}</span>
                             <el-select
                                 style="width: 72px;"
                                 v-model="settingsStore.mainSettings.uiScale"
@@ -872,54 +872,54 @@
                             >
                                 <el-option label="50%" :value=0.5 />
                                 <el-option label="75%" :value=0.75 />
-                                <el-option label="默认" :value=1 />
+                                <el-option :label="$t('settings.display.ui_scale_default')" :value=1 />
                                 <el-option label="125%" :value=1.25 />
                                 <el-option label="150%" :value=1.5 />
                                 <el-option label="200%" :value=2 />
                             </el-select>
                         </div>
                         <div class="switch-full">
-                            <span>显示地名</span>
+                            <span>{{ $t('settings.display.show_place_name') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.displayPlaceName"
                             @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <span>悬浮时显示地名</span>
+                            <span>{{ $t('settings.display.show_place_name_on_hover') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.placeNameOnHover"
                             :disabled="settingsStore.mainSettings.useCanvasRenderer"
                             @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <span>显示中国断层</span>
+                            <span>{{ $t('settings.display.show_cn_fault') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.displayCnFault" />
                         </div>
                         <div class="switch-full">
-                            <span>显示晨昏线</span>
+                            <span>{{ $t('settings.display.show_terminator') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.displayTerminator" />
                         </div>
                         <div class="switch-full">
-                            <span>中国地震烈度使用罗马数字</span>
+                            <span>{{ $t('settings.display.use_roman_csis') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.useRomanCsis" />
                         </div>
                         <div class="switch-full">
-                            <span>填充横波</span>
+                            <span>{{ $t('settings.display.fill_s_wave') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.fillSWave" />
                         </div>
                         <div class="switch-full">
-                            <span>横波颜色模式</span>
+                            <span>{{ $t('settings.display.s_wave_color_mode') }}</span>
                             <el-select
                                 style="width: 168px;"
                                 v-model="settingsStore.mainSettings.sWaveColorMode"
                                 size="small"
                             >
-                                <el-option label="根据是否为警报填色" :value=0 />
-                                <el-option label="根据震级填色" :value=1 />
-                                <el-option label="根据最大烈度/震度填色" :value=2 />
+                                <el-option :label="$t('settings.display.s_wave_color_mode_warn')" :value=0 />
+                                <el-option :label="$t('settings.display.s_wave_color_mode_mag')" :value=1 />
+                                <el-option :label="$t('settings.display.s_wave_color_mode_intensity')" :value=2 />
                             </el-select>
                         </div>
                         <div class="switch-full">
                             <span>
-                                隐藏地震/海啸信息页侧栏
+                                {{ $t('settings.display.hide_drawer') }}
                                 <el-popover
                                     placement="top"
                                     :width="300"
@@ -928,7 +928,7 @@
                                     <template #reference>
                                         <question-filled width="1em" height="1em" />
                                     </template>
-                                    <p>处于地震/海啸信息页且地图处于自动视野状态时，可再次点击当前菜单快速切换。</p>
+                                    <p>{{ $t('settings.display.hide_drawer_hint') }}</p>
                                 </el-popover>
                             </span>
                             <el-switch v-model="settingsStore.mainSettings.hideDrawer" />
@@ -936,7 +936,7 @@
                         <div class="w-full">
                             <div class="switch-full">
                                 <span>
-                                    放映模式
+                                    {{ $t('settings.display.cinema_mode') }}
                                     <el-popover
                                         placement="top"
                                         :width="300"
@@ -945,9 +945,9 @@
                                         <template #reference>
                                             <question-filled width="1em" height="1em" />
                                         </template>
-                                        <p>收到新的信息时自动切换到对应的菜单栏。</p>
+                                        <p>{{ $t('settings.display.cinema_mode_hint1') }}</p>
                                         <strong>
-                                            <p>需重新加载页面后生效。</p>
+                                            <p>{{ $t('settings.display.cinema_mode_hint2') }}</p>
                                         </strong>
                                     </el-popover>
                                 </span>
@@ -955,34 +955,34 @@
                                 @change="handleNeedReload" />
                             </div>
                             <div class="switch-full pl-4">
-                                <span>将地震/海啸信息页面设为默认</span>
+                                <span>{{ $t('settings.display.eqlists_as_default') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.eqlistsAsDefault"
                                 :disabled="!settingsStore.mainSettings.cinemaMode" />
                             </div>
                         </div>
                         <div class="switch-full">
-                            <span>地震信息显示模式</span>
+                            <span>{{ $t('settings.display.eqlist_display_mode') }}</span>
                             <el-select
                                 style="width: 192px;"
                                 v-model="settingsStore.mainSettings.eqlistsDisplayMode"
                                 size="small"
                                 @change="handleNeedReload"
                             >
-                                <el-option label="显示每个数据源的最新地震" :value=0 />
-                                <el-option label="显示全部数据源中的最新地震" :value=1 />
+                                <el-option :label="$t('settings.display.eqlist_display_mode_each')" :value=0 />
+                                <el-option :label="$t('settings.display.eqlist_display_mode_latest')" :value=1 />
                             </el-select>
                         </div>
                         <div class="switch-full">
-                            <span>总是显示最新的地震信息框</span>
+                            <span>{{ $t('settings.display.always_display_latest_info') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.alwaysDisplayLatestInfo" />
                         </div>
                     </div>
                 </div>
-                <span class="sub-title">性能</span>
+                <span class="sub-title">{{ $t('settings.performance.title') }}</span>
                 <div class="group">
                     <div class="switch-group">
                         <div class="switch-full">
-                            <span>地震波最大渲染速率：{{ settingsStore.mainSettings.maxWaveRenderRate }}次/秒</span>
+                            <span>{{ $t('settings.performance.max_wave_render_rate', { rate: settingsStore.mainSettings.maxWaveRenderRate }) }}</span>
                             <el-slider
                                 v-model="settingsStore.mainSettings.maxWaveRenderRate"
                                 :min="1" :max="20"
@@ -992,7 +992,7 @@
                         </div>
                         <div class="switch-full">
                             <span>
-                                使用位图渲染器
+                                {{ $t('settings.performance.use_canvas_renderer') }}
                                 <el-popover
                                     placement="top"
                                     :width="300"
@@ -1001,10 +1001,10 @@
                                     <template #reference>
                                         <question-filled width="1em" height="1em" />
                                     </template>
-                                    <p>部分图层使用Canvas（而不是SVG）渲染器加载。</p>
-                                    <p>可小幅提升流畅性，但是部分情况下图形边缘可能模糊。</p>
-                                    <p>开启后无法使用“悬浮时显示地名”功能。</p>
-                                    <p><strong>需重新加载页面后生效。</strong></p>
+                                    <p>{{ $t('settings.performance.use_canvas_renderer_hint1') }}</p>
+                                    <p>{{ $t('settings.performance.use_canvas_renderer_hint2') }}</p>
+                                    <p>{{ $t('settings.performance.use_canvas_renderer_hint3') }}</p>
+                                    <p><strong>{{ $t('settings.performance.use_canvas_renderer_hint4') }}</strong></p>
                                 </el-popover>
                             </span>
                             <el-switch v-model="settingsStore.mainSettings.useCanvasRenderer"
@@ -1012,7 +1012,7 @@
                         </div>
                         <div class="switch-full">
                             <span>
-                                禁用烈度图层
+                                {{ $t('settings.performance.disable_intensity_layer') }}
                                 <el-popover
                                     placement="top"
                                     :width="300"
@@ -1021,10 +1021,10 @@
                                     <template #reference>
                                         <question-filled width="1em" height="1em" />
                                     </template>
-                                    <p>完全移除烈度/震度图层。</p>
-                                    <p>不影响本地烈度计算。</p>
-                                    <p>可极大幅度提升性能。</p>
-                                    <p><strong>需重新加载页面后生效。</strong></p>
+                                    <p>{{ $t('settings.performance.disable_intensity_layer_hint1') }}</p>
+                                    <p>{{ $t('settings.performance.disable_intensity_layer_hint2') }}</p>
+                                    <p>{{ $t('settings.performance.disable_intensity_layer_hint3') }}</p>
+                                    <p><strong>{{ $t('settings.performance.disable_intensity_layer_hint4') }}</strong></p>
                                 </el-popover>
                             </span>
                             <el-switch v-model="settingsStore.mainSettings.disableEewBaseMap"
@@ -1032,7 +1032,7 @@
                         </div>
                         <div class="switch-full">
                             <span>
-                                烈度/海啸图层简化
+                                {{ $t('settings.performance.simplify_layers') }}
                                 <el-popover
                                     placement="top"
                                     :width="350"
@@ -1041,9 +1041,9 @@
                                     <template #reference>
                                         <question-filled width="1em" height="1em" />
                                     </template>
-                                    <p>通过简化烈度/震度/海啸图层的形状来提升性能。</p>
-                                    <p>简化程度越高，渲染压力越小，但图形失真越严重。</p>
-                                    <p><strong>需重新加载页面后生效。</strong></p>
+                                    <p>{{ $t('settings.performance.simplify_layers_hint1') }}</p>
+                                    <p>{{ $t('settings.performance.simplify_layers_hint2') }}</p>
+                                    <p><strong>{{ $t('settings.performance.simplify_layers_hint3') }}</strong></p>
                                 </el-popover>
                             </span>
                             <el-slider
@@ -1059,31 +1059,31 @@
                         </div>
                     </div>
                 </div>
-                <span class="sub-title">高级</span>
+                <span class="sub-title">{{ $t('settings.advanced.title') }}</span>
                 <div class="group">
                     <div class="switch-group">
                         <div class="switch-full">
-                            <span>中国地震局预警融合省级源</span>
+                            <span>{{ $t('settings.advanced.province_cea_merge') }}</span>
                             <el-switch v-model="settingsStore.advancedSettings.provinceCeaEew"
                             @change="handleNeedReload" />
                         </div>
                         <div class="switch-full" v-if="settingsStore.displayTokenButton">
-                            <span>管理Token</span>
-                            <el-button size="small" @click="showTokenManager = true">管理</el-button>
+                            <span>{{ $t('settings.advanced.manage_token') }}</span>
+                            <el-button size="small" @click="showTokenManager = true">{{ $t('settings.advanced.manage') }}</el-button>
                         </div>
                         <div class="switch-full" v-if="settingsStore.advancedSettings.enableMultiApi">
-                            <span>同时接入更多API</span>
+                            <span>{{ $t('settings.advanced.enable_more_api') }}</span>
                             <el-switch 
                             v-model="settingsStore.advancedSettings.multiApi"
                             @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <span>显示API名称</span>
+                            <span>{{ $t('settings.advanced.show_api_name') }}</span>
                             <el-switch v-model="settingsStore.advancedSettings.displayApiType" />
                         </div>
                         <div class="switch-full">
                             <span>
-                                软件估算烈度/震度
+                                {{ $t('settings.advanced.force_calc_intensity') }}
                                 <el-popover
                                     placement="top"
                                     :width="300"
@@ -1092,15 +1092,15 @@
                                     <template #reference>
                                         <question-filled width="1em" height="1em" />
                                     </template>
-                                    <p>在软件内部估算以下数据：</p>
-                                    <p> - 本地烈度/震度</p>
-                                    <p> - 中国各区划预警和信息下最大烈度</p>
-                                    <p> - 日本各区划预警下最大震度（融合数据源）</p>
-                                    <p>估算结果与数据源显示可能有差异。</p>
+                                    <p>{{ $t('settings.advanced.force_calc_intensity_hint1') }}</p>
+                                    <p>{{ $t('settings.advanced.force_calc_intensity_hint2') }}</p>
+                                    <p>{{ $t('settings.advanced.force_calc_intensity_hint3') }}</p>
+                                    <p>{{ $t('settings.advanced.force_calc_intensity_hint4') }}</p>
+                                    <p>{{ $t('settings.advanced.force_calc_intensity_hint5') }}</p>
                                     <strong>
-                                        <p>低精度（尤其是深源地震）。</p>
-                                        <p>此功能会消耗较多计算机资源。</p>
-                                        <p>部分功能需重新加载页面后生效。</p>
+                                        <p>{{ $t('settings.advanced.force_calc_intensity_hint6') }}</p>
+                                        <p>{{ $t('settings.advanced.force_calc_intensity_hint7') }}</p>
+                                        <p>{{ $t('settings.advanced.force_calc_intensity_hint8') }}</p>
                                     </strong>
                                 </el-popover>
                             </span>
@@ -1110,7 +1110,7 @@
                         </div>
                         <div class="switch-full">
                             <span>
-                                使用经典地图加载器
+                                {{ $t('settings.advanced.use_classic_map_loader') }}
                                 <el-popover
                                     placement="top"
                                     :width="300"
@@ -1119,9 +1119,9 @@
                                     <template #reference>
                                         <question-filled width="1em" height="1em" />
                                     </template>
-                                    <p>开启后：使用常规GeoJSON图层渲染底图，支持鼠标悬浮底图显示地名，部分情况下图形边缘更清晰；不支持拖动时加载，不支持循环显示地图。</p>
-                                    <p>关闭后：使用VectorGrid图层渲染底图，支持拖动时加载，支持循环显示地图；不支持鼠标悬浮底图显示地名，部分情况下图形边缘可能模糊。</p>
-                                    <p><strong>此功能需重新加载页面后生效。</strong></p>
+                                    <p>{{ $t('settings.advanced.use_classic_map_loader_hint1') }}</p>
+                                    <p>{{ $t('settings.advanced.use_classic_map_loader_hint2') }}</p>
+                                    <p><strong>{{ $t('settings.advanced.use_classic_map_loader_hint3') }}</strong></p>
                                 </el-popover>
                             </span>
                             <el-switch 
@@ -1130,7 +1130,7 @@
                         </div>
                         <div class="switch-full">
                             <span>
-                                防闪烁模式
+                                {{ $t('settings.advanced.prevent_flicker_mode') }}
                                 <el-popover
                                     placement="top"
                                     :width="300"
@@ -1139,9 +1139,9 @@
                                     <template #reference>
                                         <question-filled width="1em" height="1em" />
                                     </template>
-                                    <p><strong>如无异常，无需开启。</strong></p>
-                                    <p>解决一部分因未知原因导致的频繁闪烁问题。</p>
-                                    <p><strong>此功能需重新加载页面后生效。</strong></p>
+                                    <p><strong>{{ $t('settings.advanced.prevent_flicker_mode_hint1') }}</strong></p>
+                                    <p>{{ $t('settings.advanced.prevent_flicker_mode_hint2') }}</p>
+                                    <p><strong>{{ $t('settings.advanced.prevent_flicker_mode_hint3') }}</strong></p>
                                 </el-popover>
                             </span>
                             <el-switch 
@@ -1149,17 +1149,17 @@
                             @change="handleNeedReload" />
                         </div>
                         <div class="switch-full" v-if="settingsStore.advancedSettings.enableMockEew">
-                            <span>模拟地震预警</span>
+                            <span>{{ $t('settings.advanced.mock_eew') }}</span>
                             <el-switch 
                             v-model="settingsStore.advancedSettings.mockEew"
                             @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
-                            <span>状态面板</span>
-                            <el-button size="small" @click="statusStore.showStatusPanel = true">打开</el-button>
+                            <span>{{ $t('settings.advanced.status_panel') }}</span>
+                            <el-button size="small" @click="statusStore.showStatusPanel = true">{{ $t('settings.advanced.open') }}</el-button>
                         </div>
                         <div class="switch-full">
-                            <span>输入指令</span>
+                            <span>{{ $t('settings.advanced.input_command') }}</span>
                             <el-input
                                 type="password"
                                 v-model="advancedInput"
@@ -1170,97 +1170,97 @@
                         </div>
                     </div>
                 </div>
-                <span class="sub-title">关于</span>
+                <span class="sub-title">{{ $t('settings.about.title') }}</span>
                 <div class="group">
-                    <span class="font-bold w-full" v-if="isTauri">自启动</span>
+                    <span class="font-bold w-full" v-if="isTauri">{{ $t('settings.about.autostart') }}</span>
                     <div class="switch-group" v-if="isTauri">
                         <div class="switch-full">
-                            <span>开机自启动</span>
+                            <span>{{ $t('settings.about.autostart_onboot') }}</span>
                             <el-switch v-model="isAutoStart" @change="handleAutoStart" />
                         </div>
                         <div class="switch-full" v-if="isWindows">
-                            <span>最小化启动</span>
+                            <span>{{ $t('settings.about.autostart_minimize') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.minimizeOnLaunch" />
                         </div>
                     </div>
-                    <span class="font-bold w-full">更新</span>
+                    <span class="font-bold w-full">{{ $t('settings.about.update') }}</span>
                     <div class="switch-group">
                         <div class="switch-full">
-                            <span>自动检查更新</span>
+                            <span>{{ $t('settings.about.auto_check_update') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.autoCheckNewVersion" @change="handleAutoCheckVersion" />
                         </div>
                         <div class="switch-full" v-if="isTauri">
-                            <span>检查预发布版本</span>
+                            <span>{{ $t('settings.about.check_prerelease') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.checkPrerelease" />
                         </div>
                         <div class="switch-full" v-if="!isTauri">
-                            <span>自动应用更新</span>
+                            <span>{{ $t('settings.about.auto_apply_update') }}</span>
                             <el-switch v-model="settingsStore.mainSettings.autoRefresh" />
                         </div>
                         <div class="switch-full">
-                            <span>立即检查更新</span>
+                            <span>{{ $t('settings.about.check_update_now') }}</span>
                             <el-button
                                 type="primary"
                                 size="small"
                                 @click="checkNewVersion(false)"
-                            >检查更新</el-button>
+                            >{{ $t('settings.about.check_update') }}</el-button>
                         </div>
                     </div>
-                    <span class="font-bold w-full">帮助&关于</span>
+                    <span class="font-bold w-full">{{ $t('settings.about.help_about') }}</span>
                     <div class="switch-group">
-                        <el-button @click="showAbout = true">帮助&关于</el-button>
+                        <el-button @click="showAbout = true">{{ $t('settings.about.open_help_about') }}</el-button>
                     </div>
                 </div>
-                <span class="sub-title" v-if="needReload">需要重载</span>
+                <span class="sub-title" v-if="needReload">{{ $t('settings.reload.title') }}</span>
                 <div class="group">
                     <el-button 
                         type="warning"
                         v-if="needReload"
                         @click="handleReload"
-                    >重载以应用变更</el-button>
+                    >{{ $t('settings.reload.reload_to_apply') }}</el-button>
                 </div>
             </div>
         </div>
         <el-dialog v-model="verifyDialog" width="300px" top="20vh" :show-close="false" append-to-body>
             <el-form :model="idForm">
-                <el-form-item label="用户名" label-width="60px">
+                <el-form-item :label="$t('settings.dialogs.verify.username')" label-width="80px">
                     <el-input v-model="idForm.username" @keyup.enter="postVerify()" />
                 </el-form-item>
-                <el-form-item label="密码" label-width="60px">
+                <el-form-item :label="$t('settings.dialogs.verify.password')" label-width="80px">
                     <el-input type="password" v-model="idForm.password" @keyup.enter="postVerify()" />
                 </el-form-item>
             </el-form>
             <template #footer>
-                <el-button type="default" @click="verifyDialog = false">取消</el-button>
-                <el-button type="primary" @click="postVerify()">确定</el-button>
+                <el-button type="default" @click="verifyDialog = false">{{ $t('settings.common.cancel') }}</el-button>
+                <el-button type="primary" @click="postVerify()">{{ $t('settings.common.ok') }}</el-button>
             </template>
         </el-dialog>
         <el-dialog class="customize-audio" v-model="customizeAudio" width="60%" :show-close="false" append-to-body>
             <div class="explanation" v-if="isTauri">
                 <div class="text">
-                    <p><strong>应用程序版本支持自定义音效，请参考下列步骤。</strong></p>
-                    <p>1. 点击“打开音频文件夹”按钮，系统的文件管理器会打开该应用程序的音频文件夹。</p>
-                    <p>2. 将你想替换的音频文件（需要为mp3格式）放入该文件夹并重命名为“xxx.mp3”，具体名称请参照下方按钮显示的名称。</p>
-                    <p>3. 点击“重新加载音频”按钮，或右键刷新页面即完成替换。</p>
-                    <p>替换完成后可点击下方按钮进行音效测试。如需恢复默认，删除对应的mp3文件并重载音频即可。</p>
-                    <p>Tips. 如需关闭某个音效，可以创建一个空白文本文件并重命名为“xxx.mp3”即可。</p>
-                    <p><strong>如因此功能产生任何侵权行为将由您自行承担，开发者不承担任何责任。</strong></p>
+                    <p><strong>{{ $t('settings.dialogs.customize_audio.tauri_title') }}</strong></p>
+                    <p>{{ $t('settings.dialogs.customize_audio.tauri_step1') }}</p>
+                    <p>{{ $t('settings.dialogs.customize_audio.tauri_step2') }}</p>
+                    <p>{{ $t('settings.dialogs.customize_audio.tauri_step3') }}</p>
+                    <p>{{ $t('settings.dialogs.customize_audio.tauri_step4') }}</p>
+                    <p>{{ $t('settings.dialogs.customize_audio.tauri_tip') }}</p>
+                    <p><strong>{{ $t('settings.dialogs.customize_audio.tauri_warn') }}</strong></p>
                 </div>
                 <div class="buttons">
-                    <el-button @click="openDataFolder">打开音频文件夹</el-button>
-                    <el-button @click="loadAudio">重新加载音频</el-button>
+                    <el-button @click="openDataFolder">{{ $t('settings.dialogs.customize_audio.open_audio_folder') }}</el-button>
+                    <el-button @click="loadAudio">{{ $t('settings.dialogs.customize_audio.reload_audio') }}</el-button>
                 </div>
             </div>
             <div class="test">
                 <div class="text">
-                    <strong>点击下方按钮进行音效试听</strong>
+                    <strong>{{ $t('settings.dialogs.customize_audio.test_title') }}</strong>
                 </div>
                 <div class="buttons">
                     <el-button v-for="(type, index) of audioTypes" :key="index" @click="playSound(type)">{{ type }}</el-button>
                 </div>
             </div>
             <template #footer>
-                <el-button type="default" @click="customizeAudio = false">关闭</el-button>
+                <el-button type="default" @click="customizeAudio = false">{{ $t('settings.dialogs.customize_audio.close') }}</el-button>
             </template>
         </el-dialog>
         <el-dialog v-model="showTokenManager" width="300px" top="20vh" :show-close="false" append-to-body>
@@ -1270,58 +1270,58 @@
                 </el-form-item>
             </el-form>
             <template #footer>
-                <el-button type="primary" @click="showTokenManager = false">完成</el-button>
+                <el-button type="primary" @click="showTokenManager = false">{{ $t('settings.common.done') }}</el-button>
             </template>
         </el-dialog>
         <el-dialog class="about-box" v-model="showAbout" width="60%" :show-close="false" append-to-body>
             <div class="header">要石 v2.3.0</div>
-            <div class="title">使用方法</div>
+            <div class="title">{{ $t('settings.dialogs.about_dialog.usage') }}</div>
             <div class="about">
-                <p>主要功能：接收中国地震局、四川地震局、福建地震局、台湾中央气象署、日本气象厅地震预警信息，中国地震台网、日本气象厅、韩国气象厅、美国地质调查局（USGS）、FAN Studio地震网络（FSSN）地震信息，日本气象厅海啸信息，NIED強震モニタ、KMA-PEWS测站数据。</p>
-                <p>Chrome/Edge推荐设置（以Chrome为例，Edge方法类似）：</p>
+                <p>主な機能：地震警報（中国地震局・四川地震局・福建地震局・台湾中央気象署・日本気象庁）、地震情報（中国地震台ネットワーク・日本気象庁・韓国気象庁・USGS・FSSN）、津波情報（日本気象庁）、観測網データ（NIED 強震モニタ・KMA-PEWS）などを表示します。</p>
+                <p>Chrome/Edge 推奨設定（Chromeの例。Edgeも概ね同様です）:</p>
                 <ul>
-                    <li>保持后台刷新：浏览器访问chrome://flags - Calculate window occlusion on Windows - Disabled - 右下角重新启动</li>
-                    <li>去除网页“不安全”提示（同时解除网页权限设置限制，但浏览器启动时会收到横幅提示）：chrome://flags - Insecure origins treated as secure - 启用 - 输入本网页的链接 - 右下角重新启动</li>
-                    <li>作为网页应用安装：Chrome打开此页面，右上角三点 - 保存并分享 - 将网页作为应用安装。安装一次后刷新页面即可加载最新版本网页，无需重新安装。</li>
+                    <li>バックグラウンド更新を維持：`chrome://flags` → "Calculate window occlusion on Windows" → Disabled → 再起動</li>
+                    <li>（必要な場合のみ）「安全でない」表示の抑制：`chrome://flags` → "Insecure origins treated as secure" → Enabled → このサイトのURLを追加 → 再起動</li>
+                    <li>Webアプリとしてインストール：右上メニュー → 保存して共有 → アプリをインストール</li>
                 </ul>
-                <p>通知推送：需授予通知权限。Chrome：点击网页链接左侧按钮-网站设置-通知-允许，刷新页面。</p>
-                <p>播放声音：需开启声音权限。Chrome：点击网页链接左侧按钮-网站设置-声音-允许，刷新页面。</p>
+                <p>通知：通知権限が必要です（アドレスバー左のアイコン → サイトの設定 → 通知 → 許可）。</p>
+                <p>音声：音声再生がブロックされる場合は、サイト設定で音声を許可してください。</p>
             </div>
-            <div class="title">快捷键</div>
+            <div class="title">{{ $t('settings.dialogs.about_dialog.shortcuts') }}</div>
             <div class="about">
                 <ul>
-                    <li>[A]uto：打开/关闭自动视野</li>
-                    <li>[D]rawer：显示/隐藏侧边栏</li>
-                    <li>[F]ull：切换到主菜单</li>
-                    <li>[E]EW：切换到地震预警菜单</li>
-                    <li>[L]ist：切换到地震信息菜单</li>
-                    <li>[S]ettings：切换到设置菜单</li>
-                    <li>[C]lear：清除地图上的历史地震</li>
-                    <li v-if="settingsStore.advancedSettings.mockEew">[M]ock：打开/关闭模拟地震预警面板</li>
-                    <li>[X]：打开/关闭状态面板</li>
-                    <li>[Tab] / [Enter + Tab]：轮询菜单</li>
-                    <li>[,] / [.]：存在多页信息框时轮询信息框</li>
+                    <li>[A]uto：自動視野のオン/オフ</li>
+                    <li>[D]rawer：サイドバーの表示/非表示</li>
+                    <li>[F]ull：メインメニューへ</li>
+                    <li>[E]EW：地震警報メニューへ</li>
+                    <li>[L]ist：地震情報メニューへ</li>
+                    <li>[S]ettings：設定メニューへ</li>
+                    <li>[C]lear：地図上の履歴地震をクリア</li>
+                    <li v-if="settingsStore.advancedSettings.mockEew">[M]ock：模擬地震警報パネルのオン/オフ</li>
+                    <li>[X]：ステータスパネルのオン/オフ</li>
+                    <li>[Tab] / [Enter + Tab]：メニューを巡回</li>
+                    <li>[,] / [.]：複数ページの情報パネルを巡回</li>
                 </ul>
             </div>
-            <div class="title">注意事项</div>
+            <div class="title">{{ $t('settings.dialogs.about_dialog.notes') }}</div>
             <div class="about">
-                <p>关于烈度：中国大陆（含港澳）、韩国使用烈度制（12度表，I ~ XII），日本、中国台湾地区使用震度制（10度表，0 ~ 7，其中震度5、6两级分为强/弱）。部分数值为预估值，非实测值。</p>
-                <p>关于时间：除全球性台网（USGS、FSSN）显示为中国标准时间，其他均显示为发报机构当地时间。</p>
-                <p>关于延迟：受API及服务器限制，部分资料具有延迟是正常现象。</p>
-                <p>关于地图：由于服务器带宽限制，进入页面后需要一定时间加载地图。如长时间未加载地图，请刷新页面。</p>
+                <p>震度階級について：中国大陸（香港・マカオ含む）と韓国は MMI（I〜XII）、日本と台湾は震度（0〜7、5/6は弱・強）を主に使用します。一部は推定値で実測ではありません。</p>
+                <p>時刻表示について：USGS/FSSN など全球ネットワークは中国標準時、それ以外は発表機関の現地時刻を表示します。</p>
+                <p>遅延について：API/サーバー制限により、情報に遅延がある場合があります。</p>
+                <p>地図について：初回表示時に地図の読み込みで時間がかかることがあります。長時間表示されない場合は再読み込みしてください。</p>
             </div>
-            <div class="title">关于</div>
+            <div class="title">{{ $t('settings.dialogs.about_dialog.about') }}</div>
             <div class="about">
-                <p>Windows 10（x64）、macOS（arm64）及以上用户推荐使用应用程序：<a href="https://github.com/Lipomoea/kanameishi/releases" target="_blank">应用程序下载</a>&nbsp;<a href="https://gitee.com/lipomoea/kanameishi/releases" target="_blank">备用链接</a></p>
-                <p>联系我：<a href="https://space.bilibili.com/316757498" target="_blank">リッポミャ</a>（哔哩哔哩）</p>
-                <p>Github：<a href="https://github.com/Lipomoea/kanameishi" target="_blank">https://github.com/Lipomoea/kanameishi</a></p>
-                <p>特别鸣谢：</p>
-                <p>Wolfx Open API、FAN Studio API、P2P地震情報：接口支持。</p>
-                <p>kotoho7：SREV音效支持。音效遵循<a href="https://creativecommons.org/licenses/by-sa/2.0/deed.zh-hans" target="_blank">CC BY-SA 2.0 DEED</a>许可协议，未进行二次加工。</p>
-                <p>地牛WakeUp：中文倒计时播报素材。台湾地区欢迎下载<a href="https://eew.earthquake.tw/" target="_blank">地牛Wake Up！</a>获得更稳定的预警体验。</p>
+                <p>Windows 10（x64）/ macOS（arm64）以上はアプリ版の利用を推奨：<a href="https://github.com/Lipomoea/kanameishi/releases" target="_blank">ダウンロード</a>&nbsp;<a href="https://gitee.com/lipomoea/kanameishi/releases" target="_blank">ミラー</a></p>
+                <p>連絡先：<a href="https://space.bilibili.com/316757498" target="_blank">リッポミャ</a>（bilibili）</p>
+                <p>GitHub：<a href="https://github.com/Lipomoea/kanameishi" target="_blank">https://github.com/Lipomoea/kanameishi</a></p>
+                <p>謝辞：</p>
+                <p>Wolfx Open API / FAN Studio API / P2P地震情報：API提供。</p>
+                <p>kotoho7：SREV 効果音提供（<a href="https://creativecommons.org/licenses/by-sa/2.0/deed.zh-hans" target="_blank">CC BY-SA 2.0</a>、改変なし）。</p>
+                <p>地牛WakeUp：中国語カウントダウン音声素材（台湾向け）。<a href="https://eew.earthquake.tw/" target="_blank">地牛 Wake Up！</a></p>
             </div>
             <template #footer>
-                <el-button type="default" @click="showAbout = false">关闭</el-button>
+                <el-button type="default" @click="showAbout = false">{{ $t('settings.dialogs.about_dialog.close') }}</el-button>
             </template>
         </el-dialog>
     </div>
@@ -1348,13 +1348,14 @@ const showNotifButton = 'Notification' in window
 const isTauri = getIsTauri()
 const thisPlatform = isTauri ? platform() : ''
 const isWindows = thisPlatform == 'windows'
-const simplifyMarks = {
-    0: '关闭',
-    1: '轻微',
-    2: '中等',
-    3: '显著',
-    4: '极致'
-}
+const { locale, t } = useI18n()
+const simplifyMarks = computed(() => ({
+    0: t('settings.performance.simplify_marks.off'),
+    1: t('settings.performance.simplify_marks.light'),
+    2: t('settings.performance.simplify_marks.medium'),
+    3: t('settings.performance.simplify_marks.strong'),
+    4: t('settings.performance.simplify_marks.extreme')
+}))
 const settingsStore = useSettingsStore()
 const statusStore = useStatusStore()
 
@@ -1408,17 +1409,17 @@ const autoLocate = async ()=>{
     const res = await Http.get(utilUrls.geoIp)
     if(res.city_zh == null){
         ElMessage({
-            message: '获取位置失败',
+            message: t('settings.messages.geoip_failed'),
             type: 'error',
         })
     }
     else{
         ElMessageBox.confirm(
-            `你的IP定位城市是${res.city_zh}，参考经纬度(${res.latitude}, ${res.longitude})。是否更新设置？`,
-            '自动定位',
+            t('settings.messages.geoip_confirm', { city: res.city_zh, lat: res.latitude, lng: res.longitude }),
+            t('settings.messages.geoip_confirm_title'),
             {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
+                confirmButtonText: t('settings.common.ok'),
+                cancelButtonText: t('settings.common.cancel'),
                 type: 'info',
                 showClose: false,
             }
@@ -1426,12 +1427,12 @@ const autoLocate = async ()=>{
             setLat('userLatLng')(res.latitude)
             setLng('userLatLng')(res.longitude)
             ElMessage({
-                message: '位置更新成功',
+                message: t('settings.messages.location_updated'),
                 type: 'success',
             })
         }).catch(()=>{
             ElMessage({
-                message: '取消设置',
+                message: t('settings.messages.settings_canceled'),
                 type: 'info',
             })
         })
@@ -1444,17 +1445,17 @@ const setCurrentViewAsDefault = ()=>{
     const map = statusStore.map
     if(map == null){
         ElMessage({
-            message: '地图未加载',
+            message: t('settings.messages.map_not_loaded'),
             type: 'error',
         })
     }
     else{
         ElMessageBox.confirm(
-            '是否设定当前视野为默认视野？',
-            '设定当前视野',
+            t('settings.messages.set_current_view_confirm'),
+            t('settings.messages.set_current_view_title'),
             {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
+                confirmButtonText: t('settings.common.ok'),
+                cancelButtonText: t('settings.common.cancel'),
                 type: 'info',
                 showClose: false,
             }
@@ -1465,12 +1466,12 @@ const setCurrentViewAsDefault = ()=>{
             setLng('viewLatLng')(lng)
             setDefaultZoom(zoom)
             ElMessage({
-                message: '设定成功',
+                message: t('settings.messages.set_success'),
                 type: 'success',
             })
         }).catch(()=>{
             ElMessage({
-                message: '取消设置',
+                message: t('settings.messages.settings_canceled'),
                 type: 'info',
             })
         })
@@ -1480,7 +1481,7 @@ const clearViewLatLng = ()=>{
     settingsStore.mainSettings.viewLatLng[0] = 0
     settingsStore.mainSettings.viewLatLng[1] = 0
     ElMessage({
-        message: '清除完成',
+        message: t('settings.messages.cleared'),
         type: 'success',
     })
 }
@@ -1488,7 +1489,7 @@ const clearUserLatLng = ()=>{
     settingsStore.mainSettings.userLatLng[0] = 0
     settingsStore.mainSettings.userLatLng[1] = 0
     ElMessage({
-        message: '清除完成',
+        message: t('settings.messages.cleared'),
         type: 'success',
     })
 }
@@ -1499,13 +1500,11 @@ const handleReload = () => {
 const handleFssnEqlist = (newVal) => {
     if(newVal) {
         ElMessageBox.confirm(
-            `FAN Studio Seismic Network (FSSN)是由FAN Studio提供支持，利用FDSN等地震仪网络进行全球地震测定的项目。
-            该项目由地震学爱好者组织维护，不属于任何官方机构，测定结果仅供参考。
-            请问您是否坚持使用？`,
-            '启用FSSN地震测定',
+            t('settings.messages.fssn_confirm'),
+            t('settings.messages.fssn_confirm_title'),
             {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
+                confirmButtonText: t('settings.common.ok'),
+                cancelButtonText: t('settings.common.cancel'),
                 type: 'warning',
                 showClose: false,
             }
@@ -1545,7 +1544,7 @@ const handleAdvance = (val)=>{
             settingsStore.advancedSettings.enableIclEew = false
             settingsStore.mainSettings.source.iclEew = false
             ElMessage({
-                message: '功能已关闭',
+                message: t('settings.messages.feature_disabled'),
                 type: 'success'
             })
             break
@@ -1556,7 +1555,7 @@ const handleAdvance = (val)=>{
             settingsStore.mainSettings.source.cwaEqlist = false
             settingsStore.mainSettings.displaySeisNet.tremNet = false
             ElMessage({
-                message: '功能已关闭',
+                message: t('settings.messages.feature_disabled'),
                 type: 'success'
             })
             break
@@ -1566,7 +1565,7 @@ const handleAdvance = (val)=>{
             settingsStore.advancedSettings.enableGqEew = false
             settingsStore.mainSettings.source.gqEew = false
             ElMessage({
-                message: '功能已关闭',
+                message: t('settings.messages.feature_disabled'),
                 type: 'success'
             })
             break
@@ -1576,7 +1575,7 @@ const handleAdvance = (val)=>{
             settingsStore.advancedSettings.enableMultiApi = false
             settingsStore.advancedSettings.multiApi = false
             ElMessage({
-                message: '功能已关闭',
+                message: t('settings.messages.feature_disabled'),
                 type: 'success'
             })
             break
@@ -1586,18 +1585,18 @@ const handleAdvance = (val)=>{
             settingsStore.advancedSettings.enableNmefcTsunami = false
             settingsStore.mainSettings.source.nmefcTsunami = false
             ElMessage({
-                message: '功能已关闭',
+                message: t('settings.messages.feature_disabled'),
                 type: 'success'
             })
             break
         }
         case 'enableMockEew': {
             ElMessageBox.confirm(
-                '此功能意在通过重现或模拟将来可能发生的地震，起到防灾减灾教育效果。因滥用此功能造成的任何后果均由您本人承担。',
-                '启用模拟地震预警',
+                t('settings.messages.mock_eew_confirm'),
+                t('settings.messages.mock_eew_confirm_title'),
                 {
-                    confirmButtonText: '同意',
-                    cancelButtonText: '不同意',
+                    confirmButtonText: t('settings.common.agree'),
+                    cancelButtonText: t('settings.common.disagree'),
                     type: 'warning',
                     showClose: false,
                 }
@@ -1628,13 +1627,13 @@ const postVerify = async (type = verifyType)=>{
                 localStorage.setItem('iclUrl', JSON.stringify(res.data))
                 verifyDialog.value = false
                 ElMessage({
-                    message: '认证成功',
+                    message: t('settings.messages.verify_success'),
                     type: 'success'
                 })
             }
             else{
                 ElMessage({
-                    message: '认证失败',
+                    message: t('settings.messages.verify_failed'),
                     type: 'error'
                                })
             }
@@ -1647,13 +1646,13 @@ const postVerify = async (type = verifyType)=>{
                 localStorage.setItem('tremUrl', JSON.stringify(res.data))
                 verifyDialog.value = false
                 ElMessage({
-                    message: '认证成功',
+                    message: t('settings.messages.verify_success'),
                     type: 'success'
                 })
             }
             else{
                 ElMessage({
-                    message: '认证失败',
+                    message: t('settings.messages.verify_failed'),
                     type: 'error'
                 })
             }
@@ -1666,13 +1665,13 @@ const postVerify = async (type = verifyType)=>{
                 localStorage.setItem('gqUrl', JSON.stringify(res.data))
                 verifyDialog.value = false
                 ElMessage({
-                    message: '认证成功',
+                    message: t('settings.messages.verify_success'),
                     type: 'success'
                 })
             }
             else{
                 ElMessage({
-                    message: '认证失败',
+                    message: t('settings.messages.verify_failed'),
                     type: 'error'
                 })
             }
@@ -1685,13 +1684,13 @@ const postVerify = async (type = verifyType)=>{
                 localStorage.setItem('multiApi', JSON.stringify(res.data))
                 verifyDialog.value = false
                 ElMessage({
-                    message: '认证成功',
+                    message: t('settings.messages.verify_success'),
                     type: 'success'
                 })
             }
             else{
                 ElMessage({
-                    message: '认证失败',
+                    message: t('settings.messages.verify_failed'),
                     type: 'error'
                 })
             }
@@ -1704,13 +1703,13 @@ const postVerify = async (type = verifyType)=>{
                 localStorage.setItem('nmefcTsunami', JSON.stringify(res.data))
                 verifyDialog.value = false
                 ElMessage({
-                    message: '认证成功',
+                    message: t('settings.messages.verify_success'),
                     type: 'success'
                 })
             }
             else{
                 ElMessage({
-                    message: '认证失败',
+                    message: t('settings.messages.verify_failed'),
                     type: 'error'
                 })
             }
@@ -1729,7 +1728,7 @@ const handleNeedReload = () => {
     if(!needReload.value) {
         needReload.value = true
         ElMessage({
-            message: '需要重载页面后生效！点击右侧关闭按钮立即重载',
+            message: t('settings.messages.need_reload_to_apply'),
             type: 'warning',
             duration: 0,
             showClose: true,
@@ -1755,7 +1754,7 @@ const checkNewVersion = async (silent = false) => {
             }
             if(i == versionInfo.length) {
                 ElMessage({
-                    message: '未检测到可用版本',
+                    message: t('settings.messages.no_update_available'),
                     type: 'info'
                 })
                 return
@@ -1775,7 +1774,7 @@ const checkNewVersion = async (silent = false) => {
             if(!hasNewVersion) {
                 hasNewVersion = true
                 ElMessage({
-                    message: `检查到新版本v${checkedVersion}`,
+                    message: t('settings.messages.new_version_found', { version: checkedVersion }),
                     type: 'success',
                     duration: 0,
                     showClose: true,
@@ -1786,11 +1785,11 @@ const checkNewVersion = async (silent = false) => {
             if(isTauri) {
                 if(!silent) {
                     ElMessageBox.confirm(
-                        `检查到新版本v${checkedVersion}，是否下载？\r\n${detail}`,
-                        '发现新版本',
+                        t('settings.messages.download_confirm', { version: checkedVersion, detail }),
+                        t('settings.messages.download_confirm_title'),
                         {
-                            confirmButtonText: '下载',
-                            cancelButtonText: '关闭',
+                            confirmButtonText: t('settings.messages.download'),
+                            cancelButtonText: t('settings.common.close'),
                             type: '',
                             showClose: false
                         }
@@ -1802,7 +1801,7 @@ const checkNewVersion = async (silent = false) => {
             else {
                 if(settingsStore.mainSettings.autoRefresh) {
                     ElMessage({
-                        message: '发现新版本，即将自动刷新',
+                        message: t('settings.messages.new_version_auto_refresh'),
                         type: 'success'
                     })
                     setTimeout(() => {
@@ -1812,11 +1811,11 @@ const checkNewVersion = async (silent = false) => {
                 else {
                     if(!silent) {
                         ElMessageBox.confirm(
-                            `检查到新版本v${checkedVersion}，是否刷新页面？\r\n${detail}`,
-                            '检查更新',
+                            t('settings.messages.refresh_confirm', { version: checkedVersion, detail }),
+                            t('settings.messages.refresh_confirm_title'),
                             {
-                                confirmButtonText: '确定',
-                                cancelButtonText: '取消',
+                                confirmButtonText: t('settings.common.ok'),
+                                cancelButtonText: t('settings.common.cancel'),
                                 type: 'info',
                                 showClose: false,
                             }
@@ -1829,13 +1828,13 @@ const checkNewVersion = async (silent = false) => {
         }
         else if(!silent) {
             ElMessage({
-                message: '当前已经是最新版本',
+                message: t('settings.messages.up_to_date'),
                 type: 'success'
             })
         }
     } catch (_) {
         ElMessage({
-            message: '检查更新失败，请稍后重试！',
+            message: t('settings.messages.update_check_failed'),
             type: 'error'
         })
     }
@@ -1930,7 +1929,6 @@ const handleAutoStart = async (value) => {
         isAutoStart.value = await isEnabled()
     }
 }
-const { locale } = useI18n()
 watch(() => settingsStore.mainSettings.language, (newLang) => {
   locale.value = newLang;
 });

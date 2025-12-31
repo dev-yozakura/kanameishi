@@ -28,6 +28,14 @@ GitHub Pages は **静的ホスティング** のため、開発時に使って�
 
 この設定がない場合、環境によっては NIED(kmoni), P-Alert, 海しる(MSIL) などが表示できません。
 
+## 任意: GlobalQuake (Yuzhno) SSE テスト
+
+`http://localhost:8788/gq/yuzhno/stream` への SSE 接続は、プロキシが落ちているとブラウザが自動再接続を繰り返し、コンソールに `net::ERR_CONNECTION_REFUSED` が多発します。
+
+このため **デフォルトでは無効** です。必要な場合のみ、環境変数で明示的に有効化してください:
+
+- `VITE_GQ_YUZHNO_SSE_URL=http://localhost:8788/gq/yuzhno/stream`
+
 ### 开发者：如何以 PWA 方式验证（Android）
 PWA 的前提是 **安全上下文**（HTTPS 或 localhost）。因此：
 * 已部署到 HTTPS 的站点：直接用 Android Chrome 打开并“安装应用”。

@@ -1666,10 +1666,13 @@ onMounted(() => {
     jpSeedlinkStationsLayer = null
 
     // GlobalQuake (port 38000) test: Yuzhno-Sakhalinsk nearest station marker via SSE proxy
+    // NOTE: Disabled by default because EventSource auto-retries and spams the console if the proxy is down.
+    // Enable by setting: VITE_GQ_YUZHNO_SSE_URL=http://localhost:8788/gq/yuzhno/stream
     map.createPane('gqYuzhnoPane')
     map.getPane('gqYuzhnoPane').style.zIndex = 96
     try {
-        const sseUrl = 'http://localhost:8788/gq/yuzhno/stream'
+        const sseUrl = String(import.meta.env.VITE_GQ_YUZHNO_SSE_URL || '').trim()
+        if (!sseUrl) throw new Error('gqYuzhno SSE disabled')
         gqYuzhnoEventSource = new EventSource(sseUrl)
 
         const updateGqPopup = () => {
@@ -1807,7 +1810,9 @@ onMounted(() => {
         }
 
         gqYuzhnoEventSource.onerror = () => {
-            // Keep the app running even if proxy is down.
+            // Stop EventSource auto-retry to prevent console spam & resource growth.
+            try { gqYuzhnoEventSource?.close?.() } catch {}
+            gqYuzhnoEventSource = null
         }
     } catch {
         // ignore SSE setup errors
@@ -1868,12 +1873,7 @@ onMounted(() => {
         map.on('zoomstart', ()=>{setMapHeight('calc(100% - 1px)');})
         map.on('zoomend', ()=>{setMapHeight('100%');})
     }
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && pendingSetView) {
-            pendingSetView = false
-            setView()
-        }
-    })
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     watchEffect(()=>{
         if(userMarker && map.hasLayer(userMarker)) map.removeLayer(userMarker)
         if(isDisplayUser.value){
@@ -2090,63 +2090,6 @@ onMounted(() => {
     p2pquakeUrlIndex.value = statusStore.p2pquakeSocket?.urlIndex
     gqUrlIndex.value = statusStore.gqSocket?.urlIndex
   }, { immediate: true })
-    watchEffect(() => {
-        document.removeEventListener('mousemove', resetDefaultMenuTimer)
-        if(menuId.value == defaultMenuId.value){
-            clearTimeout(defaultMenuTimer)
-        }
-        else{
-            resetDefaultMenuTimer()
-            document.addEventListener('mousemove', resetDefaultMenuTimer)
-        }
-    })
-
-  watch(menuId, (newVal) => {
-    drawer.value.scrollTop = 0
-    clearHistoryList()
-    if(newVal == 'eews'){
-        eqlistMarkerPane.style.opacity = 0.3
-        tsunamiBasePane.style.opacity = 0.3 * (tsunamiFlickerCounter ? 1 : 0)
-    }
-    else{
-        eqlistMarkerPane.style.opacity = 1
-        tsunamiBasePane.style.opacity = 1 * (tsunamiFlickerCounter ? 1 : 0)
-    }
-    if(newVal == 'eqlists'){
-        eewMarkerPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
-        wavePane.style.opacity = 0.3
-        waveFillPane.style.opacity = 0.3
-        niedGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
-        tremGridPane.style.opacity = 0.3 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
-        kmaGridPane.style.opacity = 0.3 * (blinkStatus.value ? 1 : 0)
-        palertGridPane.style.opacity = 0.3
-        msilNetPane.style.opacity = 0.3
-    }
-    else{
-        eewMarkerPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
-        wavePane.style.opacity = 1
-        waveFillPane.style.opacity = 1
-        niedGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.jmaEew ? 1 : 0)
-        tremGridPane.style.opacity = 1 * (blinkStatus.value && !statusStore.isActive.cwaEew ? 1 : 0)
-        kmaGridPane.style.opacity = 1 * (blinkStatus.value ? 1 : 0)
-        palertGridPane.style.opacity = 1
-        msilNetPane.style.opacity = 1
-    }
-    tsunamiBasePane.style.opacity = (tsunamiFlickerCounter ? 1 : 0) * (menuId.value == 'eews' ? 0.3 : 1)
-    isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
-    isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
-    isPalertDelayed.value = !verifyUpToDate(palertUpdateTime.value, 8, 10000)
-    isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
-    isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
-    wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
-    fanRS.value = statusStore.fanSocket?.socket.readyState ?? 4
-    p2pquakeRS.value = statusStore.p2pquakeSocket?.socket.readyState ?? 4
-    gqRS.value = statusStore.gqSocket?.socket.readyState ?? 4
-    wolfxUrlIndex.value = statusStore.wolfxSocket?.urlIndex
-    fanUrlIndex.value = statusStore.fanSocket?.urlIndex
-    p2pquakeUrlIndex.value = statusStore.p2pquakeSocket?.urlIndex
-    gqUrlIndex.value = statusStore.gqSocket?.urlIndex
-  }, { immediate: true })
     intervalEvents()
     mainInterval = setInterval(() => {
         intervalEvents()
@@ -2234,7 +2177,9 @@ function handleKeydown(event) {
 const renderers = {}
 const panes = ['basePane', 'adminBoundaryPane', 'eewBasePane', 'tsunamiBasePane', 'faultBasePane']
 settingsStore.mainSettings.useCanvasRenderer && panes.forEach(pane => renderers[pane] = L.canvas({ pane }))
+let mapsLoaded = false
 const loadMaps = async (retries = 0) => {
+    if (mapsLoaded) return
     let msgTimer
     if(!firstMsg){
         msgTimer = setTimeout(() => {
@@ -2256,7 +2201,7 @@ const loadMaps = async (retries = 0) => {
     }
     const resps = await Promise.all(promises)
     const topoByKey = Object.fromEntries(topoKeys.map((key, i) => [key, resps[i]]))
-    const { global, cn_eew, cn_fault, cn_adm1, cn_adm1_internal, jp, jp_eew, jp_tsunami, kr_eew, countries10m, kr_adm1, kr_adm1_internal, tw_adm1, tw_adm1_internal } = topoByKey
+    const { global, cn_eew, cn_fault, cn_adm1, cn_adm1_internal, jp, jp_eew, jp_tsunami, cn_tsunami, kr_eew, countries10m, kr_adm1, kr_adm1_internal, tw_adm1, tw_adm1_internal } = topoByKey
     if(global && cn_eew && cn_fault && jp && jp_eew && kr_eew && jp_tsunami){
         clearTimeout(msgTimer)
         loadBaseMap(global, 'basePane', true, undefined, { filterFeature: _isTaiwanOrKoreaByBboxCenter })
@@ -2450,10 +2395,9 @@ const loadMaps = async (retries = 0) => {
                     smartSetView()
                 }, { deep: true, immediate: true })
             }
-            else {
-                shouldRetry = true
-            }
         }
+
+        mapsLoaded = true
     }
     else{
         shouldRetry = true
@@ -2506,6 +2450,12 @@ const setMapHeight = (height) => {
     }, 0);
 }
 let pendingSetView = false
+function handleVisibilityChange() {
+    if (document.visibilityState === 'visible' && pendingSetView) {
+        pendingSetView = false
+        setView()
+    }
+}
 const setView = () => {
   if (!map) return
 
@@ -3767,6 +3717,7 @@ onBeforeUnmount(() => {
     try { msilAbortController?.abort?.() } catch {}
     msilMarkerCount.value = 0
     document.removeEventListener('mousemove', resetDefaultMenuTimer)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
     if(msilWorker) msilWorker.terminate()
     try { map?.off?.('zoomend', tremRtsZoomHandler) } catch {}
     document.removeEventListener('keydown', handleKeydown)

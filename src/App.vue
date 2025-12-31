@@ -26,6 +26,14 @@ const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const shakeDetectionsStore = useShakeDetectionsStore()
 
+let shakeDetectionsPersistTimer
+function schedulePersistShakeDetections() {
+  clearTimeout(shakeDetectionsPersistTimer)
+  shakeDetectionsPersistTimer = setTimeout(() => {
+    localStorage.setItem('shakeDetections', shakeDetectionsStore.serialize())
+  }, 500)
+}
+
 const container = ref()
 
 async function getGeojson(retries = 0){
@@ -83,6 +91,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   timeStore.stopUpdatingTime()
   statusStore.disconnect()
+  clearTimeout(shakeDetectionsPersistTimer)
 })
 watch(() => settingsStore.mainSettings, (newValue) => {
   localStorage.setItem('mainSettings', JSON.stringify(newValue))
@@ -91,13 +100,8 @@ watch(() => settingsStore.advancedSettings, (newValue) => {
   localStorage.setItem('advancedSettings', JSON.stringify(newValue))
 }, { deep: true })
 
-watch(() => shakeDetectionsStore.items, () => {
-  localStorage.setItem('shakeDetections', shakeDetectionsStore.serialize())
-}, { deep: true })
-
-watch(() => shakeDetectionsStore.captureEnabled, () => {
-  localStorage.setItem('shakeDetections', shakeDetectionsStore.serialize())
-})
+watch(() => shakeDetectionsStore.items, schedulePersistShakeDetections, { deep: true })
+watch(() => shakeDetectionsStore.captureEnabled, schedulePersistShakeDetections)
 
 </script>
 

@@ -35,7 +35,13 @@ function handleJson(obj) {
 
 onMounted(() => {
   // Node proxy (seedlink-proxy.mjs) provides this endpoint
-  const url = 'http://localhost:8788/gq/yuzhno/stream'
+  const url = String(import.meta.env.VITE_GQ_YUZHNO_SSE_URL || '').trim()
+  if (!url) {
+    connected.value = false
+    error.value = 'SSE disabled (VITE_GQ_YUZHNO_SSE_URL を設定すると有効化)'
+    return
+  }
+
   es = new EventSource(url)
 
   es.addEventListener('open', () => {
@@ -55,6 +61,9 @@ onMounted(() => {
   es.onerror = () => {
     connected.value = false
     error.value = 'SSE error (proxy起動/ポートを確認)'
+    // Stop EventSource auto-retry to prevent console spam.
+    try { es?.close?.() } catch {}
+    es = null
   }
 })
 

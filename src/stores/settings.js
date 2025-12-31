@@ -124,7 +124,7 @@ export const useSettingsStore = defineStore('settingsStore', {
             autoCheckNewVersion: false,
             checkPrerelease: false,
             autoRefresh: false,
-            language: 'zh'
+            language: 'ja'
         },
         advancedSettings: {
             enableIclEew: false,
