@@ -20,10 +20,13 @@ import { locateHypocenterGeigerRobust } from '@/utils/HypocenterGeiger'
 import { refineHypocenterArrivalNonArrival } from '@/utils/ArrivalNonArrivalRefine'
 import { getNearestEpiName } from '@/utils/EpiName'
 import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
+import { startWorkerInterval } from '@/utils/WorkerInterval'
 
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
+
+const enablePalertHypoEstimate = computed(() => settingsStore.mainSettings?.displaySeisNet?.palertHypoEstimate !== false)
 
 const isTauri = getIsTauri()
 const edgeProxyBase = (import.meta.env.VITE_EDGE_PROXY_BASE || '').replace(/\/+$/, '')
@@ -100,6 +103,7 @@ let map = null
 let palertRenderer = null
 let requestInterval = null
 let stationListInterval = null
+let stopRequestWorker = null
 let pendingRender = false
 
 // 揺れ検知由来の予報円はEEWと別色にする
@@ -195,7 +199,10 @@ const _clearPalertHypoLayers = () => {
 }
 
 const _resetPalertHypo = (hard = false) => {
-    if (hard) firstDetectMsByStationId.clear()
+    if (hard) {
+        firstDetectMsByStationId.clear()
+        lastDetectActiveAtMs = 0
+    }
     lastHypo = null
     lastHypoEstimateAtMs = 0
     hypoEstimateFinished = false
@@ -301,8 +308,24 @@ const _startPalertForecastDrawLoop = () => {
     palertForecastDrawTimer = setInterval(() => {
         if (!map) return
         if (!lastHypo) return
+
+        if (!enablePalertHypoEstimate.value) {
+            _resetPalertHypo(true)
+            return
+        }
         const nowMs = timeStore.getTimeStamp() - delayMs.value
         if (!Number.isFinite(nowMs)) return
+
+        const canDraw = enablePalertHypoEstimate.value && (statusStore.isActive.palertNet || (
+            firstDetectMsByStationId.size > 0 &&
+            lastDetectActiveAtMs > 0 &&
+            nowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS
+        ))
+        if (!canDraw) {
+            _resetPalertHypo(true)
+            return
+        }
+
         _updateHypoLayers(lastHypo, nowMs)
     }, PALERT_FORECAST_DRAW_INTERVAL_MS)
 }
@@ -1167,7 +1190,7 @@ const applyRealtimePga = (dataVals, frameMs = Date.now()) => {
     palertDetectActive.value = activeStationIds.length > 0
     palertDetectObsCount.value = firstDetectMsByStationId.size
 
-    const canEstimate = map && Number.isFinite(now) && (
+    const canEstimate = enablePalertHypoEstimate.value && map && Number.isFinite(now) && (
         activeStationIds.length > 0 ||
         (firstDetectMsByStationId.size > 0 && lastDetectActiveAtMs > 0 && now - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS)
     )
@@ -1491,14 +1514,16 @@ const tickRealtime = async () => {
 }
 
 const startRealtimeLoop = () => {
-    if (requestInterval) return
-    requestInterval = setInterval(() => {
+    if (stopRequestWorker) return
+    stopRequestWorker = startWorkerInterval(1000, () => {
         tickRealtime().catch((e) => console.log(e))
-    }, 1000)
+    })
     tickRealtime().catch((e) => console.log(e))
 }
 
 const stopRealtimeLoop = () => {
+    if (stopRequestWorker) stopRequestWorker()
+    stopRequestWorker = null
     if (requestInterval) clearInterval(requestInterval)
     requestInterval = null
 }
@@ -1609,6 +1634,14 @@ onBeforeUnmount(() => {
 
     if (unwatchMap) unwatchMap()
 })
+
+watch(
+    () => enablePalertHypoEstimate.value,
+    (enabled) => {
+        if (!enabled) _resetPalertHypo(true)
+    },
+    { immediate: true }
+)
 </script>
 
 <style lang="scss" scoped>

@@ -149,6 +149,26 @@
                                 </el-select>
                             </div>
                             <div class="switch-full pl-4">
+                                <span>{{ $t('settings.seisNet.hypo_estimate_enable') }}</span>
+                                <el-switch
+                                    v-if="settingsStore.mainSettings.displaySeisNet.niedSource === 'yahoo'"
+                                    v-model="settingsStore.mainSettings.displaySeisNet.niedYahooHypoEstimate"
+                                    :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet"
+                                />
+                                <el-switch
+                                    v-else
+                                    v-model="settingsStore.mainSettings.displaySeisNet.niedKmoniHypoEstimate"
+                                    :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet"
+                                />
+                            </div>
+                            <div class="switch-full pl-4" v-if="settingsStore.mainSettings.displaySeisNet.niedSource === 'kmoni_image'">
+                                <span>{{ $t('settings.seisNet.kmoni_mag_estimate_enable') }}</span>
+                                <el-switch
+                                    v-model="settingsStore.mainSettings.displaySeisNet.niedKmoniMagEstimate"
+                                    :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet || !settingsStore.mainSettings.displaySeisNet.niedKmoniHypoEstimate"
+                                />
+                            </div>
+                            <div class="switch-full pl-4">
                                 <span>{{ $t('settings.seisNet.analysis_shindo') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.displayNiedShindo" :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet" />
                             </div>
@@ -225,6 +245,13 @@
                                     <el-option label="0.15°" :value="0.15" />
                                     <el-option label="0.2°" :value="0.2" />
                                 </el-select>
+                            </div>
+                            <div class="switch-full pl-4">
+                                <span>{{ $t('settings.seisNet.hypo_estimate_enable') }}</span>
+                                <el-switch
+                                    v-model="settingsStore.mainSettings.displaySeisNet.palertHypoEstimate"
+                                    :disabled="!settingsStore.mainSettings.displaySeisNet.palertNet"
+                                />
                             </div>
                             <div class="switch-full pl-4">
                                 <span>{{ $t('settings.seisNet.palert_color_by') }}</span>

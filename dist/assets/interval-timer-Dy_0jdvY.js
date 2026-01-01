@@ -1,0 +1,1 @@
+(function(){"use strict";let e=null,n=1e3;const a=s=>{const t=Number(s);n=Number.isFinite(t)&&t>0?t:1e3,e&&clearInterval(e),e=setInterval(()=>{try{postMessage({type:"tick",nowMs:Date.now()})}catch{}},n)},l=()=>{e&&clearInterval(e),e=null};self.onmessage=s=>{const t=(s==null?void 0:s.data)||{};t.type==="start"?a(t.intervalMs):t.type==="stop"&&l()}})();

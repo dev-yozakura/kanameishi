@@ -37,6 +37,8 @@
       "title": "地震监测网",
       "dataSource": "数据源",
       "hypo_estimate_max_points": "震源推定使用的最大观测点数",
+      "hypo_estimate_enable": "震源推定（预报圈）",
+      "kmoni_mag_estimate_enable": "震级推定（kmoni图像解析）",
       "nied_net": "強震モニタ・震度（日本）",
       "nied_mode": "显示方式",
       "nied_mode_yahoo": "现有（Yahoo RealTimeData）",

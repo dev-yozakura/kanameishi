@@ -33,6 +33,13 @@ export const useSettingsStore = defineStore('settingsStore', {
                 displayShindo0: false,
                 delay: 0,
                 hypoEstimateMaxPoints: 120,
+                // 震源推定/予報円（揺れ検知由来）
+                // 既定はON（従来挙動維持）
+                niedYahooHypoEstimate: true,
+                niedKmoniHypoEstimate: true,
+                // NIED(kmoni画像) のマグニチュード推定
+                niedKmoniMagEstimate: true,
+                palertHypoEstimate: true,
                 niedNet: false,
                 niedSource: 'yahoo',
                 niedSensitivity: 2,
@@ -192,6 +199,12 @@ export const useSettingsStore = defineStore('settingsStore', {
                     if (!Number.isFinite(Number(ds.hypoEstimateMaxPoints))) {
                         ds.hypoEstimateMaxPoints = 120
                     }
+
+                    // Backward-compat: 追加フラグの既定値
+                    if (typeof ds.niedYahooHypoEstimate !== 'boolean') ds.niedYahooHypoEstimate = true
+                    if (typeof ds.niedKmoniHypoEstimate !== 'boolean') ds.niedKmoniHypoEstimate = true
+                    if (typeof ds.niedKmoniMagEstimate !== 'boolean') ds.niedKmoniMagEstimate = true
+                    if (typeof ds.palertHypoEstimate !== 'boolean') ds.palertHypoEstimate = true
                 }
             }
         },

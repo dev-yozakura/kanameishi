@@ -19,9 +19,11 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { NiedStation, simpleIcon } from '@/classes/StationClasses';
 import eewCross from '@/assets/icon/hypocenter/eewCross.svg'
+import { startWorkerInterval } from '@/utils/WorkerInterval'
 
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
+const enableNiedHypoEstimate = computed(() => settingsStore.mainSettings?.displaySeisNet?.niedYahooHypoEstimate !== false)
 let stationList = []
 const stationData = ref([])
 const stations = reactive([])
@@ -201,15 +203,20 @@ const _startNiedForecastDrawLoop = () => {
         if (!map) return
         if (!lastHypo) return
 
+        if (!enableNiedHypoEstimate.value) {
+            _resetNiedHypo(true)
+            return
+        }
+
         // 揺れ検知が完全に途切れた後は更新しない（安全側）
         const logicalNowMs = Date.now() - (Number.isFinite(delay.value) ? delay.value : 0)
         if (!Number.isFinite(logicalNowMs)) return
 
-        const canDraw = statusStore.isActive.niedNet || (
+        const canDraw = enableNiedHypoEstimate.value && (statusStore.isActive.niedNet || (
             firstDetectMsByStationId.size > 0 &&
             lastDetectActiveAtMs > 0 &&
             logicalNowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS
-        )
+        ))
         if (!canDraw) {
             _resetNiedHypo(true)
             return
@@ -405,7 +412,7 @@ const update = (frameMs)=>{
             station.setActive()
         })
 
-        const canEstimate = map && Number.isFinite(nowMs) && (
+        const canEstimate = enableNiedHypoEstimate.value && map && Number.isFinite(nowMs) && (
             activeStationsSet.size > 0 ||
             (firstDetectMsByStationId.size > 0 && lastDetectActiveAtMs > 0 && nowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS)
         )
@@ -584,6 +591,14 @@ const update = (frameMs)=>{
         }
     }
 }
+
+watch(
+    () => enableNiedHypoEstimate.value,
+    (enabled) => {
+        if (!enabled) _resetNiedHypo(true)
+    },
+    { immediate: true }
+)
 const chainActivate = (station, activeStations, checkedStations)=>{
     const pendingStations = new Set([station])
     while(pendingStations.size > 0){
@@ -605,6 +620,7 @@ const renderAll = ()=>{
     })
 }
 let fetchStationInterval, requestInterval, delayInterval
+let stopRequestWorker = null
 const fetchStationList = async () => {
     try {
         const res = await getData(`${yahooBase.value}/SiteList/sitelist.json?time=${Date.now()}`)
@@ -656,7 +672,7 @@ const fetchStationList = async () => {
 onMounted(()=>{
     fetchStationInterval = setInterval(fetchStationList, 5000);
     fetchStationList()
-    requestInterval = setInterval(async () => {
+    stopRequestWorker = startWorkerInterval(500, async () => {
         try {
             const time = getTimeNumberString(9, -delay.value)
             const date = time.slice(0, 8)
@@ -709,7 +725,7 @@ onMounted(()=>{
         } catch (err) {
             console.log(err);
         }
-    }, 500);
+    })
     document.addEventListener('visibilitychange', _onVisibilityChange)
 })
 let unwatchGrids, unwatchRender
@@ -858,7 +874,9 @@ onBeforeUnmount(()=>{
     if(niedMarkerCount) niedMarkerCount.value = 0
     try { document.removeEventListener('visibilitychange', _onVisibilityChange) } catch {}
     clearInterval(fetchStationInterval)
-    clearInterval(requestInterval)
+    if (stopRequestWorker) stopRequestWorker()
+    stopRequestWorker = null
+    if (requestInterval) clearInterval(requestInterval)
     clearInterval(delayInterval)
     if(map !== null) map.off('zoomend', renderAll)
     if(unwatchGrids) unwatchGrids()

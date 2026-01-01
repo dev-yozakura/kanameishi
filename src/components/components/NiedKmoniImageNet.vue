@@ -25,6 +25,9 @@ const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
 
+const enableKmoniHypoEstimate = computed(() => settingsStore.mainSettings?.displaySeisNet?.niedKmoniHypoEstimate !== false)
+const enableKmoniMagEstimate = computed(() => settingsStore.mainSettings?.displaySeisNet?.niedKmoniMagEstimate !== false)
+
 const niedMaxShindo = inject('niedMaxShindo')
 const niedUpdateTime = inject('niedUpdateTime')
 const niedPeriodMaxShindo = inject('niedPeriodMaxShindo')
@@ -285,15 +288,20 @@ const _startNiedForecastDrawLoop = () => {
     if (!map) return
     if (!lastHypo) return
 
+    if (!enableKmoniHypoEstimate.value) {
+      _resetNiedHypo(true)
+      return
+    }
+
     const nowMs = timeStore.getTimeStamp() - delayMs.value
     if (!Number.isFinite(nowMs)) return
 
     // 揺れ検知が完全に途切れた後は更新しない（安全側）
-    const canDraw = statusStore.isActive.niedNet || (
+    const canDraw = enableKmoniHypoEstimate.value && (statusStore.isActive.niedNet || (
       kmoniFirstDetectMsByStationId.size > 0 &&
       lastDetectActiveAtMs > 0 &&
       nowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS
-    )
+    ))
     if (!canDraw) {
       _resetNiedHypo(true)
       return
@@ -612,7 +620,7 @@ const update = (frameMs) => {
     }
 
     // 推定済みであれば、推定更新がなくても円を毎フレーム更新する
-    if (map && lastHypo && Number.isFinite(nowMs)) {
+    if (enableKmoniHypoEstimate.value && map && lastHypo && Number.isFinite(nowMs)) {
       _updateNiedHypoLayers(lastHypo, nowMs)
     }
 
@@ -624,6 +632,8 @@ const update = (frameMs) => {
 
       // PGA + 距離から推定マグニチュード（サンプルPythonのJS移植）
       if (
+        enableKmoniHypoEstimate.value &&
+        enableKmoniMagEstimate.value &&
         niedDetectMagnitude &&
         Number.isFinite(nowMs) &&
         lastPgaArr &&
@@ -659,9 +669,21 @@ const update = (frameMs) => {
         if (niedDetectMagnitudeUsed) niedDetectMagnitudeUsed.value = nUsed
         lastMagEstimateAtMs = nowMs
       }
+      else {
+        if (niedDetectMagnitude) niedDetectMagnitude.value = NaN
+        if (niedDetectMagnitudeUsed) niedDetectMagnitudeUsed.value = 0
+      }
     }
   }
 }
+
+watch(
+  () => enableKmoniHypoEstimate.value,
+  (enabled) => {
+    if (!enabled) _resetNiedHypo(true)
+  },
+  { immediate: true }
+)
 
 const renderAll = () => {
   stations.forEach((station) => station?.render?.())

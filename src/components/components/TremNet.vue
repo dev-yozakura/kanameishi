@@ -15,6 +15,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { simpleIcon, TremStation } from '@/classes/StationClasses';
 import { useTimeStore } from '@/stores/time';
+import { startWorkerInterval } from '@/utils/WorkerInterval'
 
 const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
@@ -117,6 +118,7 @@ const clearReactiveObject = (obj) => {
     if(obj) for(let key in obj) delete obj[key]
 }
 let fetchStationInterval, requestInterval
+let stopRequestWorker = null
 const fetchStationList = async () => {
     try {
         if(!seisNetUrls?.trem?.stationList) return
@@ -132,7 +134,7 @@ const fetchStationList = async () => {
 onMounted(()=>{
     fetchStationInterval = setInterval(fetchStationList, 180 * 1000);
     fetchStationList()
-    requestInterval = setInterval(async () => {
+    stopRequestWorker = startWorkerInterval(1000, async () => {
         try {
             if(!stationDataUrl.value) return
             const time = timeStore.getTimeStamp() - delay.value
@@ -149,7 +151,7 @@ onMounted(()=>{
         } catch (err) {
             console.log(err);
         }
-    }, 1000);
+    })
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && pendingRender) {
             pendingRender = false
@@ -270,7 +272,9 @@ watch(() => settingsStore.mainSettings.displaySeisNet.delay, () => {
 onBeforeUnmount(()=>{
     if(tremMarkerCount) tremMarkerCount.value = 0
     clearInterval(fetchStationInterval)
-    clearInterval(requestInterval)
+    if (stopRequestWorker) stopRequestWorker()
+    stopRequestWorker = null
+    if (requestInterval) clearInterval(requestInterval)
     if(map !== null) map.off('zoomend', renderAll)
     if(unwatchStationList) unwatchStationList()
     if(unwatchGrids) unwatchGrids()
