@@ -941,6 +941,8 @@ const ensureMarker = (id, level, forceUpdate = false) => {
     if (!latLng || !map) return
 
     const existing = markers.get(id)
+    const pgaEff = Number(stations[id]?.pgaEff ?? 0)
+    const pgaIdx = (!Number.isFinite(pgaEff) || pgaEff <= 0) ? -1 : Math.min(7, Math.floor((Math.min(0.8, pgaEff) / 0.8) * 8))
 
     const zoom = map.getZoom()
     const wantIcon = shouldUseShindoIconMarker(level, zoom)
@@ -957,7 +959,18 @@ const ensureMarker = (id, level, forceUpdate = false) => {
     }
 
     const createCircleMarker = () => {
-        const { color, radius } = computeNiedStyleColorRadius(level, zoom)
+        // radius: use the existing nied-style radius calculation
+        const { radius } = computeNiedStyleColorRadius(level, zoom)
+        const pga = Number(stations[id]?.pgaEff ?? 0)
+        let color
+        if (!Number.isFinite(pga) || pga <= 0) {
+            color = settingsStore.mainSettings.displaySeisNet.hideNoData ? '#cfcfcf00' : '#cfcfcf'
+        } else {
+            const capped = Math.min(0.8, pga)
+            const idx = Math.min(7, Math.floor((capped / 0.8) * 8))
+            color = computeNiedStyleColorRadius(idx, zoom, { style: 'nied', hideNoData: false }).color
+        }
+
         return L.circleMarker(latLng, {
             radius,
             opacity: 1,
@@ -981,6 +994,7 @@ const ensureMarker = (id, level, forceUpdate = false) => {
         const obj = existing ?? { level: -1, marker: null, tooltipBound: false }
         obj.level = level
         obj.marker = newMarker
+        obj._pgaIdx = pgaIdx
         obj.markerType = markerType
         obj.tooltipBound = false
         markers.set(id, obj)
@@ -1003,8 +1017,8 @@ const ensureMarker = (id, level, forceUpdate = false) => {
         return
     }
 
-    // no-op
-    if (!forceUpdate && existing.level === level && ((existing.markerType === 'icon') === wantIcon)) return
+    // no-op: skip only when level/type and PGA色インデックス is unchanged
+    if (!forceUpdate && existing.level === level && ((existing.markerType === 'icon') === wantIcon) && existing._pgaIdx === pgaIdx) return
 
     // switch type
     if ((existing.markerType === 'icon') !== wantIcon) {
@@ -1030,7 +1044,16 @@ const ensureMarker = (id, level, forceUpdate = false) => {
             if (icon) existing.marker.setIcon(icon)
         } catch {}
     } else {
-        const { color, radius } = computeNiedStyleColorRadius(level, zoom)
+        const { radius } = computeNiedStyleColorRadius(level, zoom)
+        let color
+        if (!Number.isFinite(pgaEff) || pgaEff <= 0) {
+            color = settingsStore.mainSettings.displaySeisNet.hideNoData ? '#cfcfcf00' : '#cfcfcf'
+        } else {
+            const capped = Math.min(0.8, pgaEff)
+            const idx = Math.min(7, Math.floor((capped / 0.8) * 8))
+            color = computeNiedStyleColorRadius(idx, zoom, { style: 'nied', hideNoData: false }).color
+            existing._pgaIdx = idx
+        }
         try {
             existing.marker.setStyle({
                 opacity: 1,

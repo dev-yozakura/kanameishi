@@ -46,6 +46,7 @@ export const useSettingsStore = defineStore('settingsStore', {
                 displayNiedShindo: false,
                 tremNet: false,
                 palertNet: false,
+                emsdNet: false,
                 palertQuantizeDeg: 0.1,
                 palertColorBy: 'shindo',
                 tremApi: 'lb-1',

@@ -60,6 +60,18 @@ export default defineConfig(({ command }) => {
         },
         rewrite: (path) => path.replace(/^\/palert/, ''),
       },
+
+      // EMSD DDV (msk_1h.csv) - DEV uses /emsd
+      '/emsd': {
+        target: 'https://glob.emsd.ru',
+        changeOrigin: true,
+        secure: true,
+        headers: {
+          Origin: 'https://glob.emsd.ru',
+          Referer: 'https://glob.emsd.ru/media/ddv/msk_1h.htm',
+        },
+        rewrite: (path) => path.replace(/^\/emsd/, ''),
+      },
       '/msil': {
         target: 'https://www.msil.go.jp',
         changeOrigin: true,

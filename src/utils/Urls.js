@@ -20,6 +20,9 @@ export const seisNetUrls = {
         stationList: 'https://weather-kyoshin.east.edge.storage-yahoo.jp/SiteList/sitelist.json',
         stationData: 'https://weather-kyoshin.east.edge.storage-yahoo.jp/RealTimeData'
     },
+  emsd: {
+    msk1hCsv: 'https://glob.emsd.ru/media/ddv/msk_1h.csv',
+  },
     kma: 'wss://ws.fanstudio.tech/kma-station'
 }
 export const iconUrls = {

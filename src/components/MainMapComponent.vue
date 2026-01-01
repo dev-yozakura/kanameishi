@@ -250,6 +250,20 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.emsdNet">
+                            <div class="shindo-bar gray">{{ $t('mainMap.realtime.emsd_realtime') }}</div>
+                            <div class="info">
+                                <div class="intensity" :class="setClassName(emsdMaxShindo, true)">
+                                    <div class="intensity-title">{{ $t('mainMap.eew.max_intensity') }}</div>
+                                    <div :class="emsdMaxShindo != '?'?'shindo':'csis'">
+                                        {{ emsdMaxShindo }}
+                                    </div>
+                                    <div class="palert-max-pga-corner" v-if="emsdMaxPgaGal != '?'">
+                                        {{ emsdMaxPgaGal }} gal
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="eew realtime" v-if="settingsStore.mainSettings.displaySeisNet.palertNet && palertPeriodMaxShindo != '?'">
                             <div class="shindo-bar" :class="palertPeriodBarClass">{{ $t('mainMap.realtime.palert_period') }}</div>
                             <div class="info">
@@ -344,6 +358,9 @@
                     </div>
                     <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isPalertDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.palertNet" @dblclick="resetSeisNetDelay">
                         {{ $t('mainMap.palert_net') }} {{ palertUpdateTime }} (UTC+8)
+                    </div>
+                    <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isEmsdDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.emsdNet" @dblclick="resetSeisNetDelay">
+                        {{ $t('settings.seisNet.emsd_net') }} {{ emsdUpdateTime }} (UTC+0)
                     </div>
                     <div class="update-time" :class="isKmaDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.kmaNet" @dblclick="resetSeisNetDelay">
                         {{ $t('mainMap.kma_pews') }} {{ kmaUpdateTime }} (UTC+9)
@@ -1348,6 +1365,14 @@ provide('palertDetectDepthKm', palertDetectDepthKm)
 provide('palertDetectObsCount', palertDetectObsCount)
 provide('palertDetectEpicenterName', palertDetectEpicenterName)
 
+const emsdUpdateTime = ref('1970-01-01 00:00:00')
+const emsdMaxShindo = ref('?')
+const emsdMaxPgaGal = ref('?')
+const isEmsdDelayed = ref(true)
+provide('emsdUpdateTime', emsdUpdateTime)
+provide('emsdMaxShindo', emsdMaxShindo)
+provide('emsdMaxPgaGal', emsdMaxPgaGal)
+
 const niedShakeSessionId = ref('')
 const palertShakeSessionId = ref('')
 
@@ -1514,6 +1539,9 @@ watch(
 
 const palertMarkerCount = ref(0)
 provide('palertMarkerCount', palertMarkerCount)
+
+const emsdMarkerCount = ref(0)
+provide('emsdMarkerCount', emsdMarkerCount)
 const kmaUpdateTime = ref('1970-01-01 09:00:00')
 const kmaMaxInt = ref('?')
 const kmaPeriodMaxInt = ref('?')
@@ -1656,6 +1684,8 @@ onMounted(() => {
         map.getPane(`tremStationPane${i}`).style.zIndex = i + 50
         map.createPane(`palertStationPane${i}`)
         map.getPane(`palertStationPane${i}`).style.zIndex = i + 50
+        map.createPane(`emsdStationPane${i}`)
+        map.getPane(`emsdStationPane${i}`).style.zIndex = i + 50
     }
     for(let i = -1; i <= 13; i++){
         map.createPane(`kmaStationPane${i}`)
@@ -2079,6 +2109,7 @@ onMounted(() => {
     isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
     isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
     isPalertDelayed.value = !verifyUpToDate(palertUpdateTime.value, 8, 10000)
+    isEmsdDelayed.value = !verifyUpToDate(emsdUpdateTime.value, 0, 10000)
     isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
     isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
     wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
@@ -2458,6 +2489,7 @@ const intervalEvents = ()=>{
     isNiedDelayed.value = !verifyUpToDate(niedUpdateTime.value, 9, 10000)
     isTremDelayed.value = !verifyUpToDate(tremUpdateTime.value, 8, 10000)
     isPalertDelayed.value = !verifyUpToDate(palertUpdateTime.value, 8, 10000)
+    isEmsdDelayed.value = !verifyUpToDate(emsdUpdateTime.value, 0, 10000)
     isKmaDelayed.value = !verifyUpToDate(kmaUpdateTime.value, 9, 10000)
     isMsilDelayed.value = !verifyUpToDate(msilUpdateTime.value, 9, 10000)
     wolfxRS.value = statusStore.wolfxSocket?.socket.readyState ?? 4
