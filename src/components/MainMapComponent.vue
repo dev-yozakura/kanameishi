@@ -359,6 +359,9 @@
                     <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isPalertDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.palertNet" @dblclick="resetSeisNetDelay">
                         {{ $t('mainMap.palert_net') }} {{ palertUpdateTime }} (UTC+8)
                     </div>
+                    <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isRshakeDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.rshakeNet" @dblclick="resetSeisNetDelay">
+                        RaspberryShake {{ rshakeUpdateTime }} (UTC+0)
+                    </div>
                     <div class="update-time" :class="settingsStore.mainSettings.displaySeisNet.delay > 0 ? 'replay' : isEmsdDelayed ? 'delayed' : ''" v-if="settingsStore.mainSettings.displaySeisNet.emsdNet" @dblclick="resetSeisNetDelay">
                         {{ $t('settings.seisNet.emsd_net') }} {{ emsdUpdateTime }} (UTC+0)
                     </div>
@@ -1364,6 +1367,10 @@ provide('palertDetectOriginTime', palertDetectOriginTime)
 provide('palertDetectDepthKm', palertDetectDepthKm)
 provide('palertDetectObsCount', palertDetectObsCount)
 provide('palertDetectEpicenterName', palertDetectEpicenterName)
+
+const rshakeUpdateTime = ref('1970-01-01 00:00:00')
+const isRshakeDelayed = ref(true)
+provide('rshakeUpdateTime', rshakeUpdateTime)
 
 const emsdUpdateTime = ref('1970-01-01 00:00:00')
 const emsdMaxShindo = ref('?')

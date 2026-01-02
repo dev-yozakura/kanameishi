@@ -4,6 +4,7 @@
         <NiedKmoniImageNet v-if="settingsStore.mainSettings.displaySeisNet.niedNet && settingsStore.mainSettings.displaySeisNet.niedSource === 'kmoni_image'" />
         <TremNet v-if="settingsStore.mainSettings.displaySeisNet.tremNet" />
         <PAlertNet v-if="settingsStore.mainSettings.displaySeisNet.palertNet" />
+        <RShakeNet v-if="settingsStore.mainSettings.displaySeisNet.rshakeNet" />
         <EmsdNet v-if="settingsStore.mainSettings.displaySeisNet.emsdNet" />
         <KmaNet v-if="settingsStore.mainSettings.displaySeisNet.kmaNet" />
     </div>
@@ -15,6 +16,7 @@ import NiedNet from './components/NiedNet.vue';
 import NiedKmoniImageNet from './components/NiedKmoniImageNet.vue';
 import TremNet from './components/TremNet.vue';
 import PAlertNet from './components/PAlertNet.vue';
+import RShakeNet from './components/RShakeNet.vue';
 import EmsdNet from './components/EmsdNet.vue';
 import KmaNet from './components/KmaNet.vue';
 

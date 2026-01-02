@@ -72,6 +72,13 @@ export default defineConfig(({ command }) => {
         },
         rewrite: (path) => path.replace(/^\/emsd/, ''),
       },
+      // RaspberryShake StationView - DEV uses /rshake
+      '/rshake': {
+        target: 'https://stationview.raspberryshake.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/rshake/, ''),
+      },
       '/msil': {
         target: 'https://www.msil.go.jp',
         changeOrigin: true,

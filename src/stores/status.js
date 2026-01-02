@@ -60,7 +60,7 @@ export const defaultTsunamiMessage = {
 export const eewSources = ['jmaEew', 'cwaEew', 'ceaEew', 'iclEew', 'scEew', 'fjEew', 'kmaEew', 'gqEew', 'gqDetectedEew']
 export const eqlistSources = ['jmaEqlist', 'cwaEqlist', 'cencEqlist', 'kmaEqlist', 'usgsEqlist', 'fssnEqlist', 'gqEqlist']
 export const tsunamiSources = ['jmaTsunami', 'nmefcTsunami']
-export const seisNetSources = ['niedNet', 'tremNet', 'palertNet', 'emsdNet', 'kmaNet']
+export const seisNetSources = ['niedNet', 'tremNet', 'palertNet', 'emsdNet', 'kmaNet', 'rshakeNet']
 
 const useWolfxSocket = ['jmaEew', 'cwaEew', 'ceaEew', 'scEew', 'fjEew', 'jmaEqlist', 'cencEqlist']
 const useFanSocket = ['jmaEew', 'cwaEew', 'ceaEew', 'iclEew', 'scEew', 'fjEew', 'kmaEew', 'cencEqlist', 'kmaEqlist', 'usgsEqlist', 'fssnEqlist', 'nmefcTsunami']
@@ -235,6 +235,7 @@ export const useStatusStore = defineStore('statusStore', {
             niedNet: false,
             tremNet: false,
             palertNet: false,
+            rshakeNet: false,
             emsdNet: false,
             kmaNet: false,
         },

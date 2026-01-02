@@ -236,6 +236,14 @@
                         </div>
                         <div class="w-full">
                             <div class="switch-full">
+                                <span>RaspberryShake</span>
+                                <el-switch v-model="settingsStore.mainSettings.displaySeisNet.rshakeNet" />
+                            </div>
+                            <div class="switch-full pl-4">
+                                <span class="opacity-60">PGA/PGV (1s更新)</span>
+                            </div>
+
+                            <div class="switch-full">
                                 <span>{{ $t('settings.seisNet.palert_net') }} ({{ $t('settings.seisNet.marker_count', { count: palertMarkerCountDisplay }) }})</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.palertNet" />
                             </div>
