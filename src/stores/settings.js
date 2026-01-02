@@ -33,6 +33,8 @@ export const useSettingsStore = defineStore('settingsStore', {
                 displayShindo0: false,
                 delay: 0,
                 hypoEstimateMaxPoints: 120,
+                    // 新: GlobalQuake スタイルのグリッド探索による震源推定を使用する
+                    niedUseGqHypoAlgo: false,
                 // 震源推定/予報円（揺れ検知由来）
                 // 既定はON（従来挙動維持）
                 niedYahooHypoEstimate: true,

@@ -13,6 +13,7 @@ import { getTimeNumberString, playSound, sendMyNotification, calcTimeDiff, focus
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
 import { locateHypocenterGeigerRobust } from '@/utils/HypocenterGeiger'
+import { locateHypocenterGQGrid } from '@/utils/HypocenterGQGrid'
 import { refineHypocenterArrivalNonArrival } from '@/utils/ArrivalNonArrivalRefine'
 import { getNearestEpiName } from '@/utils/EpiName'
 import L from 'leaflet';
@@ -479,18 +480,33 @@ const update = (frameMs)=>{
                         }
                     })
 
-                    const est = locateHypocenterGeigerRobust({
-                        travelTime: _getTravelTime(),
-                        observations,
-                        initial: {
-                            lat: initialLat,
-                            lon: initialLon,
-                            depthKm: 10,
-                            originSec: used[0].tObsSec - 2.0
-                        },
-                        maxIter: 8,
-                        useStationElevation: false
-                    })
+                    let est = null
+                    if (settingsStore.mainSettings.displaySeisNet.niedUseGqHypoAlgo) {
+                        est = locateHypocenterGQGrid({
+                            travelTime: _getTravelTime(),
+                            observations,
+                            fromLat: initialLat,
+                            fromLon: initialLon,
+                            // JS grid-search defaults; tune points/maxDistKm if needed
+                            points: 220,
+                            maxDistKm: 120,
+                            p_wave_threshold: 2.2
+                        })
+                    }
+                    else {
+                        est = locateHypocenterGeigerRobust({
+                            travelTime: _getTravelTime(),
+                            observations,
+                            initial: {
+                                lat: initialLat,
+                                lon: initialLon,
+                                depthKm: 10,
+                                originSec: used[0].tObsSec - 2.0
+                            },
+                            maxIter: 8,
+                            useStationElevation: false
+                        })
+                    }
                     if(est){
                         const minObsSec = observations.reduce(
                             (acc, o) => (Number.isFinite(o?.tObsSec) ? Math.min(acc, o.tObsSec) : acc),

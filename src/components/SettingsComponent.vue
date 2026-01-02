@@ -169,6 +169,13 @@
                                 />
                             </div>
                             <div class="switch-full pl-4">
+                                <span>GlobalQuake 風 震源推定を使用</span>
+                                <el-switch
+                                    v-model="settingsStore.mainSettings.displaySeisNet.niedUseGqHypoAlgo"
+                                    :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet || !(settingsStore.mainSettings.displaySeisNet.niedKmoniHypoEstimate || settingsStore.mainSettings.displaySeisNet.niedYahooHypoEstimate)"
+                                />
+                            </div>
+                            <div class="switch-full pl-4">
                                 <span>{{ $t('settings.seisNet.analysis_shindo') }}</span>
                                 <el-switch v-model="settingsStore.mainSettings.displaySeisNet.displayNiedShindo" :disabled="!settingsStore.mainSettings.displaySeisNet.niedNet" />
                             </div>

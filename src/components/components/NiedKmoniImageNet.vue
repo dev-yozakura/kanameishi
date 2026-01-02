@@ -15,6 +15,7 @@ import { iconUrls } from '@/utils/Urls'
 import { getLevelFromInstShindo, stampToTime, playSound, sendMyNotification, calcTimeDiff, focusWindow, getShindoFromLevel, calcWaveDistance } from '@/utils/Utils'
 import { getTjma2001TravelTime } from '@/utils/Tjma2001'
 import { locateHypocenterGeigerRobust } from '@/utils/HypocenterGeiger'
+import { locateHypocenterGQGrid } from '@/utils/HypocenterGQGrid'
 import { refineHypocenterArrivalNonArrival } from '@/utils/ArrivalNonArrivalRefine'
 import { getNearestEpiName } from '@/utils/EpiName'
 import { NiedStation, simpleIcon } from '@/classes/StationClasses'
@@ -523,14 +524,27 @@ const update = (frameMs) => {
       const travelTime = _getTravelTime()
       const built = _buildGeigerObservations(used)
       let solved = false
-      if (built && used.length >= 4) {
-        const est = locateHypocenterGeigerRobust({
-          travelTime,
-          observations: built.observations,
-          initial: built.initial,
-          maxIter: 8,
-          useStationElevation: false,
-        })
+        if (built && used.length >= 4) {
+        let est = null
+        if (settingsStore.mainSettings.displaySeisNet.niedUseGqHypoAlgo) {
+          est = locateHypocenterGQGrid({
+            travelTime,
+            observations: built.observations,
+            fromLat: built.initial.lat,
+            fromLon: built.initial.lon,
+            points: Number(settingsStore.mainSettings.displaySeisNet.hypoEstimateMaxPoints) || 120,
+            maxDistKm: 90.0,
+            p_wave_threshold: 2.2,
+          })
+        } else {
+          est = locateHypocenterGeigerRobust({
+            travelTime,
+            observations: built.observations,
+            initial: built.initial,
+            maxIter: 8,
+            useStationElevation: false,
+          })
+        }
         if (est) {
           const minObsSec = built.observations.reduce(
             (acc, o) => (Number.isFinite(o?.tObsSec) ? Math.min(acc, o.tObsSec) : acc),
