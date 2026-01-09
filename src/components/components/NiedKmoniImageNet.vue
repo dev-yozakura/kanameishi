@@ -411,6 +411,19 @@ const update = (frameMs) => {
     const render = document.visibilityState === 'visible'
     if (!render) pendingRender = true
     const nowMs = Number.isFinite(frameMs) ? frameMs : Date.now()
+    // prune old initial-detect entries to avoid unbounded growth
+    try {
+      const PRUNE_MS = 5 * 60 * 1000 // keep at most 5 minutes of history
+      for (const [id, info] of kmoniFirstDetectMsByStationId.entries()) {
+        if (!info || !Number.isFinite(info.tMs)) {
+          kmoniFirstDetectMsByStationId.delete(id)
+          continue
+        }
+        if (nowMs - info.tMs > PRUNE_MS) kmoniFirstDetectMsByStationId.delete(id)
+      }
+    } catch (e) {
+      // ignore
+    }
     let maxLevel = -1
     for (let i = 0; i < stationList.length; i += 1) {
       stations[i].update(stationData.value[i], render)
@@ -493,7 +506,8 @@ const update = (frameMs) => {
       (kmoniFirstDetectMsByStationId.size > 0 && lastDetectActiveAtMs > 0 && nowMs - lastDetectActiveAtMs <= OBS_KEEP_GAP_MS)
     )
 
-    if (canEstimate && !hypoEstimateFinished && nowMs - lastHypoEstimateAtMs >= 1000) {
+    // 推定自体が無効化されている場合は計算しない
+    if (enableKmoniHypoEstimate.value && canEstimate && !hypoEstimateFinished && nowMs - lastHypoEstimateAtMs >= 1000) {
       const picks = []
       // 推定には「現在アクティブな局」だけでなく、イベント中に一度でも検知した局(初検知)を使う
       for (const [id, info] of kmoniFirstDetectMsByStationId.entries()) {
