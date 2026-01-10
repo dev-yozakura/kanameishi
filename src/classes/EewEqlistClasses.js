@@ -10,6 +10,7 @@ import cancelCross from '@/assets/icon/hypocenter/cancelCross.svg';
 import eqlistCross from '@/assets/icon/hypocenter/eqlistCross.svg';
 import eewCircle from '@/assets/icon/hypocenter/eewCircle.svg';
 import cancelCircle from '@/assets/icon/hypocenter/cancelCircle.svg';
+import { showEqStations, hideEqStations } from '@/utils/EqStationOverlay'
 
 const iconRadius = 20
 
@@ -102,6 +103,21 @@ export class EewEvent {
                 ${this.eqMessage.maxIntensityText}
                 `, { permanent: false, direction: 'top', className: 'custom-tooltip' })
             this.hypoMarker.addTo(this.map)
+            // show observation stations (if available)
+            try {
+                showEqStations(this.map, this.eqMessage).then(layer => {
+                    if(!layer) {
+                        const hasArea = (this.eqMessage && this.eqMessage.warnArea && this.eqMessage.warnArea !== '[]') || (this.eqMessage && Array.isArray(this.eqMessage.points) && this.eqMessage.points.length > 0)
+                        if(!hasArea) {
+                            console.info('観測点情報がありません:', this.eqMessage?.id || this.eqMessage?.titleText)
+                            try { if(window.ElMessage) window.ElMessage({ message: '観測点情報がありません', type: 'info' }) } catch (e) {}
+                        }
+                        else {
+                            console.info('観測点が見つかりませんでした（stations.json に合致する地点がありません）')
+                        }
+                    }
+                }).catch(e => console.error(e))
+            } catch (e) { console.error(e) }
         }
     }
     clearWaves() {
@@ -531,11 +547,26 @@ export class EqlistEvent {
                 ${this.eqMessage.maxIntensityText}
                 `, { permanent: false, direction: 'top', className: 'custom-tooltip' })
             this.hypoMarker.addTo(this.map)    
+            try {
+                showEqStations(this.map, this.eqMessage).then(layer => {
+                    if(!layer) {
+                        const hasArea = (this.eqMessage && this.eqMessage.warnArea && this.eqMessage.warnArea !== '[]') || (this.eqMessage && Array.isArray(this.eqMessage.points) && this.eqMessage.points.length > 0)
+                        if(!hasArea) {
+                            console.info('観測点情報がありません:', this.eqMessage?.id || this.eqMessage?.titleText)
+                            try { if(window.ElMessage) window.ElMessage({ message: '観測点情報がありません', type: 'info' }) } catch (e) {}
+                        }
+                        else {
+                            console.info('観測点が見つかりませんでした（stations.json に合致する地点がありません）')
+                        }
+                    }
+                }).catch(e => console.error(e))
+            } catch (e) { console.error(e) }
         }
     }
     removeMark(){
         if(this.hypoMarker && this.map.hasLayer(this.hypoMarker)) this.map.removeLayer(this.hypoMarker)
         this.hypoMarker = null
+        try { hideEqStations(this.map, this.eqMessage) } catch (e) {}
     }
     handleActions(){
         const eqMessage = this.eqMessage
@@ -645,6 +676,20 @@ export class HistoryEvent extends EqlistEvent {
                 ${this.eqMessage.maxIntensityText}
                 `, { permanent: false, direction: 'top', className: 'custom-tooltip' })
             this.hypoMarker.addTo(this.map)    
+            try {
+                showEqStations(this.map, this.eqMessage).then(layer => {
+                    if(!layer) {
+                        const hasArea = (this.eqMessage && this.eqMessage.warnArea && this.eqMessage.warnArea !== '[]') || (this.eqMessage && Array.isArray(this.eqMessage.points) && this.eqMessage.points.length > 0)
+                        if(!hasArea) {
+                            console.info('観測点情報がありません:', this.eqMessage?.id || this.eqMessage?.titleText)
+                            try { if(window.ElMessage) window.ElMessage({ message: '観測点情報がありません', type: 'info' }) } catch (e) {}
+                        }
+                        else {
+                            console.info('観測点が見つかりませんでした（stations.json に合致する地点がありません）')
+                        }
+                    }
+                }).catch(e => console.error(e))
+            } catch (e) { console.error(e) }
         }
     }
     update(eqMessage){

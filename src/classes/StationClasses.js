@@ -200,6 +200,12 @@ export const getShindoLeafletIcon = (shindo, zoom) => {
     return shindoIcons[z]?.[shindo]
 }
 
+export const getIntensityLeafletIcon = (intensity, zoom) => {
+    const z = Math.min(Math.max(Number(zoom) || 6, 6), 10)
+    const key = typeof intensity === 'number' ? String(intensity) : String(intensity || '')
+    return intIcons[z]?.[key]
+}
+
 let settingsStore
 
 export class NiedStation {
@@ -276,12 +282,8 @@ export class NiedStation {
         this.setColorRadius()
         const zoom = this.map.getZoom()
         if(settingsStore.mainSettings.displaySeisNet.displayNiedShindo && this.level >= (settingsStore.mainSettings.displaySeisNet.displayShindo0 ? 6 : 8) && zoom >= 4){
-            if(simpleIcon.value && zoom <= 8) {
-                this.markerType = 1
-            }
-            else {
-                this.markerType = 2
-            }
+            // 常に NIED で使用している震度アイコンを表示する（色付き円ではなくアイコン）
+            this.markerType = 2
         }
         else{
             this.markerType = 0
@@ -294,9 +296,11 @@ export class NiedStation {
             switch(this.markerType) {
                 case 2:
                     const iconZoom = Math.min(Math.max(zoom, 6), 10)
-                    const shindoIcon = shindoIcons[iconZoom][this.shindo]
+                    // NIED の数値アイコンを優先して使用（'5-'/'5+' 等は数字に正規化）
+                    const intKey = String(this.shindo).replace('+', '').replace('-', '')
+                    const preferredIcon = intIcons[iconZoom]?.[intKey] || shindoIcons[iconZoom][this.shindo]
                     this.marker = L.marker(this.latLng, {
-                        icon: shindoIcon,
+                        icon: preferredIcon,
                         pane: `niedStationPane${this.level}`,
                         interactive: false
                     })
@@ -334,8 +338,9 @@ export class NiedStation {
             switch(this.markerType) {
                 case 2:
                     const iconZoom = Math.min(Math.max(zoom, 6), 10)
-                    const shindoIcon = shindoIcons[iconZoom][this.shindo]
-                    this.marker.setIcon(shindoIcon)
+                    const intKey = String(this.shindo).replace('+', '').replace('-', '')
+                    const preferredIcon = intIcons[iconZoom]?.[intKey] || shindoIcons[iconZoom][this.shindo]
+                    this.marker.setIcon(preferredIcon)
                     break
                 case 1:
                     const color = shindoColorBand[this.level]
@@ -529,9 +534,11 @@ export class TremStation {
             switch(this.markerType) {
                 case 2:
                     const iconZoom = Math.min(Math.max(zoom, 6), 10)
-                    const shindoIcon = shindoIcons[iconZoom][this.shindo]
+                    // NIED 数値アイコンを優先して使用（5- / 5+ 等は数字に正規化）
+                    const intKey = String(this.shindo).replace('+', '').replace('-', '')
+                    const preferredIcon = intIcons[iconZoom]?.[intKey] || shindoIcons[iconZoom][this.shindo]
                     this.marker = L.marker(this.latLng, {
-                        icon: shindoIcon,
+                        icon: preferredIcon,
                         pane: `${this.panePrefix}${this.level}`,
                         interactive: false
                     })
@@ -570,8 +577,9 @@ export class TremStation {
             switch(this.markerType) {
                 case 2:
                     const iconZoom = Math.min(Math.max(zoom, 6), 10)
-                    const shindoIcon = shindoIcons[iconZoom][this.shindo]
-                    this.marker.setIcon(shindoIcon)
+                    const intKey = String(this.shindo).replace('+', '').replace('-', '')
+                    const preferredIcon = intIcons[iconZoom]?.[intKey] || shindoIcons[iconZoom][this.shindo]
+                    this.marker.setIcon(preferredIcon)
                     break
                 case 1:
                     const color = shindoColorBand[this.level]

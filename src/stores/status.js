@@ -716,6 +716,8 @@ export const useStatusStore = defineStore('statusStore', {
                                         className
                                     }
                                 }))
+                                // preserve raw points for downstream strict addr matching
+                                try { eqMessage.points = Array.isArray(data.points) ? data.points.slice() : null } catch (e) {}
                                 if(isNewEvent){
                                     eqMessage.hypocenter = ''
                                     eqMessage.hypocenterText = '震源地: 調査中'
@@ -751,6 +753,7 @@ export const useStatusStore = defineStore('statusStore', {
                                             className
                                         }
                                     }))
+                                    try { eqMessage.points = Array.isArray(data.points) ? data.points.slice() : null } catch (e) {}
                                 }
                                 break
                             default:
@@ -792,6 +795,7 @@ export const useStatusStore = defineStore('statusStore', {
                                         className
                                     }
                                 }))
+                                try { eqMessage.points = Array.isArray(data.points) ? data.points.slice() : null } catch (e) {}
                                 break
                         }
                         break
