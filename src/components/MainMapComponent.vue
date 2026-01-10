@@ -472,6 +472,7 @@ import { cnCityLabels, cnProvinceLabels, jpPrefLabels } from '@/utils/Labels';
 import terminator from '@joergdietrich/leaflet.terminator';
 import StatusComponent from './StatusComponent.vue';
 import eqlistCross from '@/assets/icon/hypocenter/eqlistCross.svg';
+import { startMemoryMonitor } from '@/utils/memoryMonitor';
 
 const style = window.getComputedStyle(document.body)
 const classNameColors = {}, tsunamiColors = {}
@@ -488,7 +489,7 @@ const statusStore = useStatusStore()
 const settingsStore = useSettingsStore()
 const timeStore = useTimeStore()
 const shakeDetectionsStore = useShakeDetectionsStore()
-let map, jpEewBaseMap, krEewBaseMap, cnEewBaseMap, jpTsunamiBaseMap, cnTsunamiBaseMap, labelLayer1, labelLayer2, terminatorLayer, terminatorFillLayer, cnFaultBaseMap
+let map, jpEewBaseMap, krEewBaseMap, cnEewBaseMap, jpTsunamiBaseMap, cnTsunamiBaseMap, labelLayer1, labelLayer2, terminatorLayer, terminatorFillLayer, cnFaultBaseMap, tileBaseLayer
 let eewMarkerPane, eqlistMarkerPane, historyMarkerPane, wavePane, waveFillPane, niedGridPane, tremGridPane, palertGridPane, kmaGridPane, msilNetPane, msilNetLayer, tremRtsLayer, eewBasePane, tsunamiBasePane, labelPane1, labelPane2
 let msilWorker
 let userMarker
@@ -623,6 +624,53 @@ const _parseIrisStationText = (text) => {
     }
     return out
 }
+
+// Start memory monitor (auto-reload) — controlled by settings
+let _memoryMonitorHandle = null
+function startOrRestartMemoryMonitor() {
+    try {
+        // stop existing
+        try { _memoryMonitorHandle?.stop() } catch (e) {}
+
+        const ms = settingsStore.mainSettings
+        if (!ms?.memoryAutoReloadEnabled) {
+            _memoryMonitorHandle = null
+            return
+        }
+
+        _memoryMonitorHandle = startMemoryMonitor({
+            thresholdMB: Number(ms.memoryAutoReloadThresholdMB) || 2000,
+            checkIntervalMs: Number(ms.memoryAutoReloadCheckIntervalMs) || 5000,
+            onBeforeReload: ({ usedMB, limitMB, ratio }) => {
+                console.warn('Auto memory reload triggered', usedMB, limitMB, ratio)
+            },
+            enabled: true,
+        })
+        // expose handle for debugging
+        try {
+            window._kanameishiDebug = window._kanameishiDebug || {}
+            window._kanameishiDebug.memoryMonitor = {
+                isRunning: true,
+                thresholdMB: Number(ms.memoryAutoReloadThresholdMB) || 2000,
+                checkIntervalMs: Number(ms.memoryAutoReloadCheckIntervalMs) || 5000,
+                stop: () => { try { _memoryMonitorHandle?.stop(); window._kanameishiDebug.memoryMonitor.isRunning = false; console.info('memoryMonitor: stopped via window handle') } catch (e) { console.error(e) } }
+            }
+            console.info('memoryMonitor: started', window._kanameishiDebug.memoryMonitor)
+        } catch (e) {
+            console.error('memoryMonitor: expose failed', e)
+        }
+    } catch (e) {
+        console.error('Failed to start memory monitor', e)
+    }
+}
+
+onMounted(() => startOrRestartMemoryMonitor())
+onBeforeUnmount(() => { try { _memoryMonitorHandle?.stop() } catch (e) {} })
+
+// restart monitor when relevant settings change
+watch(() => settingsStore.mainSettings.memoryAutoReloadEnabled, startOrRestartMemoryMonitor)
+watch(() => settingsStore.mainSettings.memoryAutoReloadThresholdMB, () => startOrRestartMemoryMonitor())
+watch(() => settingsStore.mainSettings.memoryAutoReloadCheckIntervalMs, () => startOrRestartMemoryMonitor())
 
 const loadJpSeedlinkStations = async () => {
     if (!map) return
@@ -1633,6 +1681,10 @@ onMounted(() => {
             handleMsilData(data, y, uid);
         }
     };
+    try {
+        window._kanameishiWorkers = window._kanameishiWorkers || [];
+        window._kanameishiWorkers.push(msilWorker);
+    } catch (e) { /* ignore */ }
 
     map = L.map('mainMap', {
         attributionControl: false,
@@ -1640,8 +1692,50 @@ onMounted(() => {
         zoom: 4,
         minZoom: 2,
         maxZoom: 12,
+        zoomSnap: Number(settingsStore.mainSettings.zoomSnap) || 1,
+        zoomDelta: Number(settingsStore.mainSettings.zoomDelta) || 1,
         worldCopyJump: true
     })
+    // Debug helper: expose lightweight runtime stats and helpers
+    try {
+        window._kanameishiDebug = window._kanameishiDebug || {}
+        // expose map reference for debugging
+        try { window._kanameishiDebug.map = map } catch(e) {}
+        window._kanameishiDebug.getStats = function () {
+            try {
+                return {
+                    layerCount: map ? Object.keys(map._layers || {}).length : 0,
+                    paneCount: map ? Object.keys(map._panes || {}).length : 0,
+                    canvasCount: document.querySelectorAll('canvas').length,
+                    imgCount: document.querySelectorAll('img').length,
+                    usedJSHeapSize: (performance && performance.memory) ? performance.memory.usedJSHeapSize : null,
+                    // quick list of worker urls if any were stored on window by the app
+                    workerCount: (window._kanameishiWorkers && Array.isArray(window._kanameishiWorkers)) ? window._kanameishiWorkers.length : 0
+                }
+            }
+            catch (e) { return { error: String(e) } }
+        }
+        window._kanameishiDebug.log = function () { console.log('kanameishiDebug', window._kanameishiDebug.getStats()) }
+        window._kanameishiDebug.clearTopoLikeLayers = function () {
+            if (!map) return 0
+            let removed = 0
+            for (const id in map._layers) {
+                try {
+                    const l = map._layers[id]
+                    // heuristic: many topo layers are GeoJSON/vectorGrid and have a featureCount or _vectorTiles
+                    if (!l) continue
+                    if (l.featureCount || l._vectorTiles || (l instanceof L.GeoJSON) || (l.options && l.options.topojson)) {
+                        map.removeLayer(l)
+                        removed++
+                    }
+                }
+                catch (e) { /* ignore per-layer errors */ }
+            }
+            console.log('kanameishiDebug: removed topo-like layers', removed)
+            return removed
+        }
+    }
+    catch (e) { console.warn('kanameishiDebug init failed', e) }
     //傻逼Leaflet
     L.Marker.prototype._animateZoom = function (opt) {
         if (!this._map) {
@@ -1906,6 +2000,29 @@ onMounted(() => {
         // Keep MSIL markers scaled like NIED even without new frames.
         if (settingsStore.mainSettings.displaySeisNet.msilNet) refreshMsilMarkerStyleForZoom()
     })
+    // expose common layers for debugging / manual clearing
+    try {
+        window._kanameishiDebug = window._kanameishiDebug || {}
+        window._kanameishiDebug.layers = {
+            msilNetLayer,
+            tremRtsLayer,
+            jpEewBaseMap,
+            cnFaultBaseMap,
+            jpTsunamiBaseMap,
+            tileBaseLayer
+        }
+        window._kanameishiDebug.clearLayerGroups = function(){
+            const list = [];
+            try { if (msilNetLayer && msilNetLayer.clearLayers) { msilNetLayer.clearLayers(); list.push('msilNetLayer'); } } catch(e){}
+            try { if (tremRtsLayer && tremRtsLayer.clearLayers) { tremRtsLayer.clearLayers(); list.push('tremRtsLayer'); } } catch(e){}
+            try { if (jpEewBaseMap && jpEewBaseMap.remove) { map.removeLayer(jpEewBaseMap); jpEewBaseMap = null; list.push('jpEewBaseMap'); } } catch(e){}
+            try { if (cnFaultBaseMap && cnFaultBaseMap.remove) { map.removeLayer(cnFaultBaseMap); cnFaultBaseMap = null; list.push('cnFaultBaseMap'); } } catch(e){}
+            try { if (jpTsunamiBaseMap && jpTsunamiBaseMap.remove) { map.removeLayer(jpTsunamiBaseMap); jpTsunamiBaseMap = null; list.push('jpTsunamiBaseMap'); } } catch(e){}
+            try { if (tileBaseLayer && tileBaseLayer.remove) { map.removeLayer(tileBaseLayer); tileBaseLayer = null; list.push('tileBaseLayer'); } } catch(e){}
+            console.log('kanameishiDebug cleared:', list);
+            return list;
+        }
+    } catch(e) { /* ignore */ }
     if(settingsStore.advancedSettings.preventFlickerMode){
         map.on('zoomstart', ()=>{setMapHeight('calc(100% - 1px)');})
         map.on('zoomend', ()=>{setMapHeight('100%');})
@@ -1924,6 +2041,22 @@ onMounted(() => {
         }
         nearestJmaLoc.value
     })
+
+    // react to zoomSnap/zoomDelta changes at runtime
+    watch(
+        () => [settingsStore.mainSettings.zoomSnap, settingsStore.mainSettings.zoomDelta],
+        ([snap, delta]) => {
+            if (!map) return
+            const newSnap = Number(snap)
+            const newDelta = Number(delta)
+            if (Number.isFinite(newSnap)) map.options.zoomSnap = newSnap
+            if (Number.isFinite(newDelta)) map.options.zoomDelta = newDelta
+            // reapply current zoom to respect new snap
+            try {
+                map.setZoom(map.getZoom(), { animate: false })
+            } catch(e) {}
+        }
+    )
     watchEffect(() => {
         waveFillPane.style.display = settingsStore.mainSettings.fillSWave ? 'block' : 'none'
     })
@@ -2008,6 +2141,22 @@ onMounted(() => {
     loadMaps()
     loadMsilNet()
     loadTremRts()
+
+    // React to base map preference changes (tile vs vector)
+    watch(
+        () => [settingsStore.mainSettings.useTileBaseMap, settingsStore.mainSettings.tileProviderUrl],
+        async () => {
+            // force reload of base maps
+            mapsLoaded = false
+            try { if (tileBaseLayer && map.hasLayer && map.hasLayer(tileBaseLayer)) map.removeLayer(tileBaseLayer) } catch(_){}
+            tileBaseLayer = null
+            try { if (jpEewBaseMap && map.hasLayer && map.hasLayer(jpEewBaseMap)) map.removeLayer(jpEewBaseMap) } catch(_){}
+            try { if (krEewBaseMap && map.hasLayer && map.hasLayer(krEewBaseMap)) map.removeLayer(krEewBaseMap) } catch(_){}
+            try { if (cnEewBaseMap && map.hasLayer && map.hasLayer(cnEewBaseMap)) map.removeLayer(cnEewBaseMap) } catch(_){}
+            try { if (jpTsunamiBaseMap && map.hasLayer && map.hasLayer(jpTsunamiBaseMap)) map.removeLayer(jpTsunamiBaseMap) } catch(_){}
+            await loadMaps()
+        }
+    )
 
     watch(
         () => settingsStore.mainSettings.displaySeisNet.tremNet,
@@ -2218,6 +2367,23 @@ settingsStore.mainSettings.useCanvasRenderer && panes.forEach(pane => renderers[
 let mapsLoaded = false
 const loadMaps = async (retries = 0) => {
     if (mapsLoaded) return
+    // If user prefers tile base map, add tile layer and skip topojson loading
+    try {
+        if (settingsStore.mainSettings.useTileBaseMap) {
+            const url = settingsStore.mainSettings.tileProviderUrl || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            if (tileBaseLayer) {
+                // update URL by removing old and creating new
+                try { map.removeLayer(tileBaseLayer) } catch {}
+                tileBaseLayer = null
+            }
+            tileBaseLayer = L.tileLayer(url, { pane: 'basePane', attribution: '&copy; OpenStreetMap contributors' })
+            tileBaseLayer.addTo(map)
+            mapsLoaded = true
+            return
+        }
+    } catch (e) {
+        console.log('tile base map load failed', e)
+    }
     let msgTimer
     if(!firstMsg){
         msgTimer = setTimeout(() => {
@@ -2817,6 +2983,7 @@ const smartSetView = () => {
     }, 0);
 }
 provide('smartSetView', smartSetView)
+let lastSetViewMs = 0
 
 const _walkCoords = (coords, cb) => {
     if(!coords) return
@@ -3285,6 +3452,11 @@ const _clearTremRtsGridRects = () => {
 
 const _updateTremRtsGridRectsFromStations = () => {
     if (!map) return
+    // Throttle heavy view calculations to avoid excessive CPU when called frequently
+    const nowMs = Date.now()
+    const minIntervalMs = 800 // adjust as needed
+    if (nowMs - lastSetViewMs < minIntervalMs) return
+    lastSetViewMs = nowMs
 
     const active = []
     for (const id in tremStations.value) {
@@ -3793,6 +3965,24 @@ onBeforeUnmount(() => {
     activeEewList.length = 0
     eqlistList.length = 0
 })
+
+// Extra cleanup: terminate any workers registered on window, close station windows, and fully remove map listeners
+try {
+    try {
+        if (window._kanameishiWorkers && Array.isArray(window._kanameishiWorkers)) {
+            window._kanameishiWorkers.forEach(w => { try { w.terminate && w.terminate() } catch(_){} })
+            window._kanameishiWorkers.length = 0
+        }
+    } catch(_){}
+    try {
+        for (const [k, state] of jpStationWaveWindows.entries()) {
+            try { if (state.intervalId) clearInterval(state.intervalId) } catch(_){}
+            try { if (state.win && !state.win.closed) state.win.close() } catch(_){}
+            jpStationWaveWindows.delete(k)
+        }
+    } catch(_){}
+    try { if (map) { map.off(); map.remove && map.remove(); } } catch(_){}
+} catch(_){}
 </script>
 
 <style lang="scss" scoped>

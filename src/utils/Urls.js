@@ -91,6 +91,7 @@ export const topojsonUrls = {
     cn_adm1: _withBase('json/cn.mainland.adm1.geo.json'),
     cn_adm1_internal: _withBase('json/cn.mainland.adm1.internal.geo.json'),
     jp: _withBase('json/jp.pref.topo.json'),
+    always_base: _withBase('json/always-base.geojson'),
     jp_eew: _withBase('json/jp.eew.topo.json'),
   jp_tsunami: _withBase('json/jp.tsunami.topo.json'),
   kr_eew: _withBase('json/kr.eew.topo.json'),

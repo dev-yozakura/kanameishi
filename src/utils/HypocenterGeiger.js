@@ -74,11 +74,14 @@ const travelTimeSec = (travelTime, depthKm, distKm) => {
   return Number.isFinite(t) ? t : NaN
 }
 
-const computeResiduals = (travelTime, lat, lon, depthKm, originSec, obs, useStationElevation) => {
+const computeResiduals = (travelTime, lat, lon, depthKm, originSec, obs, useStationElevation, resBuf, distsBuf) => {
   const hypo = L.latLng(lat, lon)
-  const res = []
-  const dists = []
-  for (const o of obs) {
+  const res = resBuf || []
+  const dists = distsBuf || []
+  res.length = 0
+  dists.length = 0
+  for (let i = 0; i < obs.length; i += 1) {
+    const o = obs[i]
     const distKm = hypo.distanceTo(o.ll) / 1000
     const elevKm = useStationElevation && Number.isFinite(o?.elevM) ? o.elevM / 1000 : 0
     const effDepthKm = clamp(depthKm + elevKm, 0, 700)
@@ -133,7 +136,23 @@ export const locateHypocenterGeiger = ({
   let rms = Infinity
 
   for (let it = 0; it < maxIter; it += 1) {
-    const base = computeResiduals(travelTime, lat, lon, depthKm, originSec, obs, useStationElevation)
+    // reusable buffers to avoid allocating many small arrays per iteration
+    const baseResBuf = []
+    const baseDistBuf = []
+    const nResBuf = []
+    const nDistBuf = []
+    const sResBuf = []
+    const sDistBuf = []
+    const eResBuf = []
+    const eDistBuf = []
+    const wResBuf = []
+    const wDistBuf = []
+    const upResBuf = []
+    const upDistBuf = []
+    const dnResBuf = []
+    const dnDistBuf = []
+
+    const base = computeResiduals(travelTime, lat, lon, depthKm, originSec, obs, useStationElevation, baseResBuf, baseDistBuf)
     if (!base) return null
 
     const latN = lat + kmToDegLat(dxKm)
@@ -141,12 +160,12 @@ export const locateHypocenterGeiger = ({
     const lonE = lon + kmToDegLon(dxKm, lat)
     const lonW = lon - kmToDegLon(dxKm, lat)
 
-    const resN = computeResiduals(travelTime, latN, lon, depthKm, originSec, obs, useStationElevation)
-    const resS = computeResiduals(travelTime, latS, lon, depthKm, originSec, obs, useStationElevation)
-    const resE = computeResiduals(travelTime, lat, lonE, depthKm, originSec, obs, useStationElevation)
-    const resW = computeResiduals(travelTime, lat, lonW, depthKm, originSec, obs, useStationElevation)
-    const resUp = computeResiduals(travelTime, lat, lon, clamp(depthKm + dzKm, 0, 700), originSec, obs, useStationElevation)
-    const resDn = computeResiduals(travelTime, lat, lon, clamp(depthKm - dzKm, 0, 700), originSec, obs, useStationElevation)
+    const resN = computeResiduals(travelTime, latN, lon, depthKm, originSec, obs, useStationElevation, nResBuf, nDistBuf)
+    const resS = computeResiduals(travelTime, latS, lon, depthKm, originSec, obs, useStationElevation, sResBuf, sDistBuf)
+    const resE = computeResiduals(travelTime, lat, lonE, depthKm, originSec, obs, useStationElevation, eResBuf, eDistBuf)
+    const resW = computeResiduals(travelTime, lat, lonW, depthKm, originSec, obs, useStationElevation, wResBuf, wDistBuf)
+    const resUp = computeResiduals(travelTime, lat, lon, clamp(depthKm + dzKm, 0, 700), originSec, obs, useStationElevation, upResBuf, upDistBuf)
+    const resDn = computeResiduals(travelTime, lat, lon, clamp(depthKm - dzKm, 0, 700), originSec, obs, useStationElevation, dnResBuf, dnDistBuf)
     if (!resN || !resS || !resE || !resW || !resUp || !resDn) return null
 
     // We need dT/dx but we have residuals r = tObs - (t0+T)

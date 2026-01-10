@@ -144,17 +144,23 @@ export function locateHypocenterGQGrid({ travelTime, observations, fromLat, from
   // helper: evaluate grid given center, point count, depthSamples, maxDist
   function evaluateGrid(centerLat, centerLon, pointCount, depthSamples, gridMaxDistKm) {
     let localBest = null
+    // preallocate arrays to avoid repeated allocations in hot loops
+    const stationDists = new Array(usedObservations.length)
+    const predictedOrigins = new Array(usedObservations.length)
+
     for (let idx = 0; idx < pointCount; idx++) {
       const ang = (2.0 * Math.PI * idx) / PHI2
       const dist = Math.sqrt(idx) * (gridMaxDistKm / Math.sqrt(Math.max(1, pointCount - 1)))
       const [clat, clon] = destination(centerLat, centerLon, ang, dist)
 
-      // precompute distances to stations for this candidate
-      const stationDists = usedObservations.map(o => greatCircleDistanceKm(clat, clon, o.lat, o.lon))
+      // precompute distances to stations for this candidate (fill reusable array)
+      for (let i = 0; i < usedObservations.length; i++) {
+        stationDists[i] = greatCircleDistanceKm(clat, clon, usedObservations[i].lat, usedObservations[i].lon)
+      }
 
-      for (const depthKm of depthSamples) {
-        // predictedOrigins with memoized travel-time
-        const predictedOrigins = new Array(usedObservations.length)
+      for (let di = 0; di < depthSamples.length; di++) {
+        const depthKm = depthSamples[di]
+        // fill predictedOrigins using the precomputed distances
         for (let i = 0; i < usedObservations.length; i++) {
           const dKm = stationDists[i]
           const key = `${Math.round(dKm)}:${depthKm}` // 1km dist quantization
@@ -172,7 +178,7 @@ export function locateHypocenterGQGrid({ travelTime, observations, fromLat, from
 
         let err = 0
         let correct = 0
-        for (let i = 0; i < predictedOrigins.length; i++) {
+        for (let i = 0; i < usedObservations.length; i++) {
           const _err = Math.abs(predictedOrigins[i] - origin)
           err += _err
           correct += Math.max(0, p_wave_threshold - _err)

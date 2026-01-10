@@ -287,7 +287,9 @@ export class NiedStation {
             this.markerType = 0
         }
         if(this.markerType == oldMarkerType && this.color == oldColor && this.radius == oldRadius) return
-        if((this.markerType == 2) != (oldMarkerType == 2) || this.color != oldColor) {
+        // Only recreate marker when the marker "class" changes (icon <-> circle) or marker is missing.
+        // Avoid recreating on color changes to reduce churn; update style/icon in-place instead.
+        if((this.markerType == 2) != (oldMarkerType == 2) || !this.marker) {
             if(this.marker && this.map.hasLayer(this.marker)) this.map.removeLayer(this.marker)
             switch(this.markerType) {
                 case 2:

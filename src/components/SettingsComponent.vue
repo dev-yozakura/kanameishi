@@ -13,6 +13,18 @@
                                 <el-option :label="$t('settings.general.lang_zh')" value="zh" />
                             </el-select>
                         </div>
+                        <div class="switch-full">
+                            <span>自動メモリリロード</span>
+                            <el-switch v-model="settingsStore.mainSettings.memoryAutoReloadEnabled" />
+                        </div>
+                        <div class="switch-full pl-4">
+                            <span>閾値 (MB)</span>
+                            <el-input-number v-model="settingsStore.mainSettings.memoryAutoReloadThresholdMB" :min="256" :max="16384" :step="100" size="small" style="width: 140px" />
+                        </div>
+                        <div class="switch-full pl-4">
+                            <span>チェック間隔 (ms)</span>
+                            <el-input-number v-model="settingsStore.mainSettings.memoryAutoReloadCheckIntervalMs" :min="1000" :max="60000" :step="1000" size="small" style="width: 140px" />
+                        </div>
                     </div>
                 </div>
                 <span class="sub-title">
@@ -891,9 +903,24 @@
                                 size="small"
                                 :min="2"
                                 :max="12"
-                                :precision="0"
+                                :precision="zoomPrecision"
                                 style="width: 84px;"
                             />
+                        </div>
+                        <div class="switch-full">
+                            <span>ズーム粒度</span>
+                            <el-select v-model="settingsStore.mainSettings.zoomSnap" size="small" style="width: 120px;" @change="handleZoomSnapChange">
+                                <el-option :label="'整数 (1)'" :value="1" />
+                                <el-option :label="'0.5 刻み'" :value="0.5" />
+                                <el-option :label="'0.25 刻み'" :value="0.25" />
+                                <el-option :label="'任意 (0)'" :value="0" />
+                            </el-select>
+                            <span style="margin-left:12px">増分</span>
+                            <el-select v-model="settingsStore.mainSettings.zoomDelta" size="small" style="width: 96px; margin-left:8px;" @change="handleZoomDeltaChange">
+                                <el-option :label="'1'" :value="1" />
+                                <el-option :label="'0.5'" :value="0.5" />
+                                <el-option :label="'0.25'" :value="0.25" />
+                            </el-select>
                         </div>
                         <div class="switch-full">
                             <span>{{ $t('settings.display.set_to_current_view') }}</span>
@@ -1058,6 +1085,25 @@
                             </span>
                             <el-switch v-model="settingsStore.mainSettings.useCanvasRenderer"
                             @change="handleNeedReload" />
+                        </div>
+                        <div class="switch-full">
+                            <span>ベース地図にタイルを使用（Leaflet のタイルレイヤ）</span>
+                            <el-switch v-model="settingsStore.mainSettings.useTileBaseMap" @change="handleNeedReload" />
+                        </div>
+                        <div class="switch-full" v-if="settingsStore.mainSettings.useTileBaseMap">
+                            <span>プリセット</span>
+                            <el-select
+                                v-model="settingsStore.mainSettings.tileProviderName"
+                                size="small"
+                                style="width: 220px;"
+                                @change="handleTileProviderChange"
+                            >
+                                <el-option v-for="p in tileProviders" :key="p.id" :label="p.label" :value="p.id" />
+                            </el-select>
+                        </div>
+                        <div class="switch-full" v-if="settingsStore.mainSettings.useTileBaseMap">
+                            <span>タイルプロバイダ URL</span>
+                            <el-input v-model="settingsStore.mainSettings.tileProviderUrl" size="small" style="width: 320px;" @change="handleNeedReload" />
                         </div>
                         <div class="switch-full">
                             <span>
@@ -1408,6 +1454,22 @@ const simplifyMarks = computed(() => ({
 const settingsStore = useSettingsStore()
 const statusStore = useStatusStore()
 
+const tileProviders = [
+    { id: 'osm', label: 'OpenStreetMap (標準)', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' },
+    { id: 'carto_dark', label: 'CartoDB Dark Matter', url: 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' },
+    { id: 'stamen_toner', label: 'Stamen Toner', url: 'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png' },
+    { id: 'stadia_dark', label: 'Stadia Alidade Dark', url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png' }
+]
+
+const handleTileProviderChange = (id) => {
+    const found = tileProviders.find(p => p.id === id)
+    if(found) {
+        settingsStore.mainSettings.tileProviderUrl = found.url
+        settingsStore.mainSettings.tileProviderName = found.id
+        handleNeedReload()
+    }
+}
+
 const niedMarkerCount = inject('niedMarkerCount', ref(0))
 const tremMarkerCount = inject('tremMarkerCount', ref(0))
 const palertMarkerCount = inject('palertMarkerCount', ref(0))
@@ -1422,6 +1484,23 @@ const emsdMarkerCountDisplay = computed(() => settingsStore.mainSettings.display
 const kmaMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.kmaNet ? (Number(kmaMarkerCount.value) || 0) : 0)
 const msilMarkerCountDisplay = computed(() => settingsStore.mainSettings.displaySeisNet.msilNet ? (Number(msilMarkerCount.value) || 0) : 0)
 const replayDateTime = ref('')
+const zoomPrecision = computed(() => {
+    const snap = Number(settingsStore.mainSettings.zoomSnap)
+    if (!Number.isFinite(snap) || snap <= 0) return 2
+    // derive decimal places from snap (e.g., 0.25 -> 2, 0.5 -> 1, 1 -> 0)
+    const s = String(snap)
+    if (s.indexOf('.') >= 0) return s.length - s.indexOf('.') - 1
+    return 0
+})
+
+const handleZoomSnapChange = (val) => {
+    settingsStore.mainSettings.zoomSnap = Number(val)
+    // do not force full reload; let MainMapComponent watch and apply
+}
+
+const handleZoomDeltaChange = (val) => {
+    settingsStore.mainSettings.zoomDelta = Number(val)
+}
 const setReplayDateTime = () => {
     const passedTime = Math.max(Math.round(calcPassedTime(replayDateTime.value, 8) / 600) / 100, 0)
     settingsStore.mainSettings.displaySeisNet.delay = passedTime

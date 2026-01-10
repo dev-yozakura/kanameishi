@@ -114,6 +114,10 @@ export const useSettingsStore = defineStore('settingsStore', {
             displayAreaIntensities: true,
             viewLatLng: [0, 0],
             defaultZoom: 5,
+            // ズームの粒度（Leaflet の zoomSnap）: 1=整数, 0.5=0.5刻み, 0=任意
+            zoomSnap: 1,
+            // ズーム操作の増分（zoomDelta）
+            zoomDelta: 1,
             uiScale: 1,
             displayPlaceName: false,
             placeNameOnHover: false,
@@ -121,6 +125,15 @@ export const useSettingsStore = defineStore('settingsStore', {
             displayTerminator: false,
             useRomanCsis: false,
             fillSWave: true,
+            // 新: ベース地図をタイル（Leaflet デフォルト）に切替
+            useTileBaseMap: false,
+            tileProviderUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            tileProviderName: 'osm',
+            // Memory auto-reload settings: when JS heap grows too large, optionally auto-reload
+            memoryAutoReloadEnabled: false,
+            memoryAutoReloadThresholdMB: 2000,
+            memoryAutoReloadCheckIntervalMs: 5000,
+            memoryAutoReloadConfirm: false,
             sWaveColorMode: 0,
             hideDrawer: false,
             cinemaMode: true,

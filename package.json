@@ -12,6 +12,7 @@
     "serve:local": "node server/local-web.mjs",
     "serve:local:build": "pnpm -s build && node server/local-web.mjs",
     "build:maps": "node scripts/build-admin-boundaries.mjs",
+    "merge:always-base": "node scripts/merge-always-base.mjs",
     "merge:kmoni-elevation": "node scripts/merge-kmoni-points-elevation.mjs",
     "cap:init": "npx cap init kanameishi com.example.kanameishi --web-dir=dist",
     "cap:add:android": "npx cap add android --npm-client=pnpm",
