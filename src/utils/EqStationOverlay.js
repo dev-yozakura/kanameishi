@@ -1,5 +1,6 @@
 import L from 'leaflet'
 import { getShindoLeafletIcon, getIntensityLeafletIcon, computeNiedStyleColorRadius } from '@/classes/StationClasses'
+import { getShindoFromInstShindo } from '@/utils/Utils'
 import { useSettingsStore } from '@/stores/settings'
 
 let _stationsCache = null
@@ -137,6 +138,44 @@ const matchStationsByAreaName = (stations, areaName, opts = {}) => {
 export const showEqStations = async (map, eqMessage) => {
     if (!map || !eqMessage) return null
     try {
+        // If hypocenter marker is not present on the map, do not display station markers.
+        // This keeps station overlays visible only when the epicenter marker is shown.
+        try {
+            const lat = Number(eqMessage.lat ?? eqMessage.latitude ?? eqMessage.y ?? (eqMessage.hypocenter && eqMessage.hypocenter.split(',')[0]))
+            const lng = Number(eqMessage.lng ?? eqMessage.longitude ?? eqMessage.x ?? (eqMessage.hypocenter && eqMessage.hypocenter.split(',')[1]))
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                let foundMarker = false
+                map.eachLayer(layer => {
+                    try {
+                        if (layer && layer instanceof L.Marker && typeof layer.getLatLng === 'function') {
+                            const p = layer.getLatLng()
+                            if (Math.abs(p.lat - lat) < 1e-4 && Math.abs(p.lng - lng) < 1e-4) {
+                                // try to determine marker opacity; prefer DOM style if available
+                                let opacity = null
+                                try {
+                                    if (layer._icon && layer._icon.style && layer._icon.style.opacity !== undefined) {
+                                        opacity = parseFloat(layer._icon.style.opacity)
+                                    }
+                                } catch (e) {}
+                                try {
+                                    if (opacity === null && layer.options && typeof layer.options.opacity === 'number') opacity = layer.options.opacity
+                                } catch (e) {}
+                                // treat missing opacity as fully opaque
+                                opacity = opacity === null ? 1 : opacity
+                                // only consider marker present if sufficiently opaque (not semi-transparent)
+                                if (opacity >= 0.5) foundMarker = true
+                            }
+                        }
+                    } catch (e) {}
+                })
+                if (!foundMarker) {
+                    // ensure any previous station layer for this message is removed
+                    try { if (eqMessage._stationLayer && map.hasLayer(eqMessage._stationLayer)) map.removeLayer(eqMessage._stationLayer) } catch (e) {}
+                    eqMessage._stationLayer = null
+                    return null
+                }
+            }
+        } catch (e) {}
         const stations = await loadStations()
         if (!stations.length) return null
 
@@ -176,39 +215,6 @@ export const showEqStations = async (map, eqMessage) => {
         const useShindo = !!eqMessage.useShindo
         const zoom = map.getZoom ? map.getZoom() : 6
 
-        const parseIntensityForNied = (intensity) => {
-            if (intensity === null || intensity === undefined) return null
-            // numeric tenths (e.g., 50 -> 5.0)
-            const n = Number(intensity)
-            if (Number.isFinite(n)) return n
-            if (typeof intensity === 'string') {
-                const s = intensity.trim()
-                // pure numeric string like '5' or '5.0'
-                if (/^\d+(?:\.\d+)?$/.test(s)) return Number(s) * 10
-                // map common JMA labels to representative instShindo (tenths)
-                const map = {
-                    '0': 0,
-                    '1': 10,
-                    '2': 20,
-                    '3': 30,
-                    '4': 40,
-                    '5-': 49,
-                    '5弱': 49,
-                    '5+': 55,
-                    '5強': 55,
-                    '6-': 59,
-                    '6弱': 59,
-                    '6+': 64,
-                    '6強': 64,
-                    '7': 70,
-                }
-                for (const k of Object.keys(map)) {
-                    if (s.includes(k)) return map[k]
-                }
-            }
-            return null
-        }
-
         for (const a of areas) {
             console.info(`[EqStationOverlay] processing area entry: "${a.name}" intensity=${a.intensity} strict=${!!a.strict}`)
             const matched = matchStationsByAreaName(stations, a.name, { strict: !!a.strict })
@@ -219,14 +225,15 @@ export const showEqStations = async (map, eqMessage) => {
                 const intensity = a.intensity || a.scale || a.int || null
                 let marker
                 if (useShindo) {
-                    // Prefer NIED/intensity icons when intensity is numeric (or mappable); otherwise fall back to shindo icons
-                    const nTenths = parseIntensityForNied(intensity)
+                    // Prefer NIED/intensity icons when intensity is numeric; otherwise fall back to shindo icons
+                    const n = Number(intensity)
                     let icon = null
-                    if (Number.isFinite(nTenths)) {
-                        // nTenths is in tenths (e.g., 50 -> 5.0). Prefer intensity icon set (1..12).
-                        const v = nTenths / 10
-                        const rounded = Math.max(1, Math.min(12, Math.round(v)))
-                        icon = getIntensityLeafletIcon(String(rounded), zoom)
+                    if (Number.isFinite(n)) {
+                        // JMA points.scale is in tenths (e.g., 10 -> 1.0).
+                        // Map to shindo label and use shindo icons instead of int icons.
+                        const v = n / 10
+                        const shindo = getShindoFromInstShindo(v)
+                        icon = getShindoLeafletIcon(shindo, zoom)
                     }
                     if (!icon) {
                         const shindo = String(intensity || '0')
@@ -236,7 +243,6 @@ export const showEqStations = async (map, eqMessage) => {
                         marker = L.marker([lat, lon], { icon })
                     } else {
                         // fallback to colored circle if no icon available
-                        const n = Number(intensity)
                         const level = Number.isFinite(n) ? Math.max(-1, Math.floor(n) - 1) : -1
                         const style = computeNiedStyleColorRadius(level, zoom)
                         marker = L.circleMarker([lat, lon], {

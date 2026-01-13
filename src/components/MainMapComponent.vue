@@ -467,6 +467,7 @@ import { jmaSeisIntLoc } from '@/utils/JmaSeisIntLoc';
 import { isTauri } from '@tauri-apps/api/core';
 import { storeToRefs } from 'pinia';
 import { simpleIcon, computeNiedStyleColorRadius, TremStation } from '@/classes/StationClasses';
+import { safeRemoveLayer, safeAddToMap } from '@/utils/leafletHelpers'
 import { feature } from 'topojson-client';
 import { cnCityLabels, cnProvinceLabels, jpPrefLabels } from '@/utils/Labels';
 import terminator from '@joergdietrich/leaflet.terminator';
@@ -1725,7 +1726,7 @@ onMounted(() => {
                     // heuristic: many topo layers are GeoJSON/vectorGrid and have a featureCount or _vectorTiles
                     if (!l) continue
                     if (l.featureCount || l._vectorTiles || (l instanceof L.GeoJSON) || (l.options && l.options.topojson)) {
-                        map.removeLayer(l)
+                        safeRemoveLayer(map, l)
                         removed++
                     }
                 }
@@ -1842,7 +1843,8 @@ onMounted(() => {
                             fillOpacity: 0.35,
                             pane: 'gqYuzhnoPane',
                             interactive: true,
-                        }).addTo(map)
+                        })
+                        safeAddToMap(map, gqYuzhnoMarker)
                         gqYuzhnoMarker.bindTooltip('GQ: ユジノサハリンスク', { direction: 'top', className: 'custom-tooltip' })
                     }
                     else {
@@ -2001,7 +2003,7 @@ onMounted(() => {
         if (settingsStore.mainSettings.displaySeisNet.msilNet) refreshMsilMarkerStyleForZoom()
     })
     // expose common layers for debugging / manual clearing
-    try {
+            try {
         window._kanameishiDebug = window._kanameishiDebug || {}
         window._kanameishiDebug.layers = {
             msilNetLayer,
@@ -2015,10 +2017,10 @@ onMounted(() => {
             const list = [];
             try { if (msilNetLayer && msilNetLayer.clearLayers) { msilNetLayer.clearLayers(); list.push('msilNetLayer'); } } catch(e){}
             try { if (tremRtsLayer && tremRtsLayer.clearLayers) { tremRtsLayer.clearLayers(); list.push('tremRtsLayer'); } } catch(e){}
-            try { if (jpEewBaseMap && jpEewBaseMap.remove) { map.removeLayer(jpEewBaseMap); jpEewBaseMap = null; list.push('jpEewBaseMap'); } } catch(e){}
-            try { if (cnFaultBaseMap && cnFaultBaseMap.remove) { map.removeLayer(cnFaultBaseMap); cnFaultBaseMap = null; list.push('cnFaultBaseMap'); } } catch(e){}
-            try { if (jpTsunamiBaseMap && jpTsunamiBaseMap.remove) { map.removeLayer(jpTsunamiBaseMap); jpTsunamiBaseMap = null; list.push('jpTsunamiBaseMap'); } } catch(e){}
-            try { if (tileBaseLayer && tileBaseLayer.remove) { map.removeLayer(tileBaseLayer); tileBaseLayer = null; list.push('tileBaseLayer'); } } catch(e){}
+            try { if (jpEewBaseMap && jpEewBaseMap.remove) { safeRemoveLayer(map, jpEewBaseMap); jpEewBaseMap = null; list.push('jpEewBaseMap'); } } catch(e){}
+            try { if (cnFaultBaseMap && cnFaultBaseMap.remove) { safeRemoveLayer(map, cnFaultBaseMap); cnFaultBaseMap = null; list.push('cnFaultBaseMap'); } } catch(e){}
+            try { if (jpTsunamiBaseMap && jpTsunamiBaseMap.remove) { safeRemoveLayer(map, jpTsunamiBaseMap); jpTsunamiBaseMap = null; list.push('jpTsunamiBaseMap'); } } catch(e){}
+            try { if (tileBaseLayer && tileBaseLayer.remove) { safeRemoveLayer(map, tileBaseLayer); tileBaseLayer = null; list.push('tileBaseLayer'); } } catch(e){}
             console.log('kanameishiDebug cleared:', list);
             return list;
         }
@@ -2029,7 +2031,7 @@ onMounted(() => {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
     watchEffect(()=>{
-        if(userMarker && map.hasLayer(userMarker)) map.removeLayer(userMarker)
+        if(userMarker) safeRemoveLayer(map, userMarker)
         if(isDisplayUser.value){
             userMarker = L.circleMarker(userLatLng.value, {
                 radius: 8,
@@ -2037,7 +2039,8 @@ onMounted(() => {
                 weight: 2,
                 pane: 'userPane',
                 interactive: false
-            }).addTo(map)
+            })
+            safeAddToMap(map, userMarker)
         }
         nearestJmaLoc.value
     })
@@ -2070,7 +2073,7 @@ onMounted(() => {
         const latest = statusStore.history?.cwaOpendataEqlist?.[0]
 
         if(!map || !isEnabled || !latest) {
-            if(cwaLatestHypoMarker && map?.hasLayer(cwaLatestHypoMarker)) map.removeLayer(cwaLatestHypoMarker)
+            if(cwaLatestHypoMarker) safeRemoveLayer(map, cwaLatestHypoMarker)
             cwaLatestHypoMarker = null
             return
         }
@@ -2078,7 +2081,7 @@ onMounted(() => {
         const lat = Number(latest.lat)
         const lng = Number(latest.lng)
         if(!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
-            if(cwaLatestHypoMarker && map?.hasLayer(cwaLatestHypoMarker)) map.removeLayer(cwaLatestHypoMarker)
+            if(cwaLatestHypoMarker) safeRemoveLayer(map, cwaLatestHypoMarker)
             cwaLatestHypoMarker = null
             return
         }
@@ -2089,7 +2092,8 @@ onMounted(() => {
                 icon: cwaLatestCrossIcon,
                 pane: 'eqlistMarkerPane',
                 interactive: false,
-            }).addTo(map)
+            })
+            safeAddToMap(map, cwaLatestHypoMarker)
         }
         else {
             cwaLatestHypoMarker.setLatLng(latLng)
@@ -2136,8 +2140,10 @@ onMounted(() => {
             }
         }
     })
-    labelLayer1 = L.layerGroup().addTo(map);
-    labelLayer2 = L.layerGroup().addTo(map);
+    labelLayer1 = L.layerGroup()
+    safeAddToMap(map, labelLayer1)
+    labelLayer2 = L.layerGroup()
+    safeAddToMap(map, labelLayer2)
     loadMaps()
     loadMsilNet()
     loadTremRts()
@@ -2148,12 +2154,12 @@ onMounted(() => {
         async () => {
             // force reload of base maps
             mapsLoaded = false
-            try { if (tileBaseLayer && map.hasLayer && map.hasLayer(tileBaseLayer)) map.removeLayer(tileBaseLayer) } catch(_){}
+            try { if (tileBaseLayer) { safeRemoveLayer(map, tileBaseLayer); tileBaseLayer = null } } catch(_){}
             tileBaseLayer = null
-            try { if (jpEewBaseMap && map.hasLayer && map.hasLayer(jpEewBaseMap)) map.removeLayer(jpEewBaseMap) } catch(_){}
-            try { if (krEewBaseMap && map.hasLayer && map.hasLayer(krEewBaseMap)) map.removeLayer(krEewBaseMap) } catch(_){}
-            try { if (cnEewBaseMap && map.hasLayer && map.hasLayer(cnEewBaseMap)) map.removeLayer(cnEewBaseMap) } catch(_){}
-            try { if (jpTsunamiBaseMap && map.hasLayer && map.hasLayer(jpTsunamiBaseMap)) map.removeLayer(jpTsunamiBaseMap) } catch(_){}
+            try { if (jpEewBaseMap) { safeRemoveLayer(map, jpEewBaseMap); jpEewBaseMap = null } } catch(_){}
+            try { if (krEewBaseMap) { safeRemoveLayer(map, krEewBaseMap); krEewBaseMap = null } } catch(_){ }
+            try { if (cnEewBaseMap) { safeRemoveLayer(map, cnEewBaseMap); cnEewBaseMap = null } } catch(_){ }
+            try { if (jpTsunamiBaseMap) { safeRemoveLayer(map, jpTsunamiBaseMap); jpTsunamiBaseMap = null } } catch(_){ }
             await loadMaps()
         }
     )
@@ -2161,8 +2167,8 @@ onMounted(() => {
     watch(
         () => settingsStore.mainSettings.displaySeisNet.tremNet,
         (newVal) => {
-            if (newVal) map.addLayer(tremRtsLayer)
-            else map.removeLayer(tremRtsLayer)
+            if (newVal) safeAddToMap(map, tremRtsLayer)
+            else safeRemoveLayer(map, tremRtsLayer)
         },
         { immediate: true }
     )
@@ -2170,15 +2176,15 @@ onMounted(() => {
     watch(
         () => settingsStore.mainSettings.displaySeisNet.msilNet,
         (newVal) => {
-            if (newVal) map.addLayer(msilNetLayer)
-            else map.removeLayer(msilNetLayer)
+            if (newVal) safeAddToMap(map, msilNetLayer)
+            else safeRemoveLayer(map, msilNetLayer)
         },
         { immediate: true }
     )
 
     watch(() => settingsStore.mainSettings.displayTerminator, newVal => {
-        if(terminatorLayer && map.hasLayer(terminatorLayer)) map.removeLayer(terminatorLayer)
-        if(terminatorFillLayer && map.hasLayer(terminatorFillLayer)) map.removeLayer(terminatorFillLayer)
+        if(terminatorLayer) safeRemoveLayer(map, terminatorLayer)
+        if(terminatorFillLayer) safeRemoveLayer(map, terminatorFillLayer)
         clearInterval(terminatorInterval)
         if(newVal) {
             const update = () => {
@@ -2195,7 +2201,8 @@ onMounted(() => {
                 pane: 'terminatorPane',
                 interactive: false,
                 time
-            }).addTo(map)
+            })
+            safeAddToMap(map, terminatorLayer)
             terminatorFillLayer = terminator({
                 fillColor: 'black',
                 fillOpacity: 0.25,
@@ -2203,7 +2210,8 @@ onMounted(() => {
                 pane: 'terminatorFillPane',
                 interactive: false,
                 time
-            }).addTo(map)
+            })
+            safeAddToMap(map, terminatorFillLayer)
             setTimeout(update, 6000);
             terminatorInterval = setInterval(update, 30000);
         }
@@ -2373,11 +2381,11 @@ const loadMaps = async (retries = 0) => {
             const url = settingsStore.mainSettings.tileProviderUrl || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
             if (tileBaseLayer) {
                 // update URL by removing old and creating new
-                try { map.removeLayer(tileBaseLayer) } catch {}
+                try { safeRemoveLayer(map, tileBaseLayer) } catch {}
                 tileBaseLayer = null
             }
             tileBaseLayer = L.tileLayer(url, { pane: 'basePane', attribution: '&copy; OpenStreetMap contributors' })
-            tileBaseLayer.addTo(map)
+            safeAddToMap(map, tileBaseLayer)
             mapsLoaded = true
             return
         }
@@ -2453,7 +2461,7 @@ const loadMaps = async (retries = 0) => {
                     type: 'FeatureCollection',
                     features: (countriesGeo?.features || []).filter(f => wanted.has(Number(f.id)))
                 }
-                L.geoJson(overlayGeo, {
+                safeAddToMap(map, L.geoJson(overlayGeo, {
                     pane: 'basePane',
                     renderer: settingsStore.mainSettings.useCanvasRenderer && renderers['basePane'],
                     style: {
@@ -2464,7 +2472,7 @@ const loadMaps = async (retries = 0) => {
                         fill: true
                     },
                     interactive: false
-                }).addTo(map)
+                }))
             } catch (e) {
                 console.log(e)
             }
@@ -2531,7 +2539,7 @@ const loadMaps = async (retries = 0) => {
 
         // CN fault layer can be large; load on-demand to reduce memory when disabled.
         watch(()=>settingsStore.mainSettings.displayCnFault, async newVal => {
-            if(cnFaultBaseMap && map.hasLayer(cnFaultBaseMap)) map.removeLayer(cnFaultBaseMap)
+            if(cnFaultBaseMap) safeRemoveLayer(map, cnFaultBaseMap)
             cnFaultBaseMap = null
             if(newVal) {
                 const cn_fault = await getTopoJson('cn_fault')
@@ -3085,7 +3093,7 @@ const loadBaseMap = (geoData, pane, isBaseMap = true, style = {
                     },
                     interactive: false
                 });
-                vectorGrid.addTo(map);
+                safeAddToMap(map, vectorGrid)
                 return vectorGrid;
             }
             else {
@@ -3106,7 +3114,7 @@ const loadBaseMap = (geoData, pane, isBaseMap = true, style = {
                     interactive: settingsStore.mainSettings.placeNameOnHover && !settingsStore.mainSettings.useCanvasRenderer,
                     onEachFeature: settingsStore.mainSettings.placeNameOnHover && !settingsStore.mainSettings.useCanvasRenderer && onEachFeature
                 })
-                baseMap.addTo(map)
+                safeAddToMap(map, baseMap)
                 return baseMap
             }
         } catch (e) {
@@ -3445,7 +3453,7 @@ const _getTremRtsNiedStyle = (instShindo) => {
 const _clearTremRtsGridRects = () => {
     for (const key in tremRtsGridRects) {
         const item = tremRtsGridRects[key]
-        if (item?.layer && map?.hasLayer?.(item.layer)) map.removeLayer(item.layer)
+        if (item?.layer) safeRemoveLayer(map, item.layer)
         delete tremRtsGridRects[key]
     }
 }
@@ -3499,7 +3507,7 @@ const _updateTremRtsGridRectsFromStations = () => {
         }
 
         if (!(key in tremRtsGridRects)) {
-            const layer = L.rectangle(
+                const layer = L.rectangle(
                 [item.latLng.map((l) => l - 0.495), item.latLng.map((l) => l + 0.495)],
                 {
                     color,
@@ -3508,7 +3516,8 @@ const _updateTremRtsGridRectsFromStations = () => {
                     pane: 'tremGridPane',
                     interactive: false,
                 }
-            ).addTo(map)
+            )
+            safeAddToMap(map, layer)
 
             tremRtsGridRects[key] = { color, layer }
         } else if (tremRtsGridRects[key].color !== color) {
@@ -3520,7 +3529,7 @@ const _updateTremRtsGridRectsFromStations = () => {
     for (const key in tremRtsGridRects) {
         if (!(key in grids)) {
             const layer = tremRtsGridRects[key]?.layer
-            if (layer && map.hasLayer(layer)) map.removeLayer(layer)
+            if (layer) safeRemoveLayer(map, layer)
             delete tremRtsGridRects[key]
         }
     }
@@ -3959,9 +3968,9 @@ onBeforeUnmount(() => {
     if(msilWorker) msilWorker.terminate()
     try { map?.off?.('zoomend', tremRtsZoomHandler) } catch {}
     document.removeEventListener('keydown', handleKeydown)
-    if(map && cwaLatestHypoMarker && map.hasLayer(cwaLatestHypoMarker)) map.removeLayer(cwaLatestHypoMarker)
+    if(map && cwaLatestHypoMarker) safeRemoveLayer(map, cwaLatestHypoMarker)
     try { gqYuzhnoEventSource?.close?.() } catch {}
-    try { if(map && gqYuzhnoMarker && map.hasLayer(gqYuzhnoMarker)) map.removeLayer(gqYuzhnoMarker) } catch {}
+    try { if(map && gqYuzhnoMarker) safeRemoveLayer(map, gqYuzhnoMarker) } catch {}
     activeEewList.length = 0
     eqlistList.length = 0
 })

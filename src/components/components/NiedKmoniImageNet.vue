@@ -7,6 +7,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, inject } fr
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Http from '@/classes/Http'
+import { safeRemoveLayer, safeAddToMap } from '@/utils/leafletHelpers'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { useStatusStore } from '@/stores/status'
 import { useSettingsStore } from '@/stores/settings'
@@ -114,10 +115,10 @@ const _getTravelTime = () => {
 
 const _clearNiedHypoLayers = () => {
   if (!map) return
-  if (niedHypoMarker && map.hasLayer(niedHypoMarker)) map.removeLayer(niedHypoMarker)
-  if (niedPWave && map.hasLayer(niedPWave)) map.removeLayer(niedPWave)
-  if (niedSWave && map.hasLayer(niedSWave)) map.removeLayer(niedSWave)
-  if (niedSWaveFill && map.hasLayer(niedSWaveFill)) map.removeLayer(niedSWaveFill)
+  if (niedHypoMarker) safeRemoveLayer(map, niedHypoMarker)
+  if (niedPWave) safeRemoveLayer(map, niedPWave)
+  if (niedSWave) safeRemoveLayer(map, niedSWave)
+  if (niedSWaveFill) safeRemoveLayer(map, niedSWaveFill)
   niedHypoMarker = null
   niedPWave = null
   niedSWave = null
@@ -210,7 +211,7 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
 
   if (!niedHypoMarker) {
     niedHypoMarker = L.marker(latLng, { icon: niedHypoIcon, pane: 'eewMarkerPane' })
-    niedHypoMarker.addTo(map)
+    safeAddToMap(map, niedHypoMarker)
   } else {
     niedHypoMarker.setLatLng(latLng)
   }
@@ -226,7 +227,7 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
     )
   }
 
-  if (pRadiusKm > 0) {
+    if (pRadiusKm > 0) {
     if (!niedPWave) {
       niedPWave = L.circle(latLng, {
         color: 'var(--swave-blue)',
@@ -236,18 +237,19 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
         radius: pRadiusKm * 1000,
         pane: 'wavePane',
         interactive: false,
-      }).addTo(map)
+      })
+      safeAddToMap(map, niedPWave)
     } else {
       niedPWave.setLatLng(latLng)
       niedPWave.setRadius(pRadiusKm * 1000)
     }
-  } else if (niedPWave && map.hasLayer(niedPWave)) {
-    map.removeLayer(niedPWave)
+  } else if (niedPWave) {
+    safeRemoveLayer(map, niedPWave)
     niedPWave = null
   }
 
   const sColor = 'var(--swave-green)'
-  if (sRadiusKm > 0) {
+    if (sRadiusKm > 0) {
     if (!niedSWave) {
       niedSWave = L.circle(latLng, {
         color: sColor,
@@ -257,7 +259,8 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
         radius: sRadiusKm * 1000,
         pane: 'wavePane',
         interactive: false,
-      }).addTo(map)
+      })
+      safeAddToMap(map, niedSWave)
     } else {
       niedSWave.setLatLng(latLng)
       niedSWave.setRadius(sRadiusKm * 1000)
@@ -270,14 +273,15 @@ const _updateNiedHypoLayers = (hypo, frameMs) => {
         radius: sRadiusKm * 1000,
         pane: 'waveFillPane',
         interactive: false,
-      }).addTo(map)
+      })
+      safeAddToMap(map, niedSWaveFill)
     } else {
       niedSWaveFill.setLatLng(latLng)
       niedSWaveFill.setRadius(sRadiusKm * 1000)
     }
   } else {
-    if (niedSWave && map.hasLayer(niedSWave)) map.removeLayer(niedSWave)
-    if (niedSWaveFill && map.hasLayer(niedSWaveFill)) map.removeLayer(niedSWaveFill)
+    if (niedSWave) safeRemoveLayer(map, niedSWave)
+    if (niedSWaveFill) safeRemoveLayer(map, niedSWaveFill)
     niedSWave = null
     niedSWaveFill = null
   }
@@ -999,7 +1003,8 @@ unwatchMap = watch(
               fill: false,
               pane: 'niedGridPane',
               interactive: false,
-            }).addTo(map)
+            })
+            safeAddToMap(map, layer)
             gridRects[key] = { color, layer }
           } else if (gridRects[key].color !== color) {
             gridRects[key].color = color
@@ -1009,7 +1014,7 @@ unwatchMap = watch(
         }
         for (const key in gridRects) {
           if (!(key in newGrids)) {
-            if (map.hasLayer(gridRects[key].layer)) map.removeLayer(gridRects[key].layer)
+            if (gridRects[key].layer) safeRemoveLayer(map, gridRects[key].layer)
             delete gridRects[key]
           }
         }
@@ -1129,7 +1134,7 @@ onBeforeUnmount(() => {
   if (map) {
     map.eachLayer((layer) => {
       if (layer?.options?.pane === 'niedGridPane' || String(layer?.options?.pane || '').includes('niedStationPane')) {
-        map.removeLayer(layer)
+        safeRemoveLayer(map, layer)
       }
     })
   }

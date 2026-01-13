@@ -1,0 +1,15 @@
+HTTP/1.1 400 Bad Request
+Date: Sun, 11 Jan 2026 02:16:50 GMT
+Server: nginx
+Strict-Transport-Security: max-age=63072000; includeSubDomains
+Content-Type: text/html; charset=utf-8
+Content-Length: 36
+X-Frame-Options: DENY
+Vary: Origin,Accept-Language
+Content-Language: en
+X-Content-Type-Options: nosniff
+Referrer-Policy: same-origin
+Public-Key-Pins: pin-sha256=""; max-age=2592000; includeSubDomains
+Connection: close
+
+Unable to parse request body as JSON

@@ -8,6 +8,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import Http from '@/classes/Http'
+import { safeRemoveLayer, safeAddToMap } from '@/utils/leafletHelpers'
 import { computeNiedStyleColorRadius, getShindoLeafletIcon } from '@/classes/StationClasses'
 import { useStatusStore } from '@/stores/status'
 import { useSettingsStore } from '@/stores/settings'
@@ -397,14 +398,14 @@ const shouldUseShindoIconMarker = (level, zoom) => {
 const clearStations = () => {
     for (const [id, obj] of markers.entries()) {
         try {
-            if (map && obj?.marker && map.hasLayer(obj.marker)) map.removeLayer(obj.marker)
+            if (map && obj?.marker) safeRemoveLayer(map, obj.marker)
         } catch {}
     }
     markers.clear()
 
     for (const obj of gridRects.values()) {
         try {
-            if (map && obj?.layer && map.hasLayer(obj.layer)) map.removeLayer(obj.layer)
+            if (map && obj?.layer) safeRemoveLayer(map, obj.layer)
         } catch {}
     }
     gridRects.clear()
@@ -614,19 +615,26 @@ const formatIsoToTime = (iso, tzHours) => {
 
 const postGraphql = async (query, variables) => {
     const body = { query, variables: variables ?? {} }
-    const res = isTauri
-        ? await Http.tauriPost(graphqlUrl, body, {
-            connectTimeout: 10000,
-            headers: P_ALERT_HEADERS
-        })
-        : await Http.post(graphqlUrl, body, { timeout: 10000 })
+    console.debug('[PAlertNet] postGraphql request', { graphqlUrl, body, isTauri })
+    try {
+        const res = isTauri
+            ? await Http.tauriPost(graphqlUrl, body, {
+                connectTimeout: 30000,
+                headers: P_ALERT_HEADERS
+            })
+            : await Http.post(graphqlUrl, body, { timeout: 30000 })
 
-    if (!res) return null
-    if (res.errors?.length) {
-        console.log('P-Alert GraphQL errors:', res.errors)
+        console.debug('[PAlertNet] postGraphql response', res)
+        if (!res) return null
+        if (res.errors?.length) {
+            console.error('P-Alert GraphQL errors:', res.errors)
+            return null
+        }
+        return res
+    } catch (err) {
+        console.error('[PAlertNet] postGraphql error', err)
         return null
     }
-    return res
 }
 
 const quantizeByStep = (v, step) => {

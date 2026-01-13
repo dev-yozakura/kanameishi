@@ -6,6 +6,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, inject } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { safeRemoveLayer, safeAddToMap } from '@/utils/leafletHelpers'
 
 import { useStatusStore } from '@/stores/status'
 import { useSettingsStore } from '@/stores/settings'
@@ -208,7 +209,7 @@ const _clearAll = () => {
   if (map) {
     for (const obj of markers.values()) {
       try {
-        if (obj?.marker && map.hasLayer(obj.marker)) map.removeLayer(obj.marker)
+        if (obj?.marker) safeRemoveLayer(map, obj.marker)
       } catch {}
     }
   }
@@ -277,7 +278,7 @@ const ensureMarker = (key, level, pgaGal, pgvCms, latLng, forceUpdate = false) =
     if (!newMarker) return
     if (existing?.marker) {
       try {
-        if (map.hasLayer(existing.marker)) map.removeLayer(existing.marker)
+        safeRemoveLayer(map, existing.marker)
       } catch {}
     }
     const obj = existing ?? { markerType: null, marker: null, level: -1, pgaGal: 0, pgvCms: 0, latLng: null }
@@ -291,7 +292,7 @@ const ensureMarker = (key, level, pgaGal, pgvCms, latLng, forceUpdate = false) =
       if (!Number.isFinite(pgaGal) || pgaGal <= 0) obj._pgaIdx = -1
       else obj._pgaIdx = Math.min(7, Math.floor((Math.min(0.7, Number(pgaGal)) / 0.7) * 8))
     markers.set(key, obj)
-    try { newMarker.addTo(map) } catch {}
+    try { safeAddToMap(map, newMarker) } catch {}
   }
 
   const updateTooltip = (marker, latLng) => {
@@ -392,7 +393,7 @@ const _applyRows = (rows) => {
   for (const [key, obj] of markers.entries()) {
     if (!nextKeys.has(key)) {
       try {
-        if (obj?.marker && map.hasLayer(obj.marker)) map.removeLayer(obj.marker)
+        if (obj?.marker) safeRemoveLayer(map, obj.marker)
       } catch {}
       markers.delete(key)
     }
